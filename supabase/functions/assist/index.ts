@@ -216,10 +216,11 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         model,
         max_tokens: task.maxTokens,
-        system: task.system,
+        system: `${task.system} Reply only by calling the ${task.tool.name} tool, once. Do not write anything outside it.`,
         messages: [{ role: 'user', content: task.user }],
         tools: [task.tool],
-        tool_choice: { type: 'tool', name: task.tool.name, disable_parallel_tool_use: true },
+        // This model does not accept a forced tool, so it is asked to use it and the reply is checked.
+        tool_choice: { type: 'auto', disable_parallel_tool_use: true },
       }),
     });
     reply = await res.json();
@@ -248,7 +249,18 @@ Deno.serve(async (req: Request) => {
     return refuse('The AI service could not be reached. Try again shortly.', 502);
   }
 
-  const used = (reply.content ?? []).find((b: any) => b.type === 'tool_use' && b.name === task.tool.name);
+  let used = (reply.content ?? []).find((b: any) => b.type === 'tool_use' && b.name === task.tool.name);
+  if (!used) {
+    // If it answered in words instead, accept a JSON object written in the reply.
+    const said = (reply.content ?? []).filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n');
+    const from = said.indexOf('{');
+    const to = said.lastIndexOf('}');
+    try {
+      if (from >= 0 && to > from) used = { input: JSON.parse(said.slice(from, to + 1)) };
+    } catch {
+      // Not JSON: fall through to the refusal below.
+    }
+  }
   if (!used) {
     await log(false);
     return refuse(reply.stop_reason === 'refusal' ? 'The AI service declined this request.' : 'The AI service did not return a usable answer. Try again.', 502);
