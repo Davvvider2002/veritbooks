@@ -225,8 +225,22 @@ Deno.serve(async (req: Request) => {
     reply = await res.json();
     if (!res.ok) {
       await log(false);
-      console.error('anthropic error', res.status, reply?.error?.type);
-      return refuse(res.status === 401 ? 'The AI service rejected the server’s key. Check the ANTHROPIC_API_KEY secret.' : 'The AI service could not answer just now. Try again shortly.', 502);
+      // The service's own message says what is wrong. It describes the request, not the client's data.
+      const why = text(reply?.error?.message, 300);
+      console.error('anthropic error', res.status, reply?.error?.type, why);
+      const say =
+        res.status === 401
+          ? 'The AI service rejected the server’s key. Check the ANTHROPIC_API_KEY secret.'
+          : /credit balance/i.test(why)
+            ? 'The AI account has no credit. Add credit in the Claude Console under Billing, then try again.'
+            : res.status === 404
+              ? `The AI model “${model}” is not available to this key. Set the ASSIST_MODEL secret to a model the account can use.`
+              : res.status === 400 || res.status === 403
+                ? `The AI service rejected the request: ${why}`
+                : res.status === 429 || res.status === 529
+                  ? 'The AI service is busy or the account’s rate limit was reached. Try again in a minute.'
+                  : 'The AI service could not answer just now. Try again shortly.';
+      return refuse(say, 502);
     }
   } catch (e) {
     await log(false);
