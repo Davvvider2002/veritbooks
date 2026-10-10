@@ -1,7 +1,8 @@
 import { ITEM, isBalanceSheet } from './chart';
 import { fmt2 } from './money';
 import { buildStatements, type Figures } from './statements';
-import type { Adjustment, EngagementType, Kobo, Planning, ProgrammeState, ReportSettings, TbLine } from './types';
+import type { LedgerTest } from './ledger';
+import type { Adjustment, EngagementType, Kobo, Planning, ProgrammeState, ReportSettings, TbLine, Testing } from './types';
 
 export interface Check {
   id: string;
@@ -135,6 +136,108 @@ export interface GateInput {
   firmFrc: string;
   signerRole: string;
   signerFrc: string;
+  /** Result of journal testing, or null when no general ledger has been imported. */
+  ledger?: LedgerTest | null;
+  testing?: Testing;
+  /** One entry per bank statement imported. */
+  bank?: BankGate[];
+}
+
+export interface BankGate {
+  id: string;
+  name: string;
+  /** Unexplained difference between the ledger and the reconciled statement balance. */
+  difference: Kobo;
+  /** Items on the statement that are not in the ledger. */
+  bankOnly: number;
+  /** Net value of those items less the audit journals posted to the account. Nil when they have been adjusted for. */
+  unbooked: Kobo;
+  breaks: number;
+  /** False when there is no ledger to match the statement against. */
+  matched: boolean;
+}
+
+/** Gates from journal testing and bank reconciliation. They apply to audits only. */
+export function analyticsChecks(g: Pick<GateInput, 'type' | 'ledger' | 'testing' | 'bank'>): Check[] {
+  if (g.type !== 'audit') return [];
+  const checks: Check[] = [];
+  const t = g.ledger;
+  if (!t) {
+    checks.push({
+      id: 'ledger_present',
+      label: 'General ledger imported for journal testing',
+      ok: false,
+      detail: 'Without it, journals are not tested in this file. Document the alternative procedures.',
+      blocking: false,
+    });
+  } else {
+    checks.push({
+      id: 'ledger_agrees',
+      label: 'General ledger agrees to the trial balance',
+      ok: t.disagreements === 0 && t.unknownAccounts.length === 0,
+      detail:
+        t.disagreements || t.unknownAccounts.length
+          ? `${t.disagreements} account(s) do not agree and ${t.unknownAccounts.length} ledger account(s) are not in the trial balance. The journal population may be incomplete.`
+          : undefined,
+      blocking: false,
+    });
+    const done = g.testing?.journals ?? {};
+    const open = t.highRisk.filter((j) => !done[j.entryNo]);
+    checks.push({
+      id: 'journals_concluded',
+      label: 'Every high-risk journal is tested and concluded on',
+      ok: open.length === 0,
+      detail: open.length ? `${open.length} of ${t.highRisk.length} high-risk journal(s) have no conclusion.` : undefined,
+      blocking: true,
+    });
+    const exceptions = Object.values(done).filter((d) => d.status === 'exception').length;
+    if (exceptions) {
+      checks.push({
+        id: 'journal_exceptions',
+        label: 'No journal was concluded as an exception',
+        ok: false,
+        detail: `${exceptions} journal(s) are recorded as exceptions. Consider the effect on the opinion.`,
+        blocking: false,
+      });
+    }
+  }
+  const bank = g.bank ?? [];
+  if (bank.length === 0) {
+    checks.push({
+      id: 'bank_present',
+      label: 'Bank statements imported and reconciled',
+      ok: false,
+      detail: 'No bank statement is in this file. Document the bank work done elsewhere.',
+      blocking: false,
+    });
+  }
+  for (const b of bank) {
+    const clean = b.matched && b.difference === 0 && (b.bankOnly === 0 || b.unbooked === 0);
+    const concluded = !!g.testing?.bank?.[b.id]?.note.trim();
+    checks.push({
+      id: `bank_${b.id}`,
+      label: `Bank reconciliation: ${b.name}`,
+      ok: clean || concluded,
+      detail: clean
+        ? undefined
+        : concluded
+          ? 'Not clean, but a conclusion is recorded.'
+          : !b.matched
+            ? 'The statement has not been matched to the ledger. Import the general ledger, or record a conclusion.'
+            : `Unexplained difference of ${fmt2(Math.abs(b.difference))}, and ${b.bankOnly} statement item(s) not in the ledger with ${fmt2(Math.abs(b.unbooked))} still to be adjusted. Post the journal or record a conclusion.`,
+      blocking: true,
+    });
+    if (b.breaks > 0) {
+      checks.push({
+        id: `bank_breaks_${b.id}`,
+        label: `Statement running balance is unbroken: ${b.name}`,
+        ok: false,
+        detail: `${b.breaks} row(s) do not follow from the row before. Pages or transactions may be missing, or the statement may have been altered.`,
+        blocking: false,
+      });
+    }
+  }
+  return checks;
 }
 
 /** Everything that must be true before the engagement partner can sign and lock the file. */
@@ -186,6 +289,8 @@ export function signOffChecks(g: GateInput): Check[] {
       });
     }
   }
+
+  checks.push(...analyticsChecks(g));
 
   const open = g.programmeItemIds.filter((id) => !g.programme[id]?.done);
   checks.push({

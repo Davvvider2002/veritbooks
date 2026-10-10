@@ -14,6 +14,7 @@ await db.exec(`
   grant usage on schema public to authenticated, anon;
 `);
 await db.exec(readFileSync('supabase/migrations/0001_init.sql', 'utf8'));
+await db.exec(readFileSync('supabase/migrations/0002_ledger_and_bank.sql', 'utf8'));
 
 const A = '00000000-0000-0000-0000-00000000000a'; // partner, firm 1
 const B = '00000000-0000-0000-0000-00000000000b'; // partner, firm 2
@@ -68,6 +69,20 @@ const [e3] = await as(B, `insert into engagements (firm_id, client_id, type, yea
 await as(B, `insert into tb_lines (engagement_id, code, name, balance, map_code) values ($1,'1','Bank',100,'cash'), ($1,'2','Capital',-100,'share_capital')`, [e3.id]);
 await denied('a partner with no FRC number cannot sign', () => as(B, `select sign_engagement($1)`, [e3.id]), /FRC registration number is missing/);
 
+// Phase 2: general ledger and bank statements.
+await as(C, `insert into gl_entries (engagement_id, entry_no, entry_date, account_code, amount, row_no) values ($1,'JV1','2025-03-01','1400',5000,1), ($1,'JV1','2025-03-01','3000',-5000,2)`, [e1.id]);
+const [ba] = await as(C, `insert into bank_accounts (engagement_id, name, account_code, closing) values ($1,'Main account','1400',5000) returning *`, [e1.id]);
+await as(C, `insert into bank_lines (bank_account_id, engagement_id, txn_date, amount, balance, row_no) values ($1,$2,'2025-03-02',5000,5000,1)`, [ba.id, e1.id]);
+await as(C, `update engagements set testing = '{"journals":{"JV1":{"status":"clear"}}}' where id = $1`, [e1.id]);
+ok('firm 2 cannot read firm 1 ledger', (await as(B, `select * from gl_entries`)).length === 0);
+ok('firm 2 cannot read firm 1 bank accounts', (await as(B, `select * from bank_accounts`)).length === 0);
+ok('firm 2 cannot read firm 1 bank lines', (await as(B, `select * from bank_lines`)).length === 0);
+await denied('firm 2 cannot add ledger lines to firm 1', () => as(B, `insert into gl_entries (engagement_id, entry_no, entry_date, account_code, amount, row_no) values ($1,'X','2025-01-01','1',1,1)`, [e1.id]), /row-level security/);
+await denied('firm 2 cannot add a bank account to firm 1', () => as(B, `insert into bank_accounts (engagement_id, name, account_code, closing) values ($1,'x','1',0)`, [e1.id]), /row-level security/);
+await denied('a bank line cannot point at another engagement\'s account', () => as(B, `insert into bank_lines (bank_account_id, engagement_id, txn_date, amount, row_no) values ($1,$2,'2025-01-01',1,1)`, [ba.id, e3.id]), /does not belong/);
+const bulk = await as(A, `select table_name, action, detail from audit_log where engagement_id = $1 and table_name in ('gl_entries','bank_lines','bank_accounts') order by id`, [e1.id]);
+ok('imports are logged once with a row count', bulk.length === 3 && bulk[0].table_name === 'gl_entries' && bulk[0].action === 'import' && bulk[0].detail.rows === 2 && bulk[2].detail.rows === 1);
+
 const [signed] = await as(A, `select * from sign_engagement($1)`, [e1.id]);
 ok('partner signs and locks', signed.status === 'locked' && signed.signed_by === A && signed.signed_by_frc === 'FRC/P/1' && signed.firm_frc === 'FRC/F/1');
 await denied('locked: engagement cannot be edited', () => as(A, `update engagements set planning = '{"x":1}' where id = $1`, [e1.id]), /signed and locked/);
@@ -75,6 +90,11 @@ await denied('locked: trial balance cannot be edited', () => as(A, `update tb_li
 await denied('locked: lines cannot be added', () => as(A, `insert into tb_lines (engagement_id, code, name, balance) values ($1,'x','x',1)`, [e1.id]), /signed and locked/);
 await denied('locked: lines cannot be deleted', () => as(A, `delete from tb_lines where engagement_id = $1`, [e1.id]), /signed and locked/);
 await denied('locked: journals cannot be added', () => as(A, `insert into adjustments (engagement_id, ref) values ($1,'AJ2')`, [e1.id]), /signed and locked/);
+await denied('locked: ledger cannot be added to', () => as(A, `insert into gl_entries (engagement_id, entry_no, entry_date, account_code, amount, row_no) values ($1,'X','2025-01-01','1',1,3)`, [e1.id]), /signed and locked/);
+await denied('locked: ledger cannot be removed', () => as(A, `delete from gl_entries where engagement_id = $1`, [e1.id]), /signed and locked/);
+await denied('locked: bank statement cannot be removed', () => as(A, `delete from bank_accounts where engagement_id = $1`, [e1.id]), /signed and locked/);
+await denied('locked: bank lines cannot be changed', () => as(A, `update bank_lines set amount = 1 where engagement_id = $1`, [e1.id]), /signed and locked/);
+await denied('locked: testing conclusions cannot be changed', () => as(A, `update engagements set testing = '{}' where id = $1`, [e1.id]), /signed and locked/);
 await denied('locked: engagement cannot be deleted', () => as(A, `delete from engagements where id = $1`, [e1.id]), /signed and locked/);
 await denied('locked: cannot be signed twice', () => as(A, `select sign_engagement($1)`, [e1.id]), /signed and locked|already signed/);
 
@@ -83,6 +103,10 @@ ok('audit trail records the work', log.length >= 8 && log.some((l) => l.table_na
 await denied('audit trail cannot be written by users', () => as(A, `insert into audit_log (firm_id, table_name, action) values ($1,'x','x')`, [f1.id]), /permission denied/);
 await denied('audit trail cannot be deleted by users', () => as(A, `delete from audit_log`), /permission denied/);
 ok('firm 2 cannot read firm 1 audit trail', (await as(B, `select * from audit_log where firm_id = $1`, [f1.id])).length === 0);
+await as(B, `insert into gl_entries (engagement_id, entry_no, entry_date, account_code, amount, row_no) values ($1,'J','2025-01-01','1',1,1)`, [e3.id]);
+const [bb] = await as(B, `insert into bank_accounts (engagement_id, name, account_code, closing) values ($1,'Acct','1',0) returning id`, [e3.id]);
+await as(B, `insert into bank_lines (bank_account_id, engagement_id, txn_date, amount, row_no) values ($1,$2,'2025-01-01',1,1)`, [bb.id, e3.id]);
+ok('removing a bank account removes its lines', (await as(B, `delete from bank_accounts where id = $1 returning id`, [bb.id])).length === 1 && (await as(B, `select * from bank_lines`)).length === 0);
 ok('unlocked engagement can be deleted by its partner', (await as(B, `delete from engagements where id = $1 returning id`, [e3.id])).length === 1);
 await db.exec(`set role anon`);
 await denied('anonymous visitors cannot read anything', () => db.query(`select * from firms`), /permission denied/);

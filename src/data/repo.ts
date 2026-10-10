@@ -1,3 +1,5 @@
+import type { BankLine } from '../engine/bank';
+import type { GlEntry } from '../engine/ledger';
 import type {
   Adjustment,
   EngagementType,
@@ -7,6 +9,7 @@ import type {
   ReportSettings,
   Role,
   TbLine,
+  Testing,
 } from '../engine/types';
 
 export interface User {
@@ -45,6 +48,7 @@ export interface Engagement {
   programme: ProgrammeState;
   programmeVersion: string;
   report: ReportSettings;
+  testing: Testing;
   signedByName: string | null;
   signedByFrc: string | null;
   firmFrc: string | null;
@@ -74,6 +78,20 @@ export interface NewFirm {
   memberFrc: string;
 }
 
+export interface BankAccount {
+  id: string;
+  name: string;
+  /** Code of the trial balance account this statement supports. */
+  accountCode: string;
+  opening: number | null;
+  /** Balance per statement at the year end. */
+  closing: number;
+  breaks: number;
+  fileName: string;
+}
+
+export type StoredBankLine = BankLine & { accountId: string };
+
 export type ImportLine = Pick<TbLine, 'code' | 'name' | 'balance' | 'prior' | 'mapCode' | 'nature'>;
 
 /**
@@ -99,7 +117,7 @@ export interface Repo {
   listEngagements(): Promise<Engagement[]>;
   createEngagement(e: { clientId: string; type: EngagementType; yearEnd: string; programmeVersion: string }): Promise<Engagement>;
   getEngagement(id: string): Promise<Engagement | null>;
-  updateEngagement(id: string, patch: Partial<Pick<Engagement, 'planning' | 'programme' | 'report'>>): Promise<void>;
+  updateEngagement(id: string, patch: Partial<Pick<Engagement, 'planning' | 'programme' | 'report' | 'testing'>>): Promise<void>;
 
   listLines(engagementId: string): Promise<TbLine[]>;
   /** Replaces the whole trial balance of an engagement. */
@@ -110,6 +128,15 @@ export interface Repo {
   listAdjustments(engagementId: string): Promise<Adjustment[]>;
   addAdjustment(engagementId: string, a: Omit<Adjustment, 'id'>): Promise<void>;
   deleteAdjustment(id: string): Promise<void>;
+
+  listLedger(engagementId: string): Promise<GlEntry[]>;
+  /** Replaces the whole general ledger of an engagement. An empty list removes it. */
+  replaceLedger(engagementId: string, entries: GlEntry[]): Promise<void>;
+
+  listBankAccounts(engagementId: string): Promise<BankAccount[]>;
+  listBankLines(engagementId: string): Promise<StoredBankLine[]>;
+  addBankStatement(engagementId: string, account: Omit<BankAccount, 'id'>, lines: BankLine[]): Promise<void>;
+  deleteBankAccount(id: string): Promise<void>;
 
   sign(engagementId: string): Promise<void>;
   listLog(engagementId: string): Promise<LogEntry[]>;

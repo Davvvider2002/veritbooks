@@ -1,4 +1,10 @@
 import { useMemo } from 'react';
+import { reconcile, type Reconciliation } from './engine/bank';
+import { computeMateriality, type BankGate } from './engine/checks';
+import { testLedger, type GlEntry, type LedgerTest } from './engine/ledger';
+import { adjustedBalances } from './engine/statements';
+import type { BankAccount, StoredBankLine } from './data/repo';
+import { BankStep, LedgerStep } from './steps/analytics';
 import { Link, useParams } from 'react-router-dom';
 import { PROGRAMMES } from './content/programmes';
 import { repo } from './data';
@@ -22,6 +28,50 @@ export interface Ctx {
   statements: Statements;
   locked: boolean;
   reload: () => void;
+  /** False when the database has not had the phase 2 migration applied. */
+  analyticsReady: boolean;
+  ledger: GlEntry[];
+  ledgerTest: LedgerTest | null;
+  bankAccounts: BankAccount[];
+  recons: Recon[];
+  bankGates: BankGate[];
+}
+
+export interface Recon {
+  account: BankAccount;
+  lines: StoredBankLine[];
+  /** Balance per the client's ledger, before audit journals. Null when the account code is no longer in the trial balance. */
+  ledgerBalance: number | null;
+  /** Net audit journals posted to the account in this file. */
+  journals: number;
+  /** Null when there is no general ledger to match against. */
+  result: Reconciliation | null;
+}
+
+interface Heavy {
+  ready: boolean;
+  ledger: GlEntry[];
+  bankAccounts: BankAccount[];
+  bankLines: StoredBankLine[];
+}
+
+// Ledgers and statements run to thousands of rows, so they are fetched once per engagement
+// and refetched only after an import or a removal.
+const heavyCache = new Map<string, Promise<Heavy>>();
+export const invalidateAnalytics = (engagementId: string) => heavyCache.delete(engagementId);
+function loadHeavy(id: string): Promise<Heavy> {
+  let p = heavyCache.get(id);
+  if (!p) {
+    p = Promise.all([repo.listLedger(id), repo.listBankAccounts(id), repo.listBankLines(id)]).then(
+      ([ledger, bankAccounts, bankLines]) => ({ ready: true, ledger, bankAccounts, bankLines }),
+      () => {
+        heavyCache.delete(id);
+        return { ready: false, ledger: [], bankAccounts: [], bankLines: [] };
+      },
+    );
+    heavyCache.set(id, p);
+  }
+  return p;
 }
 
 const STEPS = [
@@ -29,6 +79,8 @@ const STEPS = [
   { slug: 'mapping', label: 'Mapping', el: MappingStep },
   { slug: 'planning', label: 'Planning', el: PlanningStep },
   { slug: 'programme', label: 'Work programme', el: ProgrammeStep },
+  { slug: 'ledger', label: 'Journal testing', el: LedgerStep },
+  { slug: 'bank', label: 'Bank', el: BankStep },
   { slug: 'journals', label: 'Journals', el: JournalsStep },
   { slug: 'statements', label: 'Financial statements', el: StatementsStep },
   { slug: 'report', label: 'Report', el: ReportStep },
@@ -41,12 +93,13 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
   const { data, error, reload } = useLoad(async () => {
     const eng = await repo.getEngagement(id);
     if (!eng) return null;
-    const [clients, lines, adjustments] = await Promise.all([
+    const [clients, lines, adjustments, heavy] = await Promise.all([
       repo.listClients(),
       repo.listLines(id),
       repo.listAdjustments(id),
+      loadHeavy(id),
     ]);
-    return { eng, client: clients.find((c) => c.id === eng.clientId) ?? null, lines, adjustments };
+    return { eng, client: clients.find((c) => c.id === eng.clientId) ?? null, lines, adjustments, heavy };
   }, [id]);
 
   const statements = useMemo(
@@ -54,9 +107,48 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
     [data],
   );
 
+  const analytics = useMemo(() => {
+    if (!data || !statements) return null;
+    const { heavy, lines, adjustments, eng } = data;
+    const m = computeMateriality(statements.cur, eng.planning);
+    const ledgerTest = heavy.ledger.length
+      ? testLedger(heavy.ledger, lines, { yearEnd: eng.yearEnd, performance: m?.performance ?? null })
+      : null;
+    const balances = adjustedBalances(lines, adjustments, 'current');
+    const recons: Recon[] = heavy.bankAccounts.map((account) => {
+      const line = lines.find((l) => l.code === account.accountCode);
+      // The client's ledger is matched to the statement as the client kept it. Journals posted
+      // in this file are shown separately, as the adjustment for items the client had not booked.
+      const ledgerBalance = line ? line.balance : null;
+      const journals = line ? (balances.get(line.id) ?? line.balance) - line.balance : 0;
+      const bank = heavy.bankLines.filter((l) => l.accountId === account.id);
+      const result =
+        heavy.ledger.length && ledgerBalance !== null
+          ? reconcile({
+              bank,
+              ledger: heavy.ledger.filter((e) => e.accountCode === account.accountCode),
+              bankClosing: account.closing,
+              ledgerBalance,
+              yearEnd: eng.yearEnd,
+            })
+          : null;
+      return { account, lines: bank, ledgerBalance, journals, result };
+    });
+    const bankGates: BankGate[] = recons.map((r) => ({
+      id: r.account.id,
+      name: r.account.name,
+      difference: r.result ? r.result.difference : (r.ledgerBalance ?? 0) - r.account.closing,
+      bankOnly: r.result?.bankOnly.length ?? 0,
+      unbooked: (r.result?.bankOnlyTotal ?? 0) - r.journals,
+      breaks: r.account.breaks,
+      matched: r.result !== null,
+    }));
+    return { ledgerTest, recons, bankGates };
+  }, [data, statements]);
+
   if (error) return <div className="page"><ErrorNote error={error} /></div>;
   if (data === undefined) return <div className="page muted">Loading…</div>;
-  if (data === null || !data.client || !statements)
+  if (data === null || !data.client || !statements || !analytics)
     return (
       <div className="page">
         <div className="banner warn">This engagement was not found. <Link to="/">Back to engagements</Link></div>
@@ -64,7 +156,11 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
     );
 
   // Review and compilation engagements have no materiality step in this version.
-  const steps = STEPS.filter((s) => s.slug !== 'planning' || data.eng.type !== 'compilation');
+  const steps = STEPS.filter((s) => {
+    if (s.slug === 'planning') return data.eng.type !== 'compilation';
+    if (s.slug === 'ledger' || s.slug === 'bank') return data.eng.type === 'audit';
+    return true;
+  });
   const current = steps.find((s) => s.slug === step) ?? steps[0];
   const Step = current.el;
   const ctx: Ctx = {
@@ -76,6 +172,12 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
     statements,
     locked: data.eng.status === 'locked',
     reload,
+    analyticsReady: data.heavy.ready,
+    ledger: data.heavy.ledger,
+    ledgerTest: analytics.ledgerTest,
+    bankAccounts: data.heavy.bankAccounts,
+    recons: analytics.recons,
+    bankGates: analytics.bankGates,
   };
   const tb = validateTrialBalance(data.lines);
   const programmeDone = PROGRAMMES[data.eng.type].filter((i) => data.eng.programme[i.id]?.done).length;

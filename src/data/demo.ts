@@ -1,12 +1,15 @@
+import type { GlEntry } from '../engine/ledger';
 import type { Adjustment, Nature, TbLine } from '../engine/types';
 import {
   LockedError,
+  type BankAccount,
   type Client,
   type Engagement,
   type Firm,
   type LogEntry,
   type Member,
   type Repo,
+  type StoredBankLine,
   type User,
 } from './repo';
 
@@ -26,6 +29,9 @@ interface Store {
   adjustments: Record<string, Adjustment[]>;
   maps: Record<string, Record<string, { mapCode: string; nature: Nature | null }>>;
   log: Record<string, LogEntry[]>;
+  ledger: Record<string, GlEntry[]>;
+  bankAccounts: Record<string, BankAccount[]>;
+  bankLines: Record<string, StoredBankLine[]>;
 }
 
 const KEY = 'veritbooks.demo.v1';
@@ -40,6 +46,9 @@ const empty = (): Store => ({
   adjustments: {},
   maps: {},
   log: {},
+  ledger: {},
+  bankAccounts: {},
+  bankLines: {},
 });
 
 let memory: Store | null = null;
@@ -188,6 +197,7 @@ export function createDemoRepo(): Repo {
         programme: {},
         programmeVersion: e.programmeVersion,
         report: {},
+        testing: {},
         signedByName: null,
         signedByFrc: null,
         firmFrc: null,
@@ -201,7 +211,7 @@ export function createDemoRepo(): Repo {
     async getEngagement(id) {
       if (!s.user || !s.memberOf[s.user.id]) return null;
       const e = s.engagements.find((x) => x.id === id && x.firmId === firmId());
-      return e ? (strip(e) as Engagement) : null;
+      return e ? ({ ...strip(e), testing: e.testing ?? {} } as Engagement) : null;
     },
     async updateEngagement(id, patch) {
       const e = open(id);
@@ -256,6 +266,47 @@ export function createDemoRepo(): Repo {
           save();
           return;
         }
+      }
+    },
+
+    async listLedger(id) {
+      eng(id);
+      return s.ledger[id] ?? [];
+    },
+    async replaceLedger(id, entries) {
+      open(id);
+      if (s.ledger[id]?.length) log(id, 'gl_entries', 'remove', { rows: s.ledger[id].length });
+      s.ledger[id] = entries;
+      if (entries.length) log(id, 'gl_entries', 'import', { rows: entries.length });
+      save();
+    },
+    async listBankAccounts(id) {
+      eng(id);
+      return (s.bankAccounts[id] ?? []).map((a) => ({ ...a }));
+    },
+    async listBankLines(id) {
+      eng(id);
+      return s.bankLines[id] ?? [];
+    },
+    async addBankStatement(id, account, lines) {
+      open(id);
+      const row = { ...account, id: uid() };
+      (s.bankAccounts[id] ??= []).push(row);
+      (s.bankLines[id] ??= []).push(...lines.map((l) => ({ ...l, accountId: row.id })));
+      log(id, 'bank_accounts', 'insert', { name: account.name, account_code: account.accountCode, closing: account.closing });
+      log(id, 'bank_lines', 'import', { rows: lines.length });
+      save();
+    },
+    async deleteBankAccount(accountId) {
+      for (const [engId, list] of Object.entries(s.bankAccounts)) {
+        const i = list.findIndex((a) => a.id === accountId);
+        if (i < 0) continue;
+        open(engId);
+        const [gone] = list.splice(i, 1);
+        s.bankLines[engId] = (s.bankLines[engId] ?? []).filter((l) => l.accountId !== accountId);
+        log(engId, 'bank_accounts', 'delete', { name: gone.name });
+        save();
+        return;
       }
     },
 

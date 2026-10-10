@@ -320,7 +320,7 @@ export function ReportStep(ctx: Ctx) {
   );
 }
 
-export function SignOffStep({ eng, ws, lines, adjustments, locked, reload }: Ctx) {
+export function SignOffStep({ eng, ws, lines, adjustments, locked, reload, ledgerTest, bankGates }: Ctx) {
   const [confirm, setConfirm] = useState(false);
   const { busy, error, run } = useAction();
   const checks = signOffChecks({
@@ -334,6 +334,9 @@ export function SignOffStep({ eng, ws, lines, adjustments, locked, reload }: Ctx
     firmFrc: locked ? (eng.firmFrc ?? '') : ws.firm.frcNumber,
     signerRole: locked ? 'partner' : ws.me.role,
     signerFrc: locked ? (eng.signedByFrc ?? '') : ws.me.frcNumber,
+    ledger: ledgerTest,
+    testing: eng.testing,
+    bank: bankGates,
   });
   const ready = canSign(checks);
   const advisories = checks.filter((c) => !c.ok && !c.blocking);
@@ -398,6 +401,9 @@ const TABLE_LABEL: Record<string, string> = {
   engagements: 'Engagement',
   tb_lines: 'Trial balance',
   adjustments: 'Journal',
+  gl_entries: 'General ledger',
+  bank_accounts: 'Bank statement',
+  bank_lines: 'Bank transactions',
 };
 
 export function TrailStep({ eng, ws }: Ctx) {

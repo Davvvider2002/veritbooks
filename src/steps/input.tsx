@@ -11,7 +11,7 @@ import type { Nature } from '../engine/types';
 import { ErrorNote, message, useAction } from '../ui';
 import type { Ctx } from '../workspace';
 
-async function readRows(file: File): Promise<unknown[][]> {
+export async function readRows(file: File): Promise<unknown[][]> {
   if (/\.xlsx$/i.test(file.name)) {
     const { readSheet } = await import('read-excel-file/browser');
     return (await readSheet(file)) as unknown[][];

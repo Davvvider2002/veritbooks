@@ -50,3 +50,10 @@ export interface ReportSettings {
   cfoFrc?: string;
   principalActivity?: string;
 }
+
+export interface Testing {
+  /** Conclusion on each journal selected for testing, keyed by journal number. */
+  journals?: Record<string, { status: 'clear' | 'exception'; note: string; by: string; at: string }>;
+  /** Conclusion on each bank reconciliation, keyed by bank account id. */
+  bank?: Record<string, { note: string; by: string; at: string }>;
+}

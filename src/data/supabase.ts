@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { GlEntry } from '../engine/ledger';
 import type { Adjustment, Nature, TbLine } from '../engine/types';
-import { LockedError, type Client, type Engagement, type Member, type Repo } from './repo';
+import { LockedError, type BankAccount, type Client, type Engagement, type Member, type Repo, type StoredBankLine } from './repo';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const toEngagement = (r: any): Engagement => ({
@@ -13,6 +14,7 @@ const toEngagement = (r: any): Engagement => ({
   programme: r.programme ?? {},
   programmeVersion: r.programme_version ?? '',
   report: r.report ?? {},
+  testing: r.testing ?? {},
   signedByName: r.signed_by_name,
   signedByFrc: r.signed_by_frc,
   firmFrc: r.firm_frc,
@@ -40,6 +42,19 @@ function fail(error: { message: string } | null): void {
   if (/signed and locked/i.test(error.message)) throw new LockedError();
   throw new Error(error.message);
 }
+
+const PAGE = 1000;
+/** The API returns at most 1,000 rows a request, so large tables are read page by page. */
+async function fetchAll(page: (from: number, to: number) => PromiseLike<{ data: any[] | null; error: { message: string } | null }>) {
+  const out: any[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await page(from, from + PAGE - 1);
+    fail(error);
+    out.push(...(data ?? []));
+    if (!data || data.length < PAGE) return out;
+  }
+}
+const CHUNK = 500;
 
 export function createSupabaseRepo(url: string, key: string): Repo {
   const db: SupabaseClient = createClient(url, key);
@@ -238,6 +253,110 @@ export function createSupabaseRepo(url: string, key: string): Repo {
     },
     async deleteAdjustment(adjId) {
       const { error } = await db.from('adjustments').delete().eq('id', adjId);
+      fail(error);
+    },
+
+    async listLedger(id) {
+      const rows = await fetchAll((from, to) =>
+        db.from('gl_entries').select('entry_no, entry_date, account_code, description, amount, posted_by').eq('engagement_id', id).order('row_no').range(from, to),
+      );
+      return rows.map(
+        (r): GlEntry => ({
+          entryNo: r.entry_no,
+          date: r.entry_date,
+          accountCode: r.account_code,
+          description: r.description,
+          amount: Number(r.amount),
+          user: r.posted_by,
+        }),
+      );
+    },
+    async replaceLedger(id, entries) {
+      const { error } = await db.from('gl_entries').delete().eq('engagement_id', id);
+      fail(error);
+      for (let i = 0; i < entries.length; i += CHUNK) {
+        const { error: e2 } = await db.from('gl_entries').insert(
+          entries.slice(i, i + CHUNK).map((e, j) => ({
+            engagement_id: id,
+            entry_no: e.entryNo,
+            entry_date: e.date,
+            account_code: e.accountCode,
+            description: e.description,
+            amount: e.amount,
+            posted_by: e.user,
+            row_no: i + j + 1,
+          })),
+        );
+        fail(e2);
+      }
+    },
+    async listBankAccounts(id) {
+      const { data, error } = await db.from('bank_accounts').select('*').eq('engagement_id', id).order('created_at');
+      fail(error);
+      return (data ?? []).map(
+        (r): BankAccount => ({
+          id: r.id,
+          name: r.name,
+          accountCode: r.account_code,
+          opening: r.opening === null ? null : Number(r.opening),
+          closing: Number(r.closing),
+          breaks: r.breaks,
+          fileName: r.file_name,
+        }),
+      );
+    },
+    async listBankLines(id) {
+      const rows = await fetchAll((from, to) =>
+        db.from('bank_lines').select('bank_account_id, txn_date, description, amount, balance').eq('engagement_id', id).order('bank_account_id').order('row_no').range(from, to),
+      );
+      return rows.map(
+        (r): StoredBankLine => ({
+          accountId: r.bank_account_id,
+          date: r.txn_date,
+          description: r.description,
+          amount: Number(r.amount),
+          balance: r.balance === null ? null : Number(r.balance),
+        }),
+      );
+    },
+    async addBankStatement(id, account, lines) {
+      const { data, error } = await db
+        .from('bank_accounts')
+        .insert({
+          engagement_id: id,
+          name: account.name,
+          account_code: account.accountCode,
+          opening: account.opening,
+          closing: account.closing,
+          breaks: account.breaks,
+          file_name: account.fileName,
+        })
+        .select('id')
+        .single();
+      fail(error);
+      try {
+        for (let i = 0; i < lines.length; i += CHUNK) {
+          const { error: e2 } = await db.from('bank_lines').insert(
+            lines.slice(i, i + CHUNK).map((l, j) => ({
+              bank_account_id: data!.id,
+              engagement_id: id,
+              txn_date: l.date,
+              description: l.description,
+              amount: l.amount,
+              balance: l.balance,
+              row_no: i + j + 1,
+            })),
+          );
+          fail(e2);
+        }
+      } catch (e) {
+        // Do not leave a statement half imported.
+        await db.from('bank_accounts').delete().eq('id', data!.id);
+        throw e;
+      }
+    },
+    async deleteBankAccount(accountId) {
+      const { error } = await db.from('bank_accounts').delete().eq('id', accountId);
       fail(error);
     },
 

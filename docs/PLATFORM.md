@@ -1,6 +1,6 @@
 # VeritBooks: platform definition
 
-Version 0.1, 10 October 2026. 
+Version 0.2, 10 October 2026.
 
 ## What it is
 
@@ -37,6 +37,24 @@ One user belongs to one firm. A firm sees only its own data.
 | Sign-off | A gate list blocks signing until it is clear. Signing stamps the partner's name and FRC number and the firm's FRC number, and locks the file. |
 | Audit trail | Every change to an engagement, its trial balance and its journals, written by database triggers. |
 
+## Scope of phase 2 (built so far)
+
+Both features apply to audit engagements. They need `supabase/migrations/0002_ledger_and_bank.sql`.
+
+| Area | Behaviour |
+| --- | --- |
+| General ledger import | CSV or Excel, with a date, an account code and Debit and Credit or one Amount column. Journal number, description and posted-by columns are used when present. Dates are read day first. |
+| Completeness | The ledger's movement on every account is agreed to the trial balance. Income and expense accounts are agreed to the balance, balance sheet accounts to the movement from the prior year. A ledger that does not agree is reported as a possibly incomplete journal population. |
+| Journal testing | Every journal is tested, not a sample. Indicators: does not balance, posted on a weekend, last five days of the year, dated outside the year, round amount (N1 million and up, in whole N100,000s), at or above performance materiality, no description, adjustment wording, revenue credited with no cash or receivable debit, duplicate of another journal, rarely used account (two postings or fewer), account not in the trial balance. |
+| High-risk journals | A journal with three or more indicators must be opened, tested and concluded on (no exception, or exception) with the work recorded. Any other journal can be selected and concluded on. |
+| Bank statement import | CSV or Excel, with a date and Debit and Credit (or Withdrawal and Deposit) columns, or one signed Amount column. One statement per bank account, linked to a cash account in the trial balance. |
+| Statement integrity | The running balance is recomputed row by row. A break is reported as possible missing pages or an altered statement. |
+| Reconciliation | Statement lines are matched one to one to ledger postings on the cash account, on exact amount, from 3 days before to 10 days after the ledger date. The result is a reconciliation at the year end: lodgements not yet credited, payments not yet presented, statement items not in the ledger, and any unexplained difference. Where the statement runs past the year end, outstanding items show the date they cleared. |
+| Unbooked items | Audit journals posted to the cash account are set against statement items the client had not booked. |
+| Sign-off gates | Blocking: every high-risk journal concluded, and every bank account either reconciled or carrying a written conclusion. Advisory: ledger agrees to the trial balance, journals concluded as exceptions, breaks in a running balance, no ledger or no statement imported. |
+
+Not yet built from phase 2: PDF bank statements, evidence upload with links from figures to source pages, accounting system connections, team invitations.
+
 ## Rules the software enforces
 
 1. Numbers are computed, never generated. Every figure in a statement is a sum of mapped account balances. No language model produces or alters a figure.
@@ -64,7 +82,9 @@ The work programmes, accounting policy wording and report wording are starter co
 - Disclosures not produced: property, plant and equipment movement schedule, tax reconciliation, related party and directors' disclosures, comparatives for the statement of changes in equity, years three to five of the financial summary.
 - Cash flow: purchases and disposals of assets are shown net, and interest and tax paid are derived from balance movements.
 - Team: no invitations yet. A firm has the partner who created it.
-- Sign-off gates: partner role, FRC numbers, a footing and fully mapped trial balance and balanced journals are enforced in the database. Materiality, programme completion and opinion selection are enforced in the application only.
+- Sign-off gates: partner role, FRC numbers, a footing and fully mapped trial balance and balanced journals are enforced in the database. Materiality, programme completion, opinion selection, journal conclusions and bank reconciliation are enforced in the application only.
+- Journal testing uses fixed rules. The thresholds are not yet configurable per firm, and Nigerian public holidays are not flagged.
+- Bank matching is on exact amount only. One ledger posting covering several bank lines, or the reverse, is left unmatched for the auditor.
 - Trial balance import is not a single database transaction.
 - No working paper file uploads.
 
@@ -72,7 +92,7 @@ The work programmes, accounting policy wording and report wording are starter co
 
 | Phase | Scope |
 | --- | --- |
-| 2 | Bank statement parsing and reconciliation to ledger cash. General ledger import and full-population journal testing. Evidence upload with links from figures to source pages. Accounting system connections. Team invitations. |
+| 2, remaining | PDF bank statements. Evidence upload with links from figures to source pages. Accounting system connections. Team invitations. |
 | 3 | Full IFRS template. Industry packs. Consolidations. Client request portal. Firm-level quality management. |
 | 4 | AI assistance for risk suggestions, disclosure review and expense testing, inside the file and under partner review. |
 
@@ -96,4 +116,7 @@ The work programmes, accounting policy wording and report wording are starter co
 | `engagements` | Type, year end, status, planning, programme state, report settings, signature. |
 | `tb_lines` | Account code and name, current and prior balance, mapping, nature. |
 | `adjustments` | Journal reference, description, posted flag, lines. |
+| `gl_entries` | The client's general ledger: journal number, date, account, description, amount, posted by. |
+| `bank_accounts` | One row per statement: name, ledger account, opening and year-end balance, balance breaks. |
+| `bank_lines` | Statement transactions: date, narration, amount, running balance. |
 | `audit_log` | Who changed what, and when. |
