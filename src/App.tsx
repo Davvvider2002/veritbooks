@@ -32,6 +32,8 @@ export function App() {
       const user = await repo.currentUser();
       if (!user) return setSession({ state: 'signed-out' });
       const ws = await repo.workspace();
+      // A platform admin with no firm of their own belongs in the admin console, not firm setup.
+      if (!ws && (await repo.isAdmin())) return nav('/admin', { replace: true });
       setSession(ws ? { state: 'ready', user, ws } : { state: 'no-firm', user });
     } catch (e) {
       setSession({ state: 'error', error: message(e) });
