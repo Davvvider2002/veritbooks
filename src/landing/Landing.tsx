@@ -251,6 +251,12 @@ export function Landing() {
         Skip to content
       </a>
       {repo.mode === 'demo' && <div className="lp-demo">Demo mode. Data is kept in this browser only.</div>}
+      <div className="lp-announce">
+        <span>
+          <strong>Try VeritBooks free for 14 days.</strong> Every feature. No card needed.
+        </span>
+        <Go to={CTA.getStarted}>Start your free trial</Go>
+      </div>
       <header className="lp-nav">
         <div className="lp-wrap lp-nav-in">
           <a href="#top" aria-label="Top of page">
@@ -286,17 +292,30 @@ export function Landing() {
               </p>
               <div className="lp-cta">
                 <Go to={CTA.getStarted} className="lp-btn solid">
-                  Get Started
+                  Start 14-Day Free Trial
                 </Go>
                 <Go to={CTA.explore} className="lp-btn line">
                   Explore Features
                 </Go>
               </div>
-              <p className="lp-sub">14 day free trial. No card needed to start.</p>
+              <ul className="lp-trial" aria-label="What the free trial includes">
+                <li>
+                  <strong>14 days free</strong>
+                  <span>Starts when you set up your firm</span>
+                </li>
+                <li>
+                  <strong>Every feature</strong>
+                  <span>Nothing held back to try it</span>
+                </li>
+                <li>
+                  <strong>No card needed</strong>
+                  <span>Pay only if you decide to stay</span>
+                </li>
+              </ul>
               <ul className="lp-attrs">
                 <li>Audit, Review &amp; Compilation</li>
                 <li>IFRS for SMEs</li>
-                <li>Built for Nigerian Accounting Firms</li>
+                <li>Built for Professional Accounting Firms</li>
               </ul>
             </div>
             <figure className={`lp-photo${HERO.placeholder ? ' placeholder' : ''}`}>
@@ -395,6 +414,21 @@ export function Landing() {
               <h2>Simple pricing for the way your firm works.</h2>
               <p>Choose a yearly subscription for ongoing practice work or pay for an individual engagement when you need it.</p>
             </div>
+            <aside className="lp-trialband" aria-label="Free trial">
+              <div>
+                <p className="lp-big">14 days free</p>
+                <p>Start with a full trial before you choose anything.</p>
+              </div>
+              <ul>
+                <li>Every feature, on your own client files</li>
+                <li>Up to 3 engagements and 3 users</li>
+                <li>No card needed, and nothing is charged when you sign up</li>
+                <li>Signing a file needs a plan or a paid engagement. If the trial ends first, your work is kept and becomes read-only.</li>
+              </ul>
+              <Go to={CTA.getStarted} className="lp-btn invert">
+                Start Free Trial
+              </Go>
+            </aside>
             <h3 className="lp-kicker">Yearly plans</h3>
             <div className="lp-plans">
               {pricing.plans.map((p, i) => (
@@ -470,13 +504,13 @@ export function Landing() {
             <p>Prepare financial statements, organise evidence and manage engagement completion with VeritBooks.</p>
             <div className="lp-cta">
               <Go to={CTA.getStarted} className="lp-btn invert">
-                Get Started
+                Start 14-Day Free Trial
               </Go>
               <Go to={CTA.explore} className="lp-btn ghost">
                 Explore the Platform
               </Go>
             </div>
-            <p className="lp-sub">Built for professional accountants and audit firms in Nigeria.</p>
+            <p className="lp-sub">Free for 14 days. No card needed. Built for professional accountants and audit firms.</p>
           </div>
         </section>
       </main>
