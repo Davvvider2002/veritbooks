@@ -57,6 +57,11 @@ export function ConsolidationStep(ctx: Ctx) {
             Use this when {client.name} is the parent of a group, or holds an associate or joint venture. Each subsidiary has its own engagement in VeritBooks. Add them here and the software adds the statements line by line, removes the investment, and works out goodwill and non-controlling interests. Leave it empty for a company that stands alone.
           </p>
         </div>
+        {eng.payPer && !eng.groupAddon && !isGroup && (
+          <div className="banner warn">
+            This engagement was paid for on its own. Group consolidation is an add-on for it. A partner can add it under <Link to="/billing">Billing</Link>.
+          </div>
+        )}
         {!locked && isGroup && (
           <div className="banner warn">
             Read the assumptions before relying on these statements. A subsidiary held for part of a year is taken to earn its results evenly through that year. Unrealised profit is borne by the owners of the parent. A subsidiary’s reserves since acquisition sit in group retained earnings. Goodwill on a foreign subsidiary stays at its naira amount at acquisition. Where your group does not fit, use eliminations to correct the result, and say so in the file.

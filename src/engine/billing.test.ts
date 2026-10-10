@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { PLANS, TRIAL_DAYS, currentPlan, daysLeft, firmState, planOf, quote, type Subscription } from './billing';
+import { ENGAGEMENT_PRICES, PLANS, TRIAL_DAYS, currentPlan, daysLeft, firmState, planOf, planQuote, quote, unusedCredit, type Subscription } from './billing';
 
 const now = new Date('2026-10-10T12:00:00Z');
 const sub = (over: Partial<Subscription> = {}): Subscription => ({
@@ -41,5 +41,26 @@ describe('trial and plans', () => {
       expect(sql).toMatch(row);
     }
     expect(sql).toContain(`interval '${TRIAL_DAYS} days'`);
+  });
+  it('credits the unused part of the year when moving to a bigger plan', () => {
+    const paid = sub({ plan: 'solo', paidUntil: '2027-04-10T12:00:00Z', hasPaid: true, trialEndsAt: '2026-01-01T00:00:00Z' });
+    const pays = [{ valueKobo: 180_000_00, coversUntil: '2027-04-10T12:00:00Z' }];
+    expect(Math.abs(unusedCredit(pays, now) - 90_000_00)).toBeLessThan(40_000);
+    const up = planQuote(paid, planOf('practice'), PLANS, 20, pays, now);
+    expect(up.mode).toBe('upgrade');
+    expect(up.amountKobo + up.creditKobo).toBe(480_000_00);
+    expect(planQuote(paid, planOf('solo'), PLANS, 20, pays, now).mode).toBe('renew');
+    expect(planQuote({ ...paid, plan: 'firm' }, planOf('solo'), PLANS, 20, pays, now).mode).toBe('later');
+    expect(planQuote({ ...paid, plan: 'firm', paidUntil: '2026-10-30T12:00:00Z' }, planOf('solo'), PLANS, 20, pays, now).mode).toBe('switch');
+    expect(planQuote(sub(), planOf('solo'), PLANS, 0, [], now).mode).toBe('new');
+  });
+  it('never credits more than leaves 1,000 naira to pay', () => {
+    const paid = sub({ plan: 'solo', paidUntil: '2028-10-10T12:00:00Z', hasPaid: true });
+    const pays = [{ valueKobo: 900_000_00, coversUntil: '2027-10-10T12:00:00Z' }];
+    expect(planQuote(paid, planOf('practice'), PLANS, 20, pays, now).amountKobo).toBe(1_000_00);
+  });
+  it('matches the engagement prices in the database migration', () => {
+    const sql = readFileSync('supabase/migrations/0010_admin_and_pay_per.sql', 'utf8');
+    for (const p of ENGAGEMENT_PRICES) expect(sql).toMatch(new RegExp(`\\('${p.code}',\\s*'${p.name}',\\s*${p.priceKobo},`));
   });
 });

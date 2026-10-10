@@ -281,7 +281,7 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
     adjustments: data.adjustments,
     statements,
     // A firm whose trial or plan has ended can read its files and change nothing.
-    locked: data.eng.status === 'locked' || ws.billing.state === 'expired',
+    locked: data.eng.status === 'locked' || ws.billing.state === 'suspended' || (ws.billing.state === 'expired' && !data.eng.payPer),
     reload,
     analyticsReady: data.heavy.ready,
     ledger: data.heavy.ledger,

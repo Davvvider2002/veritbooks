@@ -60,7 +60,7 @@ a { color: var(--accent); }
 /* Forms */
 label.field { display: block; font-size: 13px; font-weight: 600; color: var(--muted); }
 label.field > span { display: block; margin-bottom: 4px; }
-input[type='text'], input[type='email'], input[type='password'], input[type='date'], input[type='number'], select, textarea {
+input[type='text'], input[type='email'], input[type='password'], input[type='date'], input[type='number'], input[type='search'], select, textarea {
   width: 100%; padding: 8px 10px; font: inherit; color: var(--ink);
   background: #fff; border: 1px solid #bdb9ab; border-radius: 4px;
 }
@@ -226,3 +226,28 @@ table.worksheet tr.section td { font-weight: 700; padding-top: 12px; border-bott
 .plan-strip a { font-weight: 600; margin-left: 6px; }
 .price { font-size: 28px; font-weight: 700; letter-spacing: -0.01em; }
 .grid3 > .card + .card { margin-top: 0; }
+
+/* Admin console */
+.admin-bar { background: #16211c; color: #fff; }
+.admin-bar .brand { color: #fff; }
+.admin-bar .brand em { font-style: normal; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; margin-left: 8px; opacity: 0.75; }
+.admin-bar button { background: transparent; color: #fff; border-color: rgba(255,255,255,0.4); }
+.page.wide { max-width: 1280px; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
+.tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 8px 14px; color: var(--muted); font-weight: 600; }
+.tabs button.on { color: var(--accent); border-bottom-color: var(--accent); }
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.grid4 > .card + .card, .grid2 > .card + .card { margin-top: 0; }
+.stat .price { margin: 4px 0; }
+table.admin-table th, table.admin-table td { padding: 10px 12px; vertical-align: top; }
+.admin-detail { padding: 8px 4px 14px; }
+.admin-detail fieldset { border: 1px solid var(--rule); border-radius: 6px; padding: 12px 14px; margin: 0; min-width: 0; }
+.admin-detail fieldset.stack > * + * { margin-top: 8px; }
+.admin-detail legend { font-weight: 600; font-size: 13px; padding: 0 6px; }
+.admin-detail .grid2 > * { min-width: 0; }
+.receipt { max-width: 720px; }
+@media (max-width: 900px) { .grid4 { grid-template-columns: 1fr 1fr; } }
+@media print { .plan-strip, .admin-bar { display: none !important; } .receipt { border: 0; max-width: none; } }
+.page.wide .row > input, .page.wide .row > select { width: auto; flex: 0 1 auto; }
+.page.wide .row > input[type='text'], .page.wide .row > input[type='search'] { flex: 1 1 200px; }
+table.data th.num { text-align: right; }

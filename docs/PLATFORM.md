@@ -1,6 +1,6 @@
 # VeritBooks: platform definition
 
-Version 0.7, 10 October 2026.
+Version 0.8, 10 October 2026.
 
 ## What it is
 
@@ -267,9 +267,43 @@ Every new firm starts a 14 day free trial. No card is asked for.
 - **How a plan is activated:** the price is fixed and recorded on the server before the partner leaves. On return, and again when Flutterwave's webhook arrives, the billing function asks Flutterwave directly whether the payment succeeded and checks the amount, currency and reference. Only then is the plan switched on. A payment applied twice changes nothing the second time. Each payment is written to the audit trail.
 - **What a partner cannot do:** change the trial date, the plan or the paid-until date from the browser. Only the payment function can.
 
-Not built yet: pay-per-engagement pricing, pro-rata credit when changing plan mid-year, VAT invoices and receipts by email, and renewal reminders by email.
+### Paying for one engagement
 
-Setting up: add `FLW_SECRET_KEY` and `FLW_WEBHOOK_HASH` as secrets of the `billing` Edge Function in Supabase. In Flutterwave, set the webhook URL to `https://bdlelkdqlhuhyswofjni.supabase.co/functions/v1/billing` with the same secret hash.
+A firm that does not want a yearly plan can pay for one engagement at a time: compilation ₦10,000, review ₦25,000, audit ₦40,000. Group consolidation is a ₦20,000 add-on. An engagement paid for this way can be worked on and signed whatever the firm's trial or plan is doing, and does not count against a plan's allowance. A partner can pay for a file already started, or buy one to open later. The founding discount applies to yearly plans only.
+
+### Changing plan
+
+- **Same plan:** a year is added to the end of the current one.
+- **Bigger plan:** a new year starts today. The unused part of what was paid for the old plan is taken off the price. At least ₦1,000 is always payable.
+- **Smaller plan:** available in the last 30 days of the paid year. A year is added to the end. The smaller limits apply from the day of payment.
+
+### Receipts and reminders
+
+Every payment gets a numbered receipt, printable from the Billing page. It carries the seller details set in the admin console. It is a receipt, not a VAT invoice.
+
+With an email service connected, the receipt is also emailed to the partner who paid, and partners get reminders: three days before a trial ends, when it ends, and 30 days and 7 days before a plan ends, and when it ends. Each reminder is sent once. A daily job in the database starts the run. Email needs two more secrets on the `billing` function: `RESEND_API_KEY` and `MAIL_FROM`, a sender on a domain verified in Resend. Without them everything else works and no email is sent.
+
+### The founding commitment
+
+A partner must tick the commitment (feedback in the first year, and a reference if happy) before paying the founding price. The partner's name and the date are stored with the firm and shown on its Billing page and in the admin console.
+
+### Admin console
+
+At `/admin`, with its own sign-in. Only accounts listed as platform admins get in. Anyone else is refused and signed out.
+
+- **Overview:** firms, paid plans, money received, founding places, and what needs attention.
+- **Firms:** search and filter. For each firm: people and emails, plan, dates, counts of clients and files, money paid. Actions: extend the trial, give or end a plan, record a bank transfer (which issues a receipt), suspend or lift a suspension, grant an engagement, grant or remove founding status, keep a private note.
+- **Sign-ups:** every account, including people who have not set up a firm, with confirmation and last sign-in.
+- **Payments:** every payment, finished or not.
+- **Prices:** yearly plan prices and limits, and single engagement prices.
+- **Settings:** seller details for receipts, the support email, and who the admins are.
+- **Log:** every admin action, with who did it and when.
+
+A suspended firm can read its files and change nothing, paid or not. An admin sees no client file: no trial balance, ledger, evidence or report. The first admin is added in the database. After that, admins add each other.
+
+Not built yet: VAT invoices, refunds, pay-per-engagement for firms inside their plan allowance (the allowance is used first), and disabling a single user's sign-in.
+
+Setting up: add `FLW_SECRET_KEY` and `FLW_WEBHOOK_HASH` as secrets of the `billing` Edge Function in Supabase. In Flutterwave, set the webhook URL to `https://bdlelkdqlhuhyswofjni.supabase.co/functions/v1/billing` with the same secret hash. For the reminder job, see `supabase/schedule.sql`.
 
 ## Rules the software enforces
 

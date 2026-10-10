@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { GlEntry } from '../engine/ledger';
 import type { Adjustment, Nature, TbLine } from '../engine/types';
-import { hashToken, LockedError, opensAtPage, MAX_EVIDENCE_BYTES, newToken, type BankAccount, type ClientRequest, type RequestLink, type QualityEvaluation, type QualityItem, type Client, type Engagement, type Evidence, type Invite, type Member, type Repo, type StoredBankLine } from './repo';
+import { hashToken, LockedError, opensAtPage, MAX_EVIDENCE_BYTES, newToken, type AdminData, type BankAccount, type ClientRequest, type RequestLink, type QualityEvaluation, type QualityItem, type Client, type Engagement, type Evidence, type Invite, type Member, type Repo, type StoredBankLine } from './repo';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const toEngagement = (r: any): Engagement => ({
@@ -20,6 +20,8 @@ const toEngagement = (r: any): Engagement => ({
   signedByFrc: r.signed_by_frc,
   firmFrc: r.firm_frc,
   signedAt: r.signed_at,
+  payPer: !!r.pay_per,
+  groupAddon: !!r.group_addon,
 });
 const toClient = (r: any): Client => ({ id: r.id, name: r.name, rcNumber: r.rc_number, sector: r.sector });
 const toMember = (r: any): Member => ({
@@ -149,6 +151,13 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       return {
         billing: {
           state: b.state,
+          suspendedReason: b.suspended_reason ?? '',
+          foundingAgreedAt: b.founding_agreed_at ?? null,
+          foundingAgreedBy: b.founding_agreed_by ?? null,
+          engagementPrices: (b.engagement_prices ?? []).map((x: any) => ({ code: x.code, name: x.name, priceKobo: x.price_kobo })),
+          credits: (b.credits ?? []).map((x: any) => ({ id: x.id, type: x.type, withGroup: x.with_group })),
+          openEngagements: (b.open_engagements ?? []).map((x: any) => ({ id: x.id, client: x.client, type: x.type, yearEnd: x.year_end, payPer: x.pay_per, groupAddon: x.group_addon })),
+          seller: { name: b.seller?.name ?? 'VeritBooks', address: b.seller?.address ?? '', taxId: b.seller?.tax_id ?? '', supportEmail: b.seller?.support_email ?? '' },
           plan: b.plan,
           planName: b.plan_name,
           trialEndsAt: b.trial_ends_at,
@@ -160,8 +169,8 @@ export function createSupabaseRepo(url: string, key: string): Repo {
           maxEngagements: b.max_engagements,
           users: b.users,
           maxUsers: b.max_users,
-          plans: (b.plans ?? []).map((p: any) => ({ code: p.code, name: p.name, maxUsers: p.max_users, maxEngagements: p.max_engagements, listKobo: p.list_kobo, amountKobo: p.amount_kobo, founding: p.founding })),
-          payments: (b.payments ?? []).map((p: any) => ({ id: p.id, plan: p.plan, amountKobo: p.amount_kobo, founding: p.founding, paidAt: p.paid_at, coversUntil: p.covers_until, reference: p.tx_ref })),
+          plans: (b.plans ?? []).map((p: any) => ({ code: p.code, name: p.name, maxUsers: p.max_users, maxEngagements: p.max_engagements, listKobo: p.list_kobo, amountKobo: p.amount_kobo, founding: p.founding, creditKobo: p.credit_kobo ?? 0, mode: p.mode ?? 'new' })),
+          payments: (b.payments ?? []).map((p: any) => ({ id: p.id, kind: p.kind ?? 'plan', plan: p.plan, engagementType: p.engagement_type ?? null, withGroup: !!p.with_group, amountKobo: p.amount_kobo, creditKobo: p.credit_kobo ?? 0, founding: p.founding, source: p.source ?? 'flutterwave', paidAt: p.paid_at, coversUntil: p.covers_until, reference: p.tx_ref, receiptNo: p.receipt_no ?? null })),
         },
         firm: { id: firm.id, name: firm.name, frcNumber: firm.frc_number, address: firm.address, aiEnabled: !!firm.ai_enabled },
         me: toMember(mine),
@@ -523,8 +532,22 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       return inline ? `${data!.signedUrl}#page=${e.page}` : data!.signedUrl;
     },
 
-    async startCheckout(plan) {
-      const d = await billing({ action: 'start', plan });
+    async isAdmin() {
+      const { data, error } = await db.rpc('is_platform_admin');
+      if (error) return false;
+      return data === true;
+    },
+    async adminOverview() {
+      const { data, error } = await db.rpc('admin_overview');
+      fail(error);
+      return data as AdminData;
+    },
+    async adminAct(action, args) {
+      const { error } = await db.rpc('admin_act', { p_action: action, p: args });
+      fail(error);
+    },
+    async startCheckout(checkout) {
+      const d = await billing({ action: 'start', checkout });
       return { link: d.link as string };
     },
     async confirmPayment(transactionId) {

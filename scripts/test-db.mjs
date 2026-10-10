@@ -7,7 +7,7 @@ const db = new PGlite();
 await db.exec(`
   create role anon nologin; create role authenticated nologin; create role service_role nologin;
   create schema auth;
-  create table auth.users (id uuid primary key, email text, email_confirmed_at timestamptz);
+  create table auth.users (id uuid primary key, email text, email_confirmed_at timestamptz, created_at timestamptz default now(), last_sign_in_at timestamptz);
   -- Stand-in for Supabase Storage: enough to run the bucket row and the object policies.
   create schema storage;
   create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint);
@@ -30,6 +30,7 @@ await db.exec(readFileSync('supabase/migrations/0006_prior_ledger_and_pages.sql'
 await db.exec(readFileSync('supabase/migrations/0007_quality_management.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0008_assist.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0009_billing.sql', 'utf8'));
+await db.exec(readFileSync('supabase/migrations/0010_admin_and_pay_per.sql', 'utf8'));
 
 const A = '00000000-0000-0000-0000-00000000000a'; // partner, firm 1
 const B = '00000000-0000-0000-0000-00000000000b'; // partner, firm 2
@@ -295,7 +296,7 @@ const mk = () => as(G, `insert into engagements (firm_id, client_id, type, year_
 const [t1] = await mk(); await mk(); await mk();
 await denied('trial: a fourth engagement is refused', mk, /allows 3 engagements/);
 await as(G, `insert into tb_lines (engagement_id, code, name, balance, map_code) values ($1,'1','Cash',100,'cash'), ($1,'2','Capital',-100,'share_capital')`, [t1.id]);
-await denied('trial: a file cannot be signed', () => as(G, `select sign_engagement($1)`, [t1.id]), /paid plan/);
+await denied('trial: a file cannot be signed', () => as(G, `select sign_engagement($1)`, [t1.id]), /once it is paid for/);
 await denied('a partner cannot extend the trial', () => as(G, `update firms set trial_ends_at = now() + interval '1 year' where id = $1`, [f3.id]), /cannot be changed here/);
 await denied('a partner cannot mark the firm paid', () => as(G, `update firms set paid_until = now() + interval '1 year', plan = 'firm' where id = $1`, [f3.id]), /cannot be changed here/);
 ok('a partner can still change firm details', (await as(G, `update firms set address = 'Bodija' where id = $1 returning id`, [f3.id])).length === 1);
@@ -310,12 +311,38 @@ ok('expired: everything can still be read', (await as(G, `select * from tb_lines
 await denied('expired: the trial balance cannot be changed', () => as(G, `update tb_lines set balance = 1 where engagement_id = $1`, [t1.id]), /read-only/);
 await denied('expired: nothing can be deleted', () => as(G, `delete from engagements where id = $1`, [t1.id]), /read-only/);
 await denied('expired: planning cannot be changed', () => as(G, `update engagements set planning = '{}' where id = $1`, [t1.id]), /read-only/);
-await denied('expired: clients cannot be added', () => as(G, `insert into clients (firm_id, name) values ($1, 'Late')`, [f3.id]), /read-only/);
+ok('expired: a client can still be added', (await as(G, `insert into clients (firm_id, name) values ($1, 'Late') returning id`, [f3.id])).length === 1);
 
-const [{ s: start }] = await as(G, `select billing_start('solo') as s`);
-ok('a payment is recorded at the founding price', start.amount_kobo === 10800000 && start.founding === true && /^vb-[0-9a-f]{32}$/.test(start.tx_ref));
+// Paying for one engagement while the plan is lapsed.
+await denied('expired: a new engagement needs a plan or a payment', mk, /pay for one compilation engagement/);
 const svc = (sql, params) => db.transaction(async (tx) => { await tx.exec(`set local role service_role`); return (await tx.query(sql, params)).rows; });
 await db.exec(`grant usage on schema public to service_role`);
+const co = async (u, p) => (await as(u, `select billing_checkout($1::jsonb) as s`, [JSON.stringify(p)]))[0].s;
+const one = await co(G, { kind: 'engagement', engagement: t1.id });
+ok('one compilation costs 10,000 naira', one.amount_kobo === 1000000 && one.description === 'One compilation engagement');
+await denied('the browser cannot mark an engagement paid', () => as(G, `update engagements set pay_per = true where id = $1`, [t1.id]), /cannot be changed here|read-only/);
+await svc(`select apply_payment($1,'70',1000000,'NGN')`, [one.tx_ref]);
+ok('the paid engagement opens again', (await as(G, `update tb_lines set balance = balance where engagement_id = $1 returning id`, [t1.id])).length === 2);
+ok('the others stay read-only', (await as(G, `select id from engagements where pay_per`)).length === 1);
+await denied('consolidation needs the add-on', () => as(G, `update engagements set planning = '{"group":{"subsidiaries":[{"engagementId":"x"}]}}' where id = $1`, [t1.id]), /add-on/);
+const addon = await co(G, { kind: 'group', engagement: t1.id });
+await svc(`select apply_payment($1,'71',2000000,'NGN')`, [addon.tx_ref]);
+ok('with the add-on, consolidation is allowed', addon.amount_kobo === 2000000 && (await as(G, `update engagements set planning = '{"group":{"subsidiaries":[{"engagementId":"x"}]}}' where id = $1 returning id`, [t1.id])).length === 1);
+await as(G, `update engagements set planning = '{}' where id = $1`, [t1.id]);
+const credit = await co(G, { kind: 'engagement', type: 'audit', with_group: true });
+ok('an audit with consolidation costs 60,000 naira', credit.amount_kobo === 6000000);
+await svc(`select apply_payment($1,'72',6000000,'NGN')`, [credit.tx_ref]);
+ok('the payment waits as a credit', (await bill()).credits.length === 1);
+await denied('a credit is for its own type', mk, /pay for one compilation/);
+const [paidAudit] = await as(G, `insert into engagements (firm_id, client_id, type, year_end, pay_per) values ($1, $2, 'audit', '2025-12-31', false) returning *`, [f3.id, c3.id]);
+ok('opening an audit uses the credit', paidAudit.pay_per === true && paidAudit.group_addon === true && (await bill()).credits.length === 0);
+ok('receipts are numbered in order', (await bill()).payments.map((y) => y.receipt_no).sort().join() === '1001,1002,1003');
+ok('per-engagement payments are not founding places', (await bill()).founding_number === null && (await bill()).plans[0].founding === true);
+ok('a paid engagement can be signed with no plan', (await as(G, `select * from sign_engagement($1)`, [t1.id]))[0].status === 'locked');
+
+await denied('the founding price needs the commitment', () => co(G, { kind: 'plan', plan: 'solo' }), /founding firm commitment/);
+const start = await co(G, { kind: 'plan', plan: 'solo', founding_agreed: true });
+ok('a payment is recorded at the founding price', start.amount_kobo === 10800000 && /founding firm price/.test(start.description) && /^vb-[0-9a-f]{32}$/.test(start.tx_ref));
 await denied('an underpayment is refused', () => svc(`select apply_payment($1,'77',10799999,'NGN')`, [start.tx_ref]), /does not match/);
 await denied('the wrong currency is refused', () => svc(`select apply_payment($1,'77',10800000,'USD')`, [start.tx_ref]), /does not match/);
 await denied('an unknown reference is refused', () => svc(`select apply_payment('vb-nope','77',10800000,'NGN')`), /Unknown payment/);
@@ -329,11 +356,28 @@ await db.exec(`update plans set price_kobo = 25000000 where code = 'solo'`);
 ok('a later price rise does not reach a founding firm', (await bill()).plans.find((p) => p.code === 'solo').amount_kobo === 18000000);
 ok('other firms see the new price', (await bill(A)).plans.find((p) => p.code === 'solo').list_kobo === 25000000);
 await db.exec(`update plans set price_kobo = 18000000 where code = 'solo'`);
-ok('paid: work can continue', (await as(G, `update tb_lines set balance = balance where engagement_id = $1 returning id`, [t1.id])).length === 2);
-ok('paid: the file can be signed', (await as(G, `select * from sign_engagement($1)`, [t1.id]))[0].status === 'locked');
-ok('the payment is in the audit trail', (await as(G, `select * from audit_log where table_name = 'payments'`)).length === 1);
+ok('paid: work can continue', (await as(G, `update engagements set planning = '{}' where firm_id = $1 and status = 'in_progress' returning id`, [f3.id])).length === 3);
+ok('the commitment is recorded', (await db.query(`select founding_agreed_by, founding_agreed_at from firms where id = $1`, [f3.id])).rows[0].founding_agreed_by === 'Gbenga Partner');
+ok('payments are in the audit trail', (await as(G, `select * from audit_log where table_name = 'payments'`)).length === 4);
 ok('another firm cannot see the payment', (await as(B, `select * from payments`)).length === 0);
+ok('nor the credits', (await as(B, `select * from engagement_credits`)).length === 0);
 ok('the paid year starts with a full allowance', b.engagements_used === 0);
+// Moving plan mid-year.
+ok('the same plan is a renewal', b.plans.find((p) => p.code === 'solo').mode === 'renew');
+const upq = b.plans.find((p) => p.code === 'practice');
+ok('a bigger plan gives credit for the unused year', upq.mode === 'upgrade' && Math.abs(upq.credit_kobo - 10800000) < 20000 && upq.credit_kobo + upq.amount_kobo === 48000000);
+await db.exec(`update payments set paid_at = paid_at - interval '6 months', covers_until = covers_until - interval '6 months' where firm_id = '${f3.id}' and kind = 'plan'; update firms set paid_until = paid_until - interval '6 months' where id = '${f3.id}'`);
+const half = (await bill()).plans.find((p) => p.code === 'practice');
+ok('half way through, half is credited', Math.abs(half.credit_kobo - 5400000) < 40000);
+const upPay = await co(G, { kind: 'plan', plan: 'practice' });
+await svc(`select apply_payment($1,'78',$2,'NGN')`, [upPay.tx_ref, upPay.amount_kobo]);
+b = await bill();
+ok('after the upgrade a new year starts today', b.plan === 'practice' && Math.round((new Date(b.paid_until) - Date.now()) / 86400000) >= 365 && b.max_engagements === 50);
+ok('the credit is not given twice', b.plans.find((p) => p.code === 'firm').credit_kobo <= 48000000 + 1000);
+ok('a smaller plan waits for the last 30 days', b.plans.find((p) => p.code === 'solo').mode === 'later');
+await denied('and cannot be bought before then', () => co(G, { kind: 'plan', plan: 'solo' }), /last 30 days/);
+await db.exec(`update firms set plan = 'solo' where id = '${f3.id}'`);
+b = await bill();
 await db.exec(`update firms set founding_number = null where id <> '${f3.id}'; with n as (select id, row_number() over () + 1 as k from firms where id <> '${f3.id}') update firms f set founding_number = n.k from n where n.id = f.id`);
 await db.exec(`insert into auth.users (id, email, email_confirmed_at) select ('00000000-0000-0000-0000-0000000001' || lpad(i::text, 2, '0'))::uuid, 'u' || i || '@x.ng', now() from generate_series(1, 17) i`);
 await db.exec(`insert into firms (name, founding_number) select 'Founder ' || i, i + 3 from generate_series(1, 17) i`);
@@ -342,6 +386,61 @@ await db.exec(`insert into auth.users (id, email, email_confirmed_at) values ('$
 await as(H, `select * from create_firm('Firm Twenty One', '', '', 'Halima', '')`);
 b = await bill(H);
 ok('the twenty-first firm pays the list price', b.founding_left === 0 && b.plans.every((p) => p.founding === false && p.amount_kobo === p.list_kobo));
+
+// --- Platform admin ---------------------------------------------------------
+const Z = '00000000-0000-0000-0000-0000000000ff';
+await db.exec(`insert into auth.users (id, email, email_confirmed_at) values ('${Z}', 'owner@veritbooks.ng', now()); insert into platform_admins (user_id) values ('${Z}')`);
+const act = (u, a, p) => as(u, `select admin_act($1, $2::jsonb)`, [a, JSON.stringify(p)]);
+await denied('a partner cannot open the admin console', () => as(A, `select admin_overview()`), /Not found/);
+await denied('a partner cannot act as admin', () => act(A, 'extend_trial', { firm: f1.id, days: 30 }), /Not found/);
+ok('a partner is not an admin', (await as(A, `select is_platform_admin() as a`))[0].a === false && (await as(Z, `select is_platform_admin() as a`))[0].a === true);
+await denied('admin tables are closed to users', () => as(A, `select * from platform_admins`), /permission denied/);
+await denied('nobody can make themselves an admin', () => as(A, `insert into platform_admins (user_id) values ($1)`, [A]), /permission denied/);
+let ov = (await as(Z, `select admin_overview() as o`))[0].o;
+ok('the admin sees every firm and sign-up', ov.firms.length >= 4 && ov.users.some((u) => u.email === 'femi@else.ng' && u.firm === null) && ov.firms.find((f) => f.id === f3.id).members[0].email === 'gbenga@firm3.ng');
+ok('the admin sees money received', ov.revenue_kobo > 0 && ov.payments.some((y) => y.receipt_no === 1001));
+ok('the overview carries no client file data', !/tb_lines|balance|ledger/.test(JSON.stringify(Object.keys(ov.firms[0]))));
+await act(Z, 'extend_trial', { firm: f2.id, days: 10 });
+await act(Z, 'suspend', { firm: f3.id, reason: 'Chargeback under review' });
+ok('a suspended firm is told why', (await bill()).state === 'suspended' && (await bill()).suspended_reason === 'Chargeback under review');
+await denied('suspended: nothing can be changed, paid or not', () => as(G, `update engagements set planning = '{"x":1}' where id = $1`, [paidAudit.id]), /suspended/);
+await denied('suspended: no payment can be started', () => co(G, { kind: 'plan', plan: 'solo' }), /suspended/);
+ok('suspended: files can still be read', (await as(G, `select * from engagements`)).length >= 3);
+await act(Z, 'unsuspend', { firm: f3.id });
+ok('unsuspended: work continues', (await as(G, `update engagements set planning = '{"x":1}' where id = $1 returning id`, [paidAudit.id])).length === 1);
+await act(Z, 'record_payment', { firm: f2.id, plan: 'practice', amount_naira: 480000, reference: 'GTB transfer 12 Oct' });
+b = await bill(B);
+ok('a bank transfer recorded by the admin activates the plan', b.state === 'active' && b.plan === 'practice' && b.payments[0].source === 'manual' && b.payments[0].receipt_no > 1000);
+await act(Z, 'end_plan', { firm: f2.id });
+ok('the admin can end a plan', (await bill(B)).state !== 'active');
+await act(Z, 'set_plan', { firm: f2.id, plan: 'firm', until: '2099-01-01' });
+ok('the admin can give a plan without payment', (await bill(B)).plan === 'firm');
+await act(Z, 'grant_credit', { firm: f2.id, type: 'review', with_group: false });
+ok('the admin can grant an engagement', (await bill(B)).credits.length === 1);
+await act(Z, 'set_engagement_price', { code: 'audit', price_naira: 45000 });
+await act(Z, 'set_price', { plan: 'solo', price_naira: 200000, max_users: 4, max_engagements: 20 });
+ok('the admin can change prices', (await bill(A)).engagement_prices.find((x) => x.code === 'audit').price_kobo === 4500000 && (await bill(A)).plans[0].list_kobo === 20000000 && (await bill(A)).plans[0].max_users === 4);
+await act(Z, 'settings', { seller_name: 'VeritBooks Limited', seller_address: 'Lagos', tax_id: 'TIN 1', support_email: 'help@veritbooks.ng' });
+ok('receipts carry the seller details', (await bill(A)).seller.name === 'VeritBooks Limited');
+await denied('an admin must have a confirmed account', () => act(Z, 'add_admin', { email: 'emeka@firm1.ng' }), /confirmed account/);
+await act(Z, 'add_admin', { email: 'ADA@firm1.ng' });
+ok('an admin can add another', (await as(A, `select is_platform_admin() as a`))[0].a === true);
+await denied('an admin cannot remove themselves', () => act(Z, 'remove_admin', { user: Z }), /yourself/);
+await act(Z, 'remove_admin', { user: A });
+ok('and remove one', (await as(A, `select is_platform_admin() as a`))[0].a === false);
+ov = (await as(Z, `select admin_overview() as o`))[0].o;
+ok('every admin action is logged', ov.log.length === 12 && ov.log.every((l) => l.admin === 'owner@veritbooks.ng') && ov.log.some((l) => l.action === 'suspend' && l.firm === 'Firm Three'));
+// Reminders
+await db.exec(`update firms set trial_ends_at = now() + interval '2 days', paid_until = null where id = '${f1.id}'`);
+let due = (await svc(`select billing_due_notices() as d`))[0].d;
+const n1 = due.find((d) => d.firm === f1.id);
+ok('a firm two days from the end of its trial is due a reminder, to its partners', n1 && n1.kind === 'trial_ending' && n1.to.join() === 'ada@firm1.ng');
+await svc(`select billing_notice_sent($1, $2, $3)`, [n1.firm, n1.kind, n1.key]);
+ok('a reminder is not sent twice', !(await svc(`select billing_due_notices() as d`))[0].d.some((d) => d.firm === f1.id));
+await denied('reminders cannot be read from the browser', () => as(A, `select billing_due_notices()`), /permission denied/);
+ok('the scheduler token is checked', (await svc(`select cron_ok('nope') as k`))[0].k === false && (await svc(`select cron_ok((select token from private.cron_token)) as k`).catch(() => [{ k: 'x' }]))[0].k !== false);
+ok('a receipt can be built for an email', (await svc(`select payment_receipt($1) as r`, [one.tx_ref]))[0].r.to === 'gbenga@firm3.ng');
+await db.exec(`update firms set plan = 'firm', paid_until = now() + interval '1 year' where id = '${f1.id}'`);
 await db.exec(`set role anon`);
 await denied('anonymous visitors cannot read anything', () => db.query(`select * from firms`), /permission denied/);
 await denied('anonymous visitors cannot create a firm', () => db.query(`select create_firm('x','','','','')`), /permission denied/);

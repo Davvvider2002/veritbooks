@@ -68,3 +68,51 @@ export const addYears = (from: Date, years: number): string => {
   d.setFullYear(d.getFullYear() + years);
   return d.toISOString();
 };
+
+/** Paying for one engagement at a time, for a firm that does not want a yearly plan. */
+export const ENGAGEMENT_PRICES: { code: 'compilation' | 'review' | 'audit' | 'group'; name: string; priceKobo: Kobo }[] = [
+  { code: 'compilation', name: 'Compilation', priceKobo: 10_000_00 },
+  { code: 'review', name: 'Review', priceKobo: 25_000_00 },
+  { code: 'audit', name: 'Audit', priceKobo: 40_000_00 },
+  { code: 'group', name: 'Group consolidation', priceKobo: 20_000_00 },
+];
+
+/**
+ * What paying for a plan does today:
+ * new, a year from today. renew, a year added to the end. upgrade, a year from today less credit
+ * for the unused part of what was paid. switch, a smaller plan in the last 30 days, a year added
+ * to the end. later, a smaller plan earlier than that, which is not available yet.
+ */
+export type PlanMode = 'new' | 'renew' | 'upgrade' | 'switch' | 'later';
+const YEAR_MS = 365.25 * 86_400_000;
+
+/** Each payment covers the year ending at coversUntil. Credit is the part still to run. */
+export function unusedCredit(payments: { valueKobo: Kobo; coversUntil: string }[], now: Date): Kobo {
+  let sum = 0;
+  for (const p of payments) {
+    const end = new Date(p.coversUntil).getTime();
+    if (end <= now.getTime()) continue;
+    sum += (p.valueKobo * (end - Math.max(now.getTime(), end - YEAR_MS))) / YEAR_MS;
+  }
+  return Math.floor(sum);
+}
+
+export function planQuote(
+  s: Subscription,
+  plan: Plan,
+  plans: Plan[],
+  foundingTaken: number,
+  payments: { valueKobo: Kobo; coversUntil: string }[],
+  now: Date,
+): { amountKobo: Kobo; listKobo: Kobo; founding: boolean; creditKobo: Kobo; mode: PlanMode } {
+  const q = quote(s, plan, foundingTaken, now);
+  if (firmState(s, now) !== 'active') return { ...q, creditKobo: 0, mode: 'new' };
+  if (s.plan === plan.code) return { ...q, creditKobo: 0, mode: 'renew' };
+  const current = plans.find((p) => p.code === s.plan)?.priceKobo ?? 0;
+  if (plan.priceKobo > current) {
+    // At least 1,000 naira is always payable.
+    const creditKobo = Math.max(Math.min(unusedCredit(payments, now), q.amountKobo - 1_000_00), 0);
+    return { ...q, amountKobo: q.amountKobo - creditKobo, creditKobo, mode: 'upgrade' };
+  }
+  return { ...q, creditKobo: 0, mode: daysLeft(s.paidUntil, now) > 30 ? 'later' : 'switch' };
+}

@@ -57,6 +57,10 @@ export interface Engagement {
   signedByFrc: string | null;
   firmFrc: string | null;
   signedAt: string | null;
+  /** Paid for on its own, so it stays open whatever the firm's plan is doing. */
+  payPer: boolean;
+  /** The consolidation add-on has been paid for this engagement. */
+  groupAddon: boolean;
 }
 
 export interface LogEntry {
@@ -67,6 +71,8 @@ export interface LogEntry {
   userId: string | null;
   detail: Record<string, unknown> | null;
 }
+
+import type { PlanMode } from '../engine/billing';
 
 export type PlanCode = 'solo' | 'practice' | 'firm';
 
@@ -81,21 +87,44 @@ export interface PlanOffer {
   amountKobo: number;
   /** True when amountKobo is the founding firm price. */
   founding: boolean;
+  /** Credit for the unused part of the current plan, already taken off amountKobo. */
+  creditKobo: number;
+  mode: PlanMode;
+}
+
+/** What a partner is paying for. */
+export type Checkout =
+  | { kind: 'plan'; plan: PlanCode; founding_agreed?: boolean }
+  | { kind: 'engagement'; type?: EngagementType; engagement?: string; with_group?: boolean }
+  | { kind: 'group'; engagement: string };
+
+export interface Seller {
+  name: string;
+  address: string;
+  taxId: string;
+  supportEmail: string;
 }
 
 export interface PaymentRecord {
   id: string;
-  plan: string;
+  kind: 'plan' | 'engagement' | 'group';
+  plan: string | null;
+  engagementType: string | null;
+  withGroup: boolean;
   amountKobo: number;
+  creditKobo: number;
   founding: boolean;
+  source: 'flutterwave' | 'manual';
   paidAt: string;
-  coversUntil: string;
+  coversUntil: string | null;
   reference: string;
+  receiptNo: number | null;
 }
 
 /** Where the firm stands: in its free trial, on a paid plan, or lapsed and read-only. */
 export interface Billing {
-  state: 'trial' | 'active' | 'expired';
+  state: 'trial' | 'active' | 'expired' | 'suspended';
+  suspendedReason: string;
   plan: 'trial' | PlanCode;
   planName: string;
   trialEndsAt: string;
@@ -107,8 +136,38 @@ export interface Billing {
   maxEngagements: number;
   users: number;
   maxUsers: number | null;
+  foundingAgreedAt: string | null;
+  foundingAgreedBy: string | null;
   plans: PlanOffer[];
+  /** Prices for paying for one engagement at a time. 'group' is the consolidation add-on. */
+  engagementPrices: { code: EngagementType | 'group'; name: string; priceKobo: number }[];
+  /** Engagements paid for and not yet opened. */
+  credits: { id: string; type: EngagementType; withGroup: boolean }[];
+  openEngagements: { id: string; client: string; type: EngagementType; yearEnd: string; payPer: boolean; groupAddon: boolean }[];
+  seller: Seller;
   payments: PaymentRecord[];
+}
+
+/** What the platform owner's console shows. No client file data is in it. */
+export interface AdminFirm {
+  id: string; name: string; frc_number: string; address: string; created_at: string;
+  state: Billing['state']; plan: string; trial_ends_at: string; paid_until: string | null;
+  founding_number: number | null; founding_agreed_at: string | null; founding_agreed_by: string | null;
+  suspended_reason: string; note: string; ai_enabled: boolean;
+  engagements: number; signed: number; clients: number; credits: number; paid_kobo: number; last_activity: string | null;
+  members: { name: string; role: string; email: string | null; joined: string }[];
+}
+export interface AdminData {
+  founding_taken: number;
+  revenue_kobo: number;
+  revenue_month_kobo: number;
+  firms: AdminFirm[];
+  users: { id: string; email: string; created_at: string; confirmed: boolean; last_sign_in_at: string | null; firm: string | null; role: string | null; name: string | null; admin: boolean }[];
+  payments: { id: string; firm: string; firm_id: string; kind: string; plan: string | null; engagement_type: string | null; with_group: boolean; amount_kobo: number; credit_kobo: number; founding: boolean; status: string; source: string; note: string; tx_ref: string; provider_id: string | null; receipt_no: number | null; created_at: string; paid_at: string | null }[];
+  plans: { code: string; name: string; price_kobo: number; max_users: number | null; max_engagements: number }[];
+  engagement_prices: { code: string; name: string; price_kobo: number }[];
+  settings: { seller_name: string; seller_address: string; tax_id: string; support_email: string };
+  log: { at: string; action: string; detail: Record<string, unknown> | null; admin: string | null; firm: string | null }[];
 }
 
 export interface Workspace {
@@ -300,9 +359,14 @@ export interface Repo {
   listLog(engagementId: string): Promise<LogEntry[]>;
 
   /** Starts payment for a year of a plan. Partners only. Returns the checkout page to send the partner to, or a message when there is nowhere to go (demo mode). */
-  startCheckout(plan: PlanCode): Promise<{ link?: string; message?: string }>;
+  startCheckout(checkout: Checkout): Promise<{ link?: string; message?: string }>;
   /** Checks a payment with the payment provider after the partner is sent back, and activates the plan if it was paid. */
   confirmPayment(transactionId: string): Promise<string>;
+
+  /** True when the signed-in user is a platform admin. */
+  isAdmin(): Promise<boolean>;
+  adminOverview(): Promise<AdminData>;
+  adminAct(action: string, args: Record<string, unknown>): Promise<void>;
 
   /** Turns AI assistance on or off for the firm. Partners only. */
   setAssist(enabled: boolean): Promise<void>;

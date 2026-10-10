@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { AdminApp } from './admin';
 import { BillingPage, PlanStrip } from './billing';
 import { PortalPage } from './portal';
 import { QualityPage } from './quality';
@@ -20,7 +21,10 @@ export function App() {
   const [session, setSession] = useState<Session>({ state: 'loading' });
   const nav = useNavigate();
   // A client's upload link. It works without a sign-in and shows nothing of the firm's workspace.
-  const portal = /^\/r\/([^/]+)\/?$/.exec(useLocation().pathname)?.[1];
+  const path = useLocation().pathname;
+  const portal = /^\/r\/([^/]+)\/?$/.exec(path)?.[1];
+  // The platform owner's console has its own sign-in and shares nothing with a firm's workspace.
+  const admin = /^\/admin\/?$/.test(path);
 
   const refresh = async () => {
     try {
@@ -38,6 +42,7 @@ export function App() {
     return repo.onAuthChange(() => void refresh());
   }, []);
 
+  if (admin) return <AdminApp />;
   if (portal)
     return (
       <>
