@@ -1,0 +1,261 @@
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { Adjustment, Nature, TbLine } from '../engine/types';
+import { LockedError, type Client, type Engagement, type Member, type Repo } from './repo';
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const toEngagement = (r: any): Engagement => ({
+  id: r.id,
+  clientId: r.client_id,
+  type: r.type,
+  yearEnd: r.year_end,
+  status: r.status,
+  planning: r.planning ?? {},
+  programme: r.programme ?? {},
+  programmeVersion: r.programme_version ?? '',
+  report: r.report ?? {},
+  signedByName: r.signed_by_name,
+  signedByFrc: r.signed_by_frc,
+  firmFrc: r.firm_frc,
+  signedAt: r.signed_at,
+});
+const toClient = (r: any): Client => ({ id: r.id, name: r.name, rcNumber: r.rc_number, sector: r.sector });
+const toMember = (r: any): Member => ({
+  userId: r.user_id,
+  role: r.role,
+  fullName: r.full_name,
+  frcNumber: r.frc_number,
+});
+const toLine = (r: any): TbLine => ({
+  id: r.id,
+  code: r.code,
+  name: r.name,
+  balance: Number(r.balance),
+  prior: r.prior_balance === null ? null : Number(r.prior_balance),
+  mapCode: r.map_code,
+  nature: r.nature,
+});
+
+function fail(error: { message: string } | null): void {
+  if (!error) return;
+  if (/signed and locked/i.test(error.message)) throw new LockedError();
+  throw new Error(error.message);
+}
+
+export function createSupabaseRepo(url: string, key: string): Repo {
+  const db: SupabaseClient = createClient(url, key);
+
+  const firmId = async () => {
+    const { data, error } = await db.from('firm_members').select('firm_id').limit(1).maybeSingle();
+    fail(error);
+    if (!data) throw new Error('Set up your firm first.');
+    return data.firm_id as string;
+  };
+
+  return {
+    mode: 'supabase',
+    async currentUser() {
+      const { data } = await db.auth.getSession();
+      const u = data.session?.user;
+      return u ? { id: u.id, email: u.email ?? '' } : null;
+    },
+    onAuthChange(cb) {
+      const { data } = db.auth.onAuthStateChange(() => cb());
+      return () => data.subscription.unsubscribe();
+    },
+    async signIn(email, password) {
+      const { error } = await db.auth.signInWithPassword({ email, password });
+      fail(error);
+    },
+    async signUp(email, password) {
+      const { data, error } = await db.auth.signUp({ email, password });
+      fail(error);
+      return !data.session;
+    },
+    async signOut() {
+      const { error } = await db.auth.signOut();
+      fail(error);
+    },
+
+    async workspace() {
+      const { data: s } = await db.auth.getSession();
+      const userId = s.session?.user.id;
+      if (!userId) return null;
+      const { data: members, error } = await db.from('firm_members').select('*');
+      fail(error);
+      const mine = (members ?? []).find((m) => m.user_id === userId);
+      if (!mine) return null;
+      const { data: firm, error: e2 } = await db.from('firms').select('*').eq('id', mine.firm_id).single();
+      fail(e2);
+      return {
+        firm: { id: firm.id, name: firm.name, frcNumber: firm.frc_number, address: firm.address },
+        me: toMember(mine),
+        members: (members ?? []).filter((m) => m.firm_id === mine.firm_id).map(toMember),
+      };
+    },
+    async createFirm(f) {
+      const { error } = await db.rpc('create_firm', {
+        p_name: f.name,
+        p_frc_number: f.frcNumber,
+        p_address: f.address,
+        p_full_name: f.fullName,
+        p_member_frc: f.memberFrc,
+      });
+      fail(error);
+    },
+    async updateFirm(patch) {
+      const { data, error } = await db
+        .from('firms')
+        .update({ name: patch.name, frc_number: patch.frcNumber, address: patch.address })
+        .eq('id', await firmId())
+        .select('id');
+      fail(error);
+      if (!data?.length) throw new Error('Only a partner can change firm details.');
+    },
+    async updateMyProfile(patch) {
+      const { data: s } = await db.auth.getSession();
+      const { data, error } = await db
+        .from('firm_members')
+        .update({ full_name: patch.fullName, frc_number: patch.frcNumber })
+        .eq('user_id', s.session!.user.id)
+        .select('user_id');
+      fail(error);
+      if (!data?.length) throw new Error('Only a partner can change member details.');
+    },
+
+    async listClients() {
+      const { data, error } = await db.from('clients').select('*').order('name');
+      fail(error);
+      return (data ?? []).map(toClient);
+    },
+    async createClient(c) {
+      const { data, error } = await db
+        .from('clients')
+        .insert({ firm_id: await firmId(), name: c.name, rc_number: c.rcNumber, sector: c.sector })
+        .select()
+        .single();
+      fail(error);
+      return toClient(data);
+    },
+    async listEngagements() {
+      const { data, error } = await db.from('engagements').select('*').order('year_end', { ascending: false });
+      fail(error);
+      return (data ?? []).map(toEngagement);
+    },
+    async createEngagement(e) {
+      const { data, error } = await db
+        .from('engagements')
+        .insert({
+          firm_id: await firmId(),
+          client_id: e.clientId,
+          type: e.type,
+          year_end: e.yearEnd,
+          programme_version: e.programmeVersion,
+        })
+        .select()
+        .single();
+      fail(error);
+      return toEngagement(data);
+    },
+    async getEngagement(id) {
+      const { data, error } = await db.from('engagements').select('*').eq('id', id).maybeSingle();
+      fail(error);
+      return data ? toEngagement(data) : null;
+    },
+    async updateEngagement(id, patch) {
+      const { error } = await db.from('engagements').update(patch).eq('id', id);
+      fail(error);
+    },
+
+    async listLines(id) {
+      const { data, error } = await db.from('tb_lines').select('*').eq('engagement_id', id).order('code');
+      fail(error);
+      return (data ?? []).map(toLine);
+    },
+    async replaceLines(id, lines) {
+      // Upsert by account code so accounts keep their id and journals stay attached,
+      // then remove accounts that are no longer in the trial balance.
+      const { error } = await db.from('tb_lines').upsert(
+        lines.map((l) => ({
+          engagement_id: id,
+          code: l.code,
+          name: l.name,
+          balance: l.balance,
+          prior_balance: l.prior,
+          map_code: l.mapCode,
+          nature: l.nature,
+        })),
+        { onConflict: 'engagement_id,code' },
+      );
+      fail(error);
+      const keep = new Set(lines.map((l) => l.code));
+      const { data: existing, error: e2 } = await db.from('tb_lines').select('id, code').eq('engagement_id', id);
+      fail(e2);
+      const gone = (existing ?? []).filter((r) => !keep.has(r.code)).map((r) => r.id);
+      if (gone.length) {
+        const { error: e3 } = await db.from('tb_lines').delete().in('id', gone);
+        fail(e3);
+      }
+    },
+    async setMapping(_id, clientId, line, mapCode, nature) {
+      const { error } = await db.from('tb_lines').update({ map_code: mapCode, nature }).eq('id', line.id);
+      fail(error);
+      if (mapCode) {
+        const { error: e2 } = await db.from('client_account_maps').upsert({
+          client_id: clientId,
+          account_code: line.code,
+          map_code: mapCode,
+          nature,
+          updated_at: new Date().toISOString(),
+        });
+        fail(e2);
+      }
+    },
+    async savedMappings(clientId) {
+      const { data, error } = await db.from('client_account_maps').select('*').eq('client_id', clientId);
+      fail(error);
+      return new Map(
+        (data ?? []).map((r) => [r.account_code as string, { mapCode: r.map_code as string, nature: r.nature as Nature | null }]),
+      );
+    },
+
+    async listAdjustments(id) {
+      const { data, error } = await db.from('adjustments').select('*').eq('engagement_id', id).order('created_at');
+      fail(error);
+      return (data ?? []).map(
+        (r): Adjustment => ({ id: r.id, ref: r.ref, description: r.description, posted: r.posted, lines: r.lines ?? [] }),
+      );
+    },
+    async addAdjustment(id, a) {
+      const { error } = await db
+        .from('adjustments')
+        .insert({ engagement_id: id, ref: a.ref, description: a.description, posted: a.posted, lines: a.lines });
+      fail(error);
+    },
+    async deleteAdjustment(adjId) {
+      const { error } = await db.from('adjustments').delete().eq('id', adjId);
+      fail(error);
+    },
+
+    async sign(id) {
+      const { error } = await db.rpc('sign_engagement', { p_engagement: id });
+      fail(error);
+    },
+    async listLog(id) {
+      const { data, error } = await db
+        .from('audit_log')
+        .select('*')
+        .eq('engagement_id', id)
+        .order('id', { ascending: false })
+        .limit(200);
+      fail(error);
+      return (data ?? []).map((r) => ({
+        id: String(r.id),
+        at: r.at,
+        table: r.table_name,
+        action: r.action,
+        userId: r.user_id,
+        detail: r.detail,
+      }));
+    },
+  };
+}

@@ -1,0 +1,37 @@
+Adunni Foods Limited (sample data)
+Trial balance as at 31 December 2025
+,,,
+Account code,Account name,Debit,Credit
+1000,Land and buildings,"45,000,000.00",
+1010,Motor vehicles,"18,500,000.00",
+1020,Office equipment,"6,200,000.00",
+1090,Accumulated depreciation,,"14,900,000.00"
+1200,Inventories,"22,400,000.00",
+1300,Trade debtors,"31,750,000.00",
+1310,Allowance for doubtful debts,,"1,500,000.00"
+1350,Prepaid rent,"2,400,000.00",
+1400,Bank current account,"9,860,000.00",
+1410,Petty cash,"140,000.00",
+2000,Trade creditors,,"19,300,000.00"
+2100,Accrued expenses,,"3,150,000.00"
+2110,VAT payable,,"1,870,000.00"
+2120,PAYE payable,,"640,000.00"
+2200,Company income tax payable,,"4,900,000.00"
+2300,Term loan,,"20,000,000.00"
+3000,Share capital,,"10,000,000.00"
+3100,Retained earnings,,"39,770,000.00"
+3200,Dividends paid,"3,000,000.00",
+4000,Sales,,"248,600,000.00"
+4100,Interest income,,"420,000.00"
+5000,Cost of sales,"161,300,000.00",
+6000,Salaries and wages,"28,400,000.00",
+6010,Pension contribution expense,"2,270,000.00",
+6100,Depreciation,"5,300,000.00",
+6200,Rent and rates,"4,800,000.00",
+6210,Electricity and diesel,"6,450,000.00",
+6220,Audit and professional fees,"2,500,000.00",
+6230,Bank charges,"380,000.00",
+6300,Advertising and promotion,"3,900,000.00",
+6400,Interest expense on loan,"3,600,000.00",
+7000,Company income tax,"6,900,000.00",
+,Total,"365,050,000.00","365,050,000.00"
