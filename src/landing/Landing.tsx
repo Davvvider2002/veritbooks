@@ -22,9 +22,17 @@ function Go({ to, className, children }: { to: string; className?: string; child
   );
 }
 
+/** The supplied logo, set side by side for the navigation bar: its mark, then its wordmark. */
 const Logo = () => (
   <span className="lp-logo">
-    Verit<span>Books</span>
+    <img src="/landing/logo-mark.png" alt="" width={236} height={184} className="mark" />
+    <img src="/landing/logo-word.png" alt="VeritBooks" width={446} height={71} className="word" />
+  </span>
+);
+/** The logo exactly as supplied, on a white tile so it reads on the dark footer. */
+const LogoTile = () => (
+  <span className="lp-logo-tile">
+    <img src="/landing/logo.png" alt="VeritBooks" width={442} height={267} />
   </span>
 );
 
@@ -245,7 +253,7 @@ export function Landing() {
       {repo.mode === 'demo' && <div className="lp-demo">Demo mode. Data is kept in this browser only.</div>}
       <header className="lp-nav">
         <div className="lp-wrap lp-nav-in">
-          <a href="#top" aria-label="VeritBooks, top of page">
+          <a href="#top" aria-label="Top of page">
             <Logo />
           </a>
           <button className="lp-menu" aria-expanded={menu} aria-controls="lp-links" onClick={() => setMenu(!menu)}>
@@ -479,7 +487,7 @@ export function Landing() {
       <footer className="lp-footer" id="contact">
         <div className="lp-wrap lp-foot">
           <div>
-            <Logo />
+            <LogoTile />
             <p>An engagement platform for audit, review and compilation work, from trial balance to signed financial statements.</p>
           </div>
           <nav aria-label="Footer">

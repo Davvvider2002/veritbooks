@@ -67,6 +67,7 @@ export function App() {
       )}
       <header className="topbar">
         <Link to="/" className="brand">
+          <img src="/landing/logo-mark.png" alt="" />
           Verit<span>Books</span>
         </Link>
         <div className="spacer" />
