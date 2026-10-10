@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import { repo } from '../data';
+import type { JournalExplanation } from '../data/repo';
+import { computeMateriality } from '../engine/checks';
 import { ITEM } from '../engine/chart';
 import { balanceAt, parseBankStatement, type BankParse } from '../engine/bank';
 import { shortDate } from '../engine/dates';
@@ -30,6 +32,29 @@ function JournalCard({ ctx, j, defaultOpen }: { ctx: Ctx; j: Journal; defaultOpe
   const [note, setNote] = useState(done?.note ?? '');
   const { busy, error, run, setError } = useAction();
   const name = (code: string) => lines.find((l) => l.code === code)?.name ?? 'Not in the trial balance';
+  const [explained, setExplained] = useState<(JournalExplanation & { model: string }) | null>(null);
+  const ask = useAction();
+  const explain = () =>
+    void ask.run(async () => {
+      const m = computeMateriality(ctx.statements.cur, eng.planning);
+      setExplained(
+        await repo.explainJournal(
+          eng.id,
+          {
+            entryNo: j.entryNo,
+            date: j.date,
+            description: j.description,
+            user: j.user,
+            flags: j.flags.map((f) => FLAG_LABEL[f]),
+            lines: j.lines.map((e) => {
+              const l = lines.find((x) => x.code === e.accountCode);
+              return { account: `${e.accountCode} ${l?.name ?? ''}`.trim(), line: (l?.mapCode && ITEM.get(l.mapCode)?.label) || 'not mapped', amount: e.amount / 100 };
+            }),
+          },
+          { yearEnd: eng.yearEnd, performanceMateriality: m ? m.performance / 100 : null },
+        ),
+      );
+    });
 
   const save = () => {
     if (!note.trim()) return setError('Record what was tested and what it showed.');
@@ -81,6 +106,41 @@ function JournalCard({ ctx, j, defaultOpen }: { ctx: Ctx; j: Journal; defaultOpe
             </tbody>
           </table>
           {j.user && <div className="small muted">Posted by {j.user}</div>}
+          {ctx.ws.firm.aiEnabled && !explained && (
+            <div>
+              <button disabled={ask.busy} onClick={explain}>{ask.busy ? 'Asking…' : 'Explain this journal'}</button>
+              <span className="small muted" style={{ marginLeft: 10 }}>Sends this journal’s date, description, poster, accounts and amounts to the AI service.</span>
+            </div>
+          )}
+          <ErrorNote error={ask.error} />
+          {explained && (
+            <div className="assist">
+              <div className="small" style={{ fontWeight: 600 }}>Written by AI from the journal alone. It has not seen any evidence, and it can be wrong.</div>
+              <p>{explained.whatItDoes}</p>
+              {explained.whyFlagged.length > 0 && (
+                <>
+                  <strong className="small">Why it was flagged</strong>
+                  <ul>{explained.whyFlagged.map((x, i) => <li key={i}>{x}</li>)}</ul>
+                </>
+              )}
+              {explained.tests.length > 0 && (
+                <>
+                  <strong className="small">Ways to test it</strong>
+                  <ul>{explained.tests.map((x, i) => <li key={i}>{x}</li>)}</ul>
+                </>
+              )}
+              {explained.questions.length > 0 && (
+                <>
+                  <strong className="small">Questions for management</strong>
+                  <ul>{explained.questions.map((x, i) => <li key={i}>{x}</li>)}</ul>
+                </>
+              )}
+              <div className="small muted">
+                From {explained.model}. This is not saved to the file. Record your own work and conclusion below.{' '}
+                <button className="link small" onClick={() => setExplained(null)}>Hide</button>
+              </div>
+            </div>
+          )}
           <div className="grid2" style={{ gridTemplateColumns: '220px 1fr' }}>
             <Field label="Conclusion">
               <select disabled={locked} value={status} onChange={(e) => setStatus(e.target.value as 'clear' | 'exception')}>

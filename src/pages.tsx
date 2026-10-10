@@ -309,6 +309,56 @@ function Team({ ws, onChanged }: { ws: Workspace; onChanged: () => Promise<void>
   );
 }
 
+/** AI assistance is off until a partner turns it on, with the consequences set out first. */
+function AssistSetting({ ws, onChanged }: { ws: Workspace; onChanged: () => Promise<void> }) {
+  const { busy, error, run } = useAction();
+  const [agreed, setAgreed] = useState(false);
+  const on = ws.firm.aiEnabled;
+  const partner = ws.me.role === 'partner';
+  return (
+    <section className="card stack" aria-label="AI assistance">
+      <div className="between">
+        <h3>AI assistance</h3>
+        <span className={`tag ${on ? 'ok' : ''}`}>{on ? 'On' : 'Off'}</span>
+      </div>
+      <p style={{ margin: 0 }}>
+        When this is on, your team can ask for a suggested statement line for an unmapped account, and for a plain-language explanation of a flagged journal. Every suggestion is shown for a person to accept or reject. Nothing is applied on its own, and the AI never chooses an opinion, concludes on a test or signs anything.
+      </p>
+      <ul className="small" style={{ margin: 0, paddingLeft: 18 }}>
+        <li>Each request sends data outside VeritBooks to Anthropic, the maker of the Claude models, for processing. A mapping request sends account codes, names and balances. A journal request sends its date, description, the name of whoever posted it, the accounts and the amounts.</li>
+        <li>Client and firm names are not sent. A journal description can still name a person or a company.</li>
+        <li>Check your engagement letters and your duties under the Nigeria Data Protection Act before turning this on. How the data is handled after it is sent is governed by the terms of the API account this installation uses.</li>
+        <li>AI output can be wrong and can sound sure when it is. It has not seen your evidence. Treat it as a prompt for your own work, never as audit evidence.</li>
+        <li>Each request is logged with who made it and when. The content is not kept in the log.</li>
+      </ul>
+      <ErrorNote error={error} />
+      {partner ? (
+        on ? (
+          <div>
+            <button disabled={busy} onClick={() => void run(async () => { await repo.setAssist(false); await onChanged(); })}>
+              Turn AI assistance off
+            </button>
+          </div>
+        ) : (
+          <>
+            <label className="row" style={{ alignItems: 'flex-start', flexWrap: 'nowrap' }}>
+              <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} style={{ marginTop: 4 }} />
+              <span>I am a partner. I have read the points above and I am satisfied the firm may send this data.</span>
+            </label>
+            <div>
+              <button className="primary" disabled={busy || !agreed} onClick={() => void run(async () => { await repo.setAssist(true); setAgreed(false); await onChanged(); })}>
+                Turn AI assistance on
+              </button>
+            </div>
+          </>
+        )
+      ) : (
+        <span className="small muted">Only a partner can change this.</span>
+      )}
+    </section>
+  );
+}
+
 export function FirmSettings({ ws, onSaved }: { ws: Workspace; onSaved: () => Promise<void> }) {
   const [firm, setFirm] = useState({ name: ws.firm.name, frcNumber: ws.firm.frcNumber, address: ws.firm.address });
   const [me, setMe] = useState({ fullName: ws.me.fullName, frcNumber: ws.me.frcNumber });
@@ -360,6 +410,7 @@ export function FirmSettings({ ws, onSaved }: { ws: Workspace; onSaved: () => Pr
           </button>
         </div>
       </form>
+      <AssistSetting ws={ws} onChanged={onSaved} />
       <Team ws={ws} onChanged={onSaved} />
     </div>
   );

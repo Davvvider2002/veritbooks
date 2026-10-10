@@ -74,6 +74,18 @@ const CHUNK = 500;
 export function createSupabaseRepo(url: string, key: string): Repo {
   const db: SupabaseClient = createClient(url, key);
 
+  /** Calls the assist function, which holds the AI service key. The browser never sees it. */
+  const assist = async (body: Record<string, unknown>) => {
+    const { data, error } = await db.functions.invoke('assist', { body });
+    if (error) {
+      // The function explains a refusal in its response body.
+      const reply = await (error as { context?: Response }).context?.json?.().catch(() => null);
+      throw new Error(reply?.error ?? 'AI assistance could not be reached. Check that the assist function is deployed.');
+    }
+    if (!data?.result) throw new Error(data?.error ?? 'The AI service did not return an answer.');
+    return data as { result: any; model: string };
+  };
+
   const firmId = async () => {
     const { data, error } = await db.from('firm_members').select('firm_id').limit(1).maybeSingle();
     fail(error);
@@ -122,7 +134,7 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       const { data: firm, error: e2 } = await db.from('firms').select('*').eq('id', mine.firm_id).single();
       fail(e2);
       return {
-        firm: { id: firm.id, name: firm.name, frcNumber: firm.frc_number, address: firm.address },
+        firm: { id: firm.id, name: firm.name, frcNumber: firm.frc_number, address: firm.address, aiEnabled: !!firm.ai_enabled },
         me: toMember(mine),
         members: (members ?? []).filter((m) => m.firm_id === mine.firm_id).map(toMember),
       };
@@ -480,6 +492,21 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       const { data, error } = await db.storage.from('evidence').createSignedUrl(e.path, 120, inline ? undefined : { download: e.fileName });
       fail(error);
       return inline ? `${data!.signedUrl}#page=${e.page}` : data!.signedUrl;
+    },
+
+    async setAssist(enabled) {
+      const { data, error } = await db.from('firms').update({ ai_enabled: enabled }).eq('id', await firmId()).select('id');
+      if (error && /ai_enabled/.test(error.message)) throw new Error('AI assistance needs a database update. Run supabase/migrations/0008_assist.sql in the Supabase SQL editor.');
+      fail(error);
+      if (!data?.length) throw new Error('Only a partner can change this setting.');
+    },
+    async suggestMappings(engagementId, accounts) {
+      const r = await assist({ task: 'map_accounts', engagementId, accounts });
+      return { suggestions: r.result.suggestions, model: r.model };
+    },
+    async explainJournal(engagementId, journal, context) {
+      const r = await assist({ task: 'explain_journal', engagementId, journal, ...context });
+      return { ...r.result, model: r.model };
     },
 
     async listQuality() {

@@ -215,3 +215,8 @@ table.worksheet tr.section td { font-weight: 700; padding-top: 12px; border-bott
 .danger { color: var(--bad); }
 .sheet table.equity7 { min-width: 860px; }
 .sheet table.equity7 th.num, .sheet table.equity7 td.num { width: 96px; }
+
+/* AI output is always set apart from the firm's own work */
+.assist { border-left: 3px solid var(--warn); background: var(--warn-soft); padding: 10px 14px; border-radius: 0 6px 6px 0; }
+.assist p { margin: 6px 0; }
+.assist ul { margin: 4px 0 8px; padding-left: 18px; font-size: 14px; }

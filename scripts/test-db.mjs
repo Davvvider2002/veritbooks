@@ -28,6 +28,7 @@ await db.exec(readFileSync('supabase/migrations/0004_disclosures.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0005_client_requests.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0006_prior_ledger_and_pages.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0007_quality_management.sql', 'utf8'));
+await db.exec(readFileSync('supabase/migrations/0008_assist.sql', 'utf8'));
 
 const A = '00000000-0000-0000-0000-00000000000a'; // partner, firm 1
 const B = '00000000-0000-0000-0000-00000000000b'; // partner, firm 2
@@ -212,6 +213,18 @@ await denied('an evaluation cannot be removed', () => as(A, `delete from quality
 await denied('an evaluation needs a basis', () => as(A, `insert into quality_evaluations (firm_id, as_at, conclusion, basis) values ($1, '2025-12-31', 'effective', ' ')`, [f1.id]), /check constraint/);
 ok('quality changes are logged against the firm', (await as(A, `select * from audit_log where firm_id = $1 and table_name in ('quality_items','quality_evaluations') and engagement_id is null`, [f1.id])).length === 6);
 await denied('anonymous visitors cannot read the register', () => anon(`select * from quality_items`), /permission denied/);
+
+// AI assistance.
+ok('AI assistance is off for a new firm', (await as(A, `select ai_enabled from firms where id = $1`, [f1.id]))[0].ai_enabled === false);
+ok('staff cannot turn it on', (await as(C, `update firms set ai_enabled = true where id = $1 returning id`, [f1.id])).length === 0);
+ok('another firm\'s partner cannot turn it on', (await as(B, `update firms set ai_enabled = true where id = $1 returning id`, [f1.id])).length === 0);
+ok('a partner can turn it on', (await as(A, `update firms set ai_enabled = true where id = $1 returning ai_enabled`, [f1.id]))[0].ai_enabled === true);
+await denied('a member cannot write to the AI request log', () => as(A, `insert into ai_requests (firm_id, task) values ($1, 'map_accounts')`, [f1.id]), /permission denied/);
+await db.query(`insert into ai_requests (firm_id, user_id, task, model, input_chars) values ($1, $2, 'map_accounts', 'm', 120)`, [f1.id, C]);
+ok('members can read their firm\'s AI request log', (await as(C, `select * from ai_requests`)).length === 1);
+ok('another firm cannot read it', (await as(B, `select * from ai_requests`)).length === 0);
+await denied('a member cannot alter the log', () => as(A, `delete from ai_requests`), /permission denied/);
+await denied('anonymous visitors cannot read the log', () => anon(`select * from ai_requests`), /permission denied/);
 
 // Prior year ledger, account evidence and page references.
 await as(C, `insert into gl_entries (engagement_id, entry_no, entry_date, account_code, amount, row_no, period) values ($1,'PY1','2024-03-01','4000',-900,1,'prior'), ($1,'PY1','2024-03-01','1400',900,2,'prior')`, [e1.id]);

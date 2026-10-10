@@ -1,4 +1,5 @@
 import type { GlEntry } from '../engine/ledger';
+import { suggestMapping } from '../engine/mapping';
 import type { Adjustment, Nature, TbLine } from '../engine/types';
 import {
   LockedError,
@@ -184,7 +185,7 @@ export function createDemoRepo(): Repo {
       if (s.memberOf[me().id]) throw new Error('You already belong to a firm.');
       const id = uid();
       s.firms[id] = {
-        firm: { id, name: f.name.trim(), frcNumber: f.frcNumber.trim(), address: f.address.trim() },
+        firm: { id, name: f.name.trim(), frcNumber: f.frcNumber.trim(), address: f.address.trim(), aiEnabled: false },
         members: [{ userId: me().id, role: 'partner', fullName: f.fullName.trim(), frcNumber: f.memberFrc.trim() }],
       };
       s.memberOf[me().id] = id;
@@ -443,6 +444,44 @@ export function createDemoRepo(): Repo {
       const url = blobs.get(e.path);
       if (!url) throw new Error('Demo mode keeps file contents only until the page is reloaded. Upload the file again.');
       return opensAtPage(e) ? `${url}#page=${e.page}` : url;
+    },
+
+    async setAssist(enabled) {
+      partner();
+      s.firms[firmId()].firm.aiEnabled = enabled;
+      save();
+    },
+    // Demo mode has no AI service. These return canned samples so the screens can be tried.
+    async suggestMappings(engagementId, accounts) {
+      eng(engagementId);
+      if (!s.firms[firmId()].firm.aiEnabled) throw new Error('AI assistance is turned off for your firm. A partner can turn it on in the firm details.');
+      return {
+        model: 'demo sample, not AI',
+        suggestions: accounts.map((a) => {
+          const guess = suggestMapping(a.name.replace(/suspense|sundry|misc\w*/gi, '').trim() || a.name);
+          const line = guess.mapCode ?? (a.balance >= 0 ? 'other_receivables' : 'other_payables');
+          return {
+            code: a.code,
+            line,
+            nature: guess.nature,
+            confidence: guess.mapCode ? ('medium' as const) : ('low' as const),
+            reason: guess.mapCode ? 'Sample suggestion from the account name.' : `Sample suggestion: the name does not say what this is. A ${a.balance >= 0 ? 'debit' : 'credit'} balance points to a ${a.balance >= 0 ? 'receivable' : 'payable'}. Ask the client what it holds.`,
+          };
+        }),
+      };
+    },
+    async explainJournal(engagementId, journal) {
+      eng(engagementId);
+      if (!s.firms[firmId()].firm.aiEnabled) throw new Error('AI assistance is turned off for your firm. A partner can turn it on in the firm details.');
+      const dr = journal.lines.filter((l) => l.amount > 0).map((l) => l.account).join(', ');
+      const cr = journal.lines.filter((l) => l.amount < 0).map((l) => l.account).join(', ');
+      return {
+        model: 'demo sample, not AI',
+        whatItDoes: `Sample text. The entry debits ${dr || 'no account'} and credits ${cr || 'no account'}.`,
+        whyFlagged: journal.flags.map((f) => `Sample text. ${f}: consider why this applies to journal ${journal.entryNo}.`),
+        tests: ['Sample text. Agree the entry to its supporting document and to approval by someone other than the person who posted it.'],
+        questions: ['Sample text. Who asked for this entry, and why was it needed?'],
+      };
     },
 
     async listQuality() {

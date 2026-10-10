@@ -50,3 +50,13 @@ describe('industry packs', () => {
     expect(programmeFor('audit', { industry: 'trading_manufacturing' }).length).toBe(PROGRAMMES.audit.length + 11);
   });
 });
+
+describe('the assist function', () => {
+  it('offers exactly the statement lines the software has', async () => {
+    const { readFileSync } = await import('node:fs');
+    const source = readFileSync('supabase/functions/assist/index.ts', 'utf8');
+    const block = source.slice(source.indexOf('const LINES'), source.indexOf('const CODES'));
+    const codes = [...block.matchAll(/^  \['([a-z_]+)',/gm)].map((m) => m[1]);
+    expect(codes).toEqual(CHART.map((c) => c.code));
+  });
+});

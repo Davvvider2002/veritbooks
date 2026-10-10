@@ -23,6 +23,8 @@ export interface Firm {
   name: string;
   frcNumber: string;
   address: string;
+  /** True when a partner has turned AI assistance on for the firm. Off unless they do. */
+  aiEnabled: boolean;
 }
 
 export interface Member {
@@ -253,6 +255,13 @@ export interface Repo {
   sign(engagementId: string): Promise<void>;
   listLog(engagementId: string): Promise<LogEntry[]>;
 
+  /** Turns AI assistance on or off for the firm. Partners only. */
+  setAssist(enabled: boolean): Promise<void>;
+  /** Asks the AI service where accounts belong. Balances in naira, debit positive. Nothing is saved. */
+  suggestMappings(engagementId: string, accounts: { code: string; name: string; balance: number }[]): Promise<{ suggestions: MappingSuggestion[]; model: string }>;
+  /** Asks the AI service to explain one flagged journal. Nothing is saved. */
+  explainJournal(engagementId: string, journal: JournalForAssist, context: { yearEnd: string; performanceMateriality: number | null }): Promise<JournalExplanation & { model: string }>;
+
   /** The firm's system of quality management. Everyone in the firm reads it; partners maintain it. */
   listQuality(): Promise<QualityItem[]>;
   addQuality(items: QualityDraft[]): Promise<void>;
@@ -262,6 +271,33 @@ export interface Repo {
   listEvaluations(): Promise<QualityEvaluation[]>;
   /** Records the annual evaluation. It cannot be changed afterwards. */
   addEvaluation(e: { asAt: string; conclusion: QualityEvaluation['conclusion']; basis: string }): Promise<void>;
+}
+
+/** A suggestion from the AI service for where an account belongs. The accountant accepts or rejects it. */
+export interface MappingSuggestion {
+  code: string;
+  line: string;
+  nature: 'staff' | 'depreciation' | 'other' | null;
+  confidence: 'high' | 'medium' | 'low';
+  reason: string;
+}
+
+/** A plain-language reading of one flagged journal, written without sight of any evidence. */
+export interface JournalExplanation {
+  whatItDoes: string;
+  whyFlagged: string[];
+  tests: string[];
+  questions: string[];
+}
+
+export interface JournalForAssist {
+  entryNo: string;
+  date: string;
+  description: string;
+  user: string;
+  flags: string[];
+  /** Amounts in naira, debit positive. */
+  lines: { account: string; line: string; amount: number }[];
 }
 
 /** A quality risk with the firm's response, or a finding from monitoring with its remedial action. */

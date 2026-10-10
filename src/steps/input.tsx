@@ -1,7 +1,9 @@
 import Papa from 'papaparse';
 import { useMemo, useState } from 'react';
 import { SOURCES } from '../content/sources';
+import { Link } from 'react-router-dom';
 import { repo } from '../data';
+import type { MappingSuggestion } from '../data/repo';
 import { CHART, ITEM, NATURE_CODES, SECTION_LABEL, type Section } from '../engine/chart';
 import { validateTrialBalance } from '../engine/checks';
 import { normaliseNature } from '../engine/mapping';
@@ -224,7 +226,106 @@ export function ImportStep({ eng, client, lines, adjustments, locked, reload }: 
 
 const SECTIONS: Section[] = ['nca', 'ca', 'equity', 'ncl', 'cl', 'income', 'expense', 'distribution'];
 
-export function MappingStep({ eng, client, lines, locked, reload }: Ctx) {
+const CONFIDENCE = { high: ['High', 'ok'], medium: ['Medium', 'warn'], low: ['Low', 'bad'] } as const;
+
+/** Asks the AI service where the unmapped accounts belong, and lets the accountant take or leave each answer. */
+function MappingAssist({ ctx, unmapped, apply }: { ctx: Ctx; unmapped: Ctx['lines']; apply: (lineId: string, mapCode: string, nature: Nature | null) => Promise<void> }) {
+  const [found, setFound] = useState<{ suggestions: MappingSuggestion[]; model: string } | null>(null);
+  const { busy, error, run } = useAction();
+  const open = (found?.suggestions ?? []).filter((s) => unmapped.some((l) => l.code === s.code));
+  const line = (code: string) => unmapped.find((l) => l.code === code)!;
+  if (!ctx.ws.firm.aiEnabled)
+    return unmapped.length > 3 ? (
+      <p className="small muted" style={{ margin: 0 }}>
+        AI suggestions for unmapped accounts are off for your firm. A partner can turn them on in the <Link to="/firm">firm details</Link>.
+      </p>
+    ) : null;
+  if (unmapped.length === 0 && !found) return null;
+  return (
+    <div className="card stack">
+      <div className="between">
+        <h3>AI suggestions</h3>
+        {unmapped.length > 0 && (
+          <button
+            disabled={busy}
+            onClick={() =>
+              void run(async () => {
+                // 150 accounts a request keeps each answer complete.
+                setFound(await repo.suggestMappings(ctx.eng.id, unmapped.slice(0, 150).map((l) => ({ code: l.code, name: l.name, balance: l.balance / 100 }))));
+              })
+            }
+          >
+            {busy ? 'Asking…' : `Suggest lines for ${Math.min(unmapped.length, 150)} unmapped account${unmapped.length === 1 ? '' : 's'}`}
+          </button>
+        )}
+      </div>
+      <p className="small muted" style={{ margin: 0 }}>
+        Sends the code, name and balance of each unmapped account to the AI service. Nothing is mapped until you accept it. A suggestion can be wrong: read the reason, and check any marked low.
+      </p>
+      <ErrorNote error={error} />
+      {found && open.length === 0 && <div className="banner info">{found.suggestions.length === 0 ? 'The AI service returned no suggestions.' : 'Every suggestion has been dealt with.'}</div>}
+      {open.length > 0 && (
+        <>
+          <div className="scroll-x">
+            <table className="data">
+              <thead>
+                <tr>
+                  <th>Account</th>
+                  <th>Suggested line</th>
+                  <th>Confidence</th>
+                  <th>Reason</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {open.map((s) => (
+                  <tr key={s.code}>
+                    <td>
+                      {s.code} {line(s.code).name}
+                      <div className="small muted">{fmt2(line(s.code).balance)}</div>
+                    </td>
+                    <td>
+                      {ITEM.get(s.line)?.label ?? s.line}
+                      {s.nature && s.nature !== 'other' && <div className="small muted">{s.nature === 'staff' ? 'Staff cost' : 'Depreciation'}</div>}
+                    </td>
+                    <td><span className={`tag ${CONFIDENCE[s.confidence][1]}`}>{CONFIDENCE[s.confidence][0]}</span></td>
+                    <td className="small">{s.reason}</td>
+                    <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                      <button disabled={busy} aria-label={`Accept the suggestion for ${line(s.code).name}`} onClick={() => void run(() => apply(line(s.code).id, s.line, s.nature))}>
+                        Accept
+                      </button>{' '}
+                      <button className="link" aria-label={`Dismiss the suggestion for ${line(s.code).name}`} onClick={() => setFound({ ...found!, suggestions: found!.suggestions.filter((x) => x.code !== s.code) })}>
+                        Dismiss
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="row">
+            {open.some((s) => s.confidence === 'high') && (
+              <button
+                disabled={busy}
+                onClick={() =>
+                  void run(async () => {
+                    for (const s of open.filter((x) => x.confidence === 'high')) await apply(line(s.code).id, s.line, s.nature);
+                  })
+                }
+              >
+                Accept the {open.filter((s) => s.confidence === 'high').length} marked high
+              </button>
+            )}
+            <span className="small muted">From {found!.model}. You remain responsible for the mapping.</span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+export function MappingStep(ctx: Ctx) {
+  const { eng, client, lines, locked, reload } = ctx;
   const [filter, setFilter] = useState<'all' | 'unmapped'>('all');
   const { error, run } = useAction();
   const unmapped = lines.filter((l) => !l.mapCode || !ITEM.has(l.mapCode));
@@ -266,6 +367,16 @@ export function MappingStep({ eng, client, lines, locked, reload }: Ctx) {
         </label>
       </div>
       <ErrorNote error={error} />
+      {!locked && (
+        <MappingAssist
+          ctx={ctx}
+          unmapped={unmapped}
+          apply={async (lineId, mapCode, nature) => {
+            await repo.setMapping(eng.id, client.id, lines.find((l) => l.id === lineId)!, mapCode, normaliseNature(mapCode, nature));
+            reload();
+          }}
+        />
+      )}
       <div className="card scroll-x">
         <table className="data">
           <thead>

@@ -185,6 +185,37 @@ In each case the software says so, leaves the statement out, and raises an advis
 
 Also fixed: dividends received were mapped as dividends paid. They now map to other income.
 
+## Phase 4: AI assistance (started)
+
+Needs `supabase/migrations/0008_assist.sql`, the `assist` Edge Function in `supabase/functions/assist`, and an `ANTHROPIC_API_KEY` secret on that function. Without the secret the function answers that AI assistance is not set up.
+
+Principles:
+
+- Off for every firm until a partner turns it on, after reading what data is sent and ticking a confirmation.
+- The AI suggests. A person accepts or rejects. Nothing is applied on its own.
+- The AI never chooses an opinion, concludes on a test, judges whether evidence is sufficient, or signs.
+- AI output is always labelled and set apart, and is not saved into the file as the firm's work.
+- The API key stays on the server. The browser never sees it.
+
+What is built:
+
+- Mapping suggestions. For unmapped accounts, the AI suggests a statement line, a nature tag where relevant, a confidence level and a one-line reason. The accountant accepts or dismisses each one.
+- Journal explanations. For a flagged journal, the AI explains what the entry appears to do, why each risk indicator matters, ways to test it and questions for management. It is told not to say whether the journal is acceptable.
+
+Controls in the function:
+
+- The caller must be signed in, belong to a firm with AI on, and be able to read the engagement. These checks use the caller's own access rights.
+- Only suggestions for accounts that were sent, on statement lines that exist, are passed back. A test keeps the function's list of lines in step with the software's.
+- Client data is fenced and the model is told to treat it as data, not instructions.
+- Limits: 150 accounts or 40 journal lines a request, and 300 requests per firm in 24 hours.
+- Every request is logged in `ai_requests` with who, when, the task, the model and the size. The content is not kept. Members can read the log. No browser can write to it.
+
+What is sent: account codes, names and balances; or one journal's date, description, poster, accounts and amounts. Client and firm names are not sent. A journal description can still name a person.
+
+Demo mode has no AI service. It returns clearly labelled sample text so the screens can be tried.
+
+Not built: draft notes, a file review assistant, and analytical review commentary.
+
 ## Rules the software enforces
 
 1. Numbers are computed, never generated. Every figure in a statement is a sum of mapped account balances. No language model produces or alters a figure.
