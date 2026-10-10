@@ -16,8 +16,7 @@ Sample trial balances are in `public/samples`.
 ## Connect Supabase
 
 1. Apply `supabase/migrations/0001_init.sql` to the project.
-2. Copy `.env.example` to `.env.local` and set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`.
-3. Set the same two variables in Netlify.
+2. Production values are in `.env.production` and are used by every build. For local work against the database, copy them to `.env.local`.
 
 ## Deploy
 
