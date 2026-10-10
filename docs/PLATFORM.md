@@ -249,6 +249,7 @@ No database update is needed.
 - None is added to a disclaimer of opinion. A going concern section is left out of an adverse opinion.
 - A review conclusion can be qualified, adverse or a disclaimer, with a basis paragraph that sign-off requires. A review report can carry an emphasis of matter.
 - Not produced: key audit matters.
+- The report wording is kept with the file at the moment of signing. A signed report is shown from that copy and is never redrafted, whatever later versions of the software would word.
 
 ### Technical review pack
 

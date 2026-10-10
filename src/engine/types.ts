@@ -63,6 +63,8 @@ export interface ReportSettings {
   emphasis?: string;
   /** The partner's other matter: something not in the statements that helps a reader understand the audit or the report. */
   otherMatter?: string;
+  /** The report exactly as it stood when the partner signed. A signed report is shown from this, never redrafted. */
+  signedReport?: { title: string; addressee: string; sections: { heading: string; paragraphs: string[] }[] };
   /** A material misstatement the auditor found in the other information. Blank when there is nothing to report. */
   otherInformation?: string;
 }

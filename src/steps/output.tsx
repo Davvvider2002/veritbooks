@@ -495,8 +495,21 @@ export function StatementsStep(ctx: Ctx) {
   );
 }
 
+/** The report as the software would word it now, from the partner's settings. */
+function draftFor(ctx: Ctx, settings: ReportSettings) {
+  return draftReport({
+    type: ctx.eng.type,
+    clientName: ctx.client.name,
+    yearEnd: ctx.eng.yearEnd,
+    settings,
+    hasCashFlow: ctx.statements.cashFlow !== null,
+    group: !!ctx.group && ctx.group.members.length > 0,
+    groupCashFlow: !!ctx.group?.cashFlow,
+  });
+}
+
 export function ReportStep(ctx: Ctx) {
-  const { eng, client, ws, statements, locked, reload } = ctx;
+  const { eng, ws, locked, reload } = ctx;
   const [r, setR] = useState<ReportSettings>(eng.report);
   const [saved, setSaved] = useState(false);
   const { busy, error, run } = useAction();
@@ -505,15 +518,8 @@ export function ReportStep(ctx: Ctx) {
     setSaved(false);
     setR({ ...r, ...patch });
   };
-  const draft = draftReport({
-    type: eng.type,
-    clientName: client.name,
-    yearEnd: eng.yearEnd,
-    settings: r,
-    hasCashFlow: statements.cashFlow !== null,
-    group: !!ctx.group && ctx.group.members.length > 0,
-    groupCashFlow: !!ctx.group?.cashFlow,
-  });
+  // A signed report is shown as it was signed. Later changes to the wording in the software do not reach it.
+  const draft = (locked && eng.report.signedReport) || draftFor(ctx, r);
 
   return (
     <div>
@@ -690,7 +696,8 @@ export function ReportStep(ctx: Ctx) {
   );
 }
 
-export function SignOffStep({ eng, ws, client, lines, adjustments, statements, locked, reload, ledgerTest, bankGates, requests, group }: Ctx) {
+export function SignOffStep(ctx: Ctx) {
+  const { eng, ws, client, lines, adjustments, statements, locked, reload, ledgerTest, bankGates, requests, group } = ctx;
   const [confirm, setConfirm] = useState(false);
   const { busy, error, run } = useAction();
   const confirmations = eng.planning.independence ?? {};
@@ -837,6 +844,9 @@ export function SignOffStep({ eng, ws, client, lines, adjustments, statements, l
               disabled={!ready || !confirm || busy}
               onClick={() =>
                 void run(async () => {
+                  // Keep the wording the partner is signing, so the signed report can never be redrafted.
+                  const { signedReport: _old, ...settings } = eng.report;
+                  await repo.updateEngagement(eng.id, { report: { ...settings, signedReport: draftFor(ctx, settings) } });
                   await repo.sign(eng.id);
                   reload();
                 })
