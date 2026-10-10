@@ -38,7 +38,11 @@ export function parseBankStatement(rows: unknown[][]): BankParse {
     if (date < 0 || !((out >= 0 && inn >= 0) || amount >= 0)) continue;
     h = {
       row: r, date, out, in: inn, amount,
-      desc: find(/narration|description|remark|detail|particular|transaction$|reference/),
+      desc: (() => {
+        // Prefer the narration over a reference number column.
+        const d = find(/narration|description|remark|detail|particular|transaction$/);
+        return d >= 0 ? d : find(/reference/);
+      })(),
       balance: find(/balance/),
     };
   }

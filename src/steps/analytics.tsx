@@ -5,6 +5,7 @@ import { balanceAt, parseBankStatement, type BankParse } from '../engine/bank';
 import { shortDate } from '../engine/dates';
 import { FLAG_LABEL, HIGH_RISK_SCORE, parseLedger, type Flag, type Journal, type LedgerParse } from '../engine/ledger';
 import { fmt2, parseAmount } from '../engine/money';
+import { PdfPasswordError } from '../pdf';
 import { ErrorNote, Field, message, useAction } from '../ui';
 import { invalidateAnalytics, type Ctx, type Recon } from '../workspace';
 import { FileCount } from './evidence';
@@ -451,7 +452,10 @@ export function BankStep(ctx: Ctx) {
     const c = l.mapCode ? ITEM.get(l.mapCode)?.code : null;
     return c === 'cash' || c === 'borrowings_c';
   });
-  const [parsed, setParsed] = useState<(BankParse & { file: string }) | null>(null);
+  const [parsed, setParsed] = useState<(BankParse & { file: string; fromPdf: boolean }) | null>(null);
+  const [pdf, setPdf] = useState<{ file: File; wrong: boolean } | null>(null);
+  const [password, setPassword] = useState('');
+  const [opening, setOpening] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
@@ -462,13 +466,32 @@ export function BankStep(ctx: Ctx) {
     setParsed(null);
     setParseError(null);
     if (!file) return;
-    if (/\.pdf$/i.test(file.name)) {
-      return setParseError('PDF statements are not read yet. Ask the bank for the statement in Excel or CSV, or export it from internet banking.');
-    }
+    setPdf(null);
+    setPassword('');
+    if (/\.pdf$/i.test(file.name)) return void openPdf(file);
     try {
-      setParsed({ ...parseBankStatement(await readRows(file)), file: file.name });
+      setParsed({ ...parseBankStatement(await readRows(file)), file: file.name, fromPdf: false });
     } catch (e) {
       setParseError(message(e));
+    }
+  };
+
+  const openPdf = async (file: File, pw?: string) => {
+    setParseError(null);
+    setOpening(true);
+    try {
+      const { pdfStatementRows } = await import('../pdfBrowser');
+      setParsed({ ...parseBankStatement(await pdfStatementRows(file, pw)), file: file.name, fromPdf: true });
+      setPdf(null);
+    } catch (e) {
+      if (e instanceof PdfPasswordError) {
+        setPdf({ file, wrong: e.wrong });
+      } else {
+        setPdf(null);
+        setParseError(message(e));
+      }
+    } finally {
+      setOpening(false);
     }
   };
 
@@ -523,14 +546,32 @@ export function BankStep(ctx: Ctx) {
               </select>
             </Field>
             <label className="field">
-              <span>Statement file (CSV or Excel)</span>
+              <span>Statement file (PDF, Excel or CSV)</span>
               <input type="file" accept=".csv,.xlsx,.pdf" onChange={(e) => void onFile(e.target.files?.[0])} style={{ padding: '6px 0' }} />
             </label>
           </div>
           <p className="small muted" style={{ margin: 0 }}>
-            Needs a header row with a date and Debit and Credit columns, or one signed Amount column. A Balance column lets the running balance be checked. Running the statement into January shows which outstanding items cleared. Try the{' '}
-            <a href="/samples/bank-statement-2025.csv" download>sample statement</a>.
+            Needs a line of column headings with a date and Debit and Credit, or one signed Amount column. A Balance column lets the running balance be checked. Running the statement into January shows which outstanding items cleared. A PDF must be the bank’s electronic statement, not a scan, and is read in your browser without being uploaded. Try the sample statement as{' '}
+            <a href="/samples/bank-statement-2025.pdf" download>PDF</a> or <a href="/samples/bank-statement-2025.csv" download>CSV</a>.
           </p>
+          {opening && <div className="banner info">Reading the PDF…</div>}
+          {pdf && (
+            <form
+              className="row"
+              style={{ alignItems: 'flex-end' }}
+              onSubmit={(e) => {
+                e.preventDefault();
+                void openPdf(pdf.file, password);
+              }}
+            >
+              <div style={{ flex: '0 1 280px' }}>
+                <Field label="Statement password" hint={pdf.wrong ? 'That password did not open the statement.' : 'This statement is password protected. The password is used in your browser only and is not saved.'}>
+                  <input type="password" autoComplete="off" value={password} onChange={(e) => setPassword(e.target.value)} />
+                </Field>
+              </div>
+              <button disabled={opening || !password}>Open statement</button>
+            </form>
+          )}
           <ErrorNote error={parseError ?? error} />
           {parsed && (
             <div className="stack">
@@ -544,6 +585,16 @@ export function BankStep(ctx: Ctx) {
                     ? 'The running balance is unbroken.'
                     : ''}
               </div>
+              {parsed.fromPdf &&
+                (parsed.breaks === 0 && closing !== null ? (
+                  <div className="banner info">
+                    Read from a PDF. Every row’s balance follows from the row before, which confirms the amounts were read correctly.
+                  </div>
+                ) : (
+                  <div className="banner warn">
+                    Read from a PDF, and the amounts could not be fully confirmed against the running balance. Agree the totals and the closing balance to the statement before relying on this import, or ask the bank for Excel or CSV.
+                  </div>
+                ))}
               {parsed.warnings.map((w) => (
                 <div key={w} className="banner warn">{w}</div>
               ))}

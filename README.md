@@ -12,7 +12,8 @@ npm run dev
 
 With no Supabase keys set, the app runs in demo mode and keeps data in the browser.
 Sample trial balances, a general ledger and a bank statement are in `public/samples`.
-`node scripts/make-samples.mjs` regenerates the ledger and the statement.
+`node scripts/make-samples.mjs` regenerates the ledger and the statement, and
+`python3 scripts/make-sample-pdf.py` redraws the statement as a PDF (needs reportlab).
 
 ## Connect Supabase
 

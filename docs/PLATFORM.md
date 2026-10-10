@@ -1,6 +1,6 @@
 # VeritBooks: platform definition
 
-Version 0.4, 10 October 2026.
+Version 0.5, 10 October 2026.
 
 ## What it is
 
@@ -59,7 +59,8 @@ Both features apply to audit engagements. They need `supabase/migrations/0002_le
 | Completeness | The ledger's movement on every account is agreed to the trial balance. Income and expense accounts are agreed to the balance, balance sheet accounts to the movement from the prior year. A ledger that does not agree is reported as a possibly incomplete journal population. |
 | Journal testing | Every journal is tested, not a sample. Indicators: does not balance, posted on a weekend, last five days of the year, dated outside the year, round amount (N1 million and up, in whole N100,000s), at or above performance materiality, no description, adjustment wording, revenue credited with no cash or receivable debit, duplicate of another journal, rarely used account (two postings or fewer), account not in the trial balance. |
 | High-risk journals | A journal with three or more indicators must be opened, tested and concluded on (no exception, or exception) with the work recorded. Any other journal can be selected and concluded on. |
-| Bank statement import | CSV or Excel, with a date and Debit and Credit (or Withdrawal and Deposit) columns, or one signed Amount column. One statement per bank account, linked to a cash account in the trial balance. |
+| Bank statement import | PDF, Excel or CSV, with a date and Debit and Credit (or Withdrawal and Deposit) columns, or one signed Amount column. One statement per bank account, linked to a cash account in the trial balance. |
+| PDF statements | The bank's electronic PDF is read in the browser and never uploaded. The table is rebuilt from the position of the text under one line of column headings, so no bank-specific template is needed. Wrapped narrations are rejoined. Password-protected statements prompt for the password. The running balance check then confirms every amount was read correctly. Scanned statements are refused. |
 | Statement integrity | The running balance is recomputed row by row. A break is reported as possible missing pages or an altered statement. |
 | Reconciliation | Statement lines are matched one to one to ledger postings on the cash account, on exact amount, from 3 days before to 10 days after the ledger date. The result is a reconciliation at the year end: lodgements not yet credited, payments not yet presented, statement items not in the ledger, and any unexplained difference. Where the statement runs past the year end, outstanding items show the date they cleared. |
 | Unbooked items | Audit journals posted to the cash account are set against statement items the client had not booked. |
@@ -76,7 +77,7 @@ These need `supabase/migrations/0003_team_and_evidence.sql`.
 | Evidence files | Any file up to 25 MB, attached to the engagement and linked to a work programme step, a high-risk journal, a bank account, an adjusting journal, or the file in general. Counts show beside the item each file supports. |
 | Evidence security | Files sit in a private storage bucket, readable only by members of the engagement's firm. Once the engagement is signed, files cannot be added or removed. Every upload and removal is in the audit trail. |
 
-Not yet built from phase 2: PDF bank statements, links from individual figures to a page of a source document, accounting system connections.
+Not yet built from phase 2: links from individual figures to a page of a source document, accounting system connections.
 
 ## Rules the software enforces
 
@@ -107,6 +108,7 @@ The work programmes, accounting policy wording and report wording are starter co
 - Team: invitations are not emailed. Managers and staff have the same data rights; only the partner role is distinct.
 - Sign-off gates: partner role, FRC numbers, a footing and fully mapped trial balance and balanced journals are enforced in the database. Materiality, programme completion, opinion selection, journal conclusions and bank reconciliation are enforced in the application only.
 - Journal testing uses fixed rules. The thresholds are not yet configurable per firm, and Nigerian public holidays are not flagged.
+- PDF statements: the reader was built and tested on a statement drawn to resemble a Nigerian bank e-statement, and on a second synthetic layout, not on real statements from each bank. Column headings split over two lines, and statements with no balance column, are the likeliest to need work. Scans are not read.
 - Bank matching is on exact amount only. One ledger posting covering several bank lines, or the reverse, is left unmatched for the auditor.
 - Trial balance import is not a single database transaction.
 - Evidence files are not scanned for viruses and are not previewed in the app.
@@ -115,7 +117,7 @@ The work programmes, accounting policy wording and report wording are starter co
 
 | Phase | Scope |
 | --- | --- |
-| 2, remaining | PDF bank statements. Links from figures to source pages. Accounting system connections. |
+| 2, remaining | Links from figures to source pages. Accounting system connections. |
 | 3 | Full IFRS template. Industry packs. Consolidations. Client request portal. Firm-level quality management. |
 | 4 | AI assistance for risk suggestions, disclosure review and expense testing, inside the file and under partner review. |
 
