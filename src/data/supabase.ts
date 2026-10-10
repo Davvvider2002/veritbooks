@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { GlEntry } from '../engine/ledger';
 import type { Adjustment, Nature, TbLine } from '../engine/types';
-import { LockedError, type BankAccount, type Client, type Engagement, type Member, type Repo, type StoredBankLine } from './repo';
+import { LockedError, type BankAccount, type Client, type Engagement, type Evidence, type Invite, type Member, type Repo, type StoredBankLine } from './repo';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const toEngagement = (r: any): Engagement => ({
@@ -132,14 +132,52 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       if (!data?.length) throw new Error('Only a partner can change firm details.');
     },
     async updateMyProfile(patch) {
+      const { error } = await db.rpc('update_my_profile', { p_full_name: patch.fullName, p_frc_number: patch.frcNumber });
+      if (!error) return;
+      // Before the team update is applied to the database, only partners can change their details.
       const { data: s } = await db.auth.getSession();
-      const { data, error } = await db
+      const direct = await db
         .from('firm_members')
         .update({ full_name: patch.fullName, frc_number: patch.frcNumber })
         .eq('user_id', s.session!.user.id)
         .select('user_id');
+      fail(direct.error);
+      if (!direct.data?.length) throw new Error('Your details could not be saved. The database needs the team update.');
+    },
+
+    async listInvites() {
+      const { data, error } = await db.from('firm_invites').select('*').order('created_at');
       fail(error);
-      if (!data?.length) throw new Error('Only a partner can change member details.');
+      return (data ?? []).map((r): Invite => ({ id: r.id, email: r.email, role: r.role, accepted: !!r.accepted_at }));
+    },
+    async createInvite(email, role) {
+      const { error } = await db.from('firm_invites').insert({ firm_id: await firmId(), email: email.trim().toLowerCase(), role });
+      if (error && /duplicate key/i.test(error.message)) throw new Error('This email has already been invited.');
+      if (error && /row-level security/i.test(error.message)) throw new Error('Only a partner can invite.');
+      fail(error);
+    },
+    async deleteInvite(id) {
+      const { error } = await db.from('firm_invites').delete().eq('id', id);
+      fail(error);
+    },
+    async setMemberRole(userId, role) {
+      const { data, error } = await db.from('firm_members').update({ role }).eq('user_id', userId).select('user_id');
+      fail(error);
+      if (!data?.length) throw new Error('Only a partner can change roles.');
+    },
+    async removeMember(userId) {
+      const { data, error } = await db.from('firm_members').delete().eq('user_id', userId).select('user_id');
+      fail(error);
+      if (!data?.length) throw new Error('Only a partner can remove a member.');
+    },
+    async myInvites() {
+      const { data, error } = await db.rpc('my_invites');
+      fail(error);
+      return ((data as any[]) ?? []).map((r) => ({ id: r.id, firmName: r.firm_name, role: r.role }));
+    },
+    async acceptInvite(id, fullName, frcNumber) {
+      const { error } = await db.rpc('accept_invite', { p_invite: id, p_full_name: fullName, p_frc_number: frcNumber });
+      fail(error);
     },
 
     async listClients() {
@@ -358,6 +396,57 @@ export function createSupabaseRepo(url: string, key: string): Repo {
     async deleteBankAccount(accountId) {
       const { error } = await db.from('bank_accounts').delete().eq('id', accountId);
       fail(error);
+    },
+
+    async listEvidence(id) {
+      const { data, error } = await db.from('evidence').select('*').eq('engagement_id', id).order('created_at');
+      fail(error);
+      return (data ?? []).map(
+        (r): Evidence => ({
+          id: r.id,
+          path: r.path,
+          fileName: r.file_name,
+          size: Number(r.size_bytes),
+          refType: r.ref_type,
+          refId: r.ref_id,
+          note: r.note,
+          uploadedByName: r.uploaded_by_name,
+          createdAt: r.created_at,
+        }),
+      );
+    },
+    async addEvidence(id, file, meta) {
+      const ext = /\.([a-z0-9]{1,8})$/i.exec(file.name)?.[1]?.toLowerCase();
+      const path = `${await firmId()}/${id}/${crypto.randomUUID()}${ext ? '.' + ext : ''}`;
+      const up = await db.storage.from('evidence').upload(path, file, { contentType: file.type || 'application/octet-stream' });
+      fail(up.error);
+      const { error } = await db.from('evidence').insert({
+        engagement_id: id,
+        path,
+        file_name: file.name,
+        size_bytes: file.size,
+        mime: file.type,
+        ref_type: meta.refType,
+        ref_id: meta.refId,
+        note: meta.note,
+        uploaded_by_name: meta.uploadedByName,
+      });
+      if (error) {
+        // Do not leave a stored file that the engagement does not list.
+        await db.storage.from('evidence').remove([path]);
+        fail(error);
+      }
+    },
+    async deleteEvidence(e) {
+      const { error } = await db.from('evidence').delete().eq('id', e.id);
+      fail(error);
+      const rm = await db.storage.from('evidence').remove([e.path]);
+      fail(rm.error);
+    },
+    async evidenceUrl(e) {
+      const { data, error } = await db.storage.from('evidence').createSignedUrl(e.path, 120, { download: e.fileName });
+      fail(error);
+      return data!.signedUrl;
     },
 
     async sign(id) {

@@ -6,6 +6,7 @@ import { fmt, fmt2, parseAmount } from '../engine/money';
 import type { JournalLine, Planning } from '../engine/types';
 import { ErrorNote, Field, useAction } from '../ui';
 import type { Ctx } from '../workspace';
+import { FileCount } from './evidence';
 
 export function PlanningStep({ eng, statements, locked, reload }: Ctx) {
   const [p, setP] = useState<Planning>({
@@ -94,7 +95,7 @@ export function PlanningStep({ eng, statements, locked, reload }: Ctx) {
   );
 }
 
-export function ProgrammeStep({ eng, ws, locked, reload }: Ctx) {
+export function ProgrammeStep({ eng, ws, locked, reload, evidence }: Ctx) {
   const items = PROGRAMMES[eng.type];
   const { error, run } = useAction();
   const [notes, setNotes] = useState<Record<string, string>>(
@@ -146,7 +147,7 @@ export function ProgrammeStep({ eng, ws, locked, reload }: Ctx) {
                     onChange={(e) => void save(i.id, e.target.checked)}
                   />
                   <div>
-                    <label htmlFor={i.id}>{i.text}</label>
+                    <label htmlFor={i.id}>{i.text}</label> <FileCount evidence={evidence} type="programme" id={i.id} />
                     {st?.done && st.by && (
                       <div className="small muted">
                         Done by {st.by}, {new Date(st.at ?? '').toLocaleDateString('en-GB')}

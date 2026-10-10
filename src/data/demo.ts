@@ -5,6 +5,8 @@ import {
   type BankAccount,
   type Client,
   type Engagement,
+  type Evidence,
+  type Invite,
   type Firm,
   type LogEntry,
   type Member,
@@ -32,6 +34,8 @@ interface Store {
   ledger: Record<string, GlEntry[]>;
   bankAccounts: Record<string, BankAccount[]>;
   bankLines: Record<string, StoredBankLine[]>;
+  invites: (Invite & { firmId: string })[];
+  evidence: Record<string, Evidence[]>;
 }
 
 const KEY = 'veritbooks.demo.v1';
@@ -49,6 +53,8 @@ const empty = (): Store => ({
   ledger: {},
   bankAccounts: {},
   bankLines: {},
+  invites: [],
+  evidence: {},
 });
 
 let memory: Store | null = null;
@@ -73,6 +79,9 @@ const uid = () =>
   typeof crypto !== 'undefined' && crypto.randomUUID
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+// File contents are held in memory for this visit only. Demo mode does not keep them.
+const blobs = new Map<string, string>();
 
 export function createDemoRepo(): Repo {
   const listeners = new Set<() => void>();
@@ -168,8 +177,57 @@ export function createDemoRepo(): Repo {
     },
     async updateMyProfile(patch) {
       const m = s.firms[firmId()].members.find((x) => x.userId === me().id)!;
-      if (m.role !== 'partner') throw new Error('Only a partner can change member details.');
       Object.assign(m, patch);
+      save();
+    },
+
+    async listInvites() {
+      return s.invites.filter((i) => i.firmId === firmId()).map(({ firmId: _f, ...i }) => i);
+    },
+    async createInvite(email, role) {
+      const f = s.firms[firmId()];
+      if (f.members.find((m) => m.userId === me().id)?.role !== 'partner') throw new Error('Only a partner can invite.');
+      const e = email.trim().toLowerCase();
+      if (s.invites.some((i) => i.firmId === firmId() && i.email === e)) throw new Error('This email has already been invited.');
+      s.invites.push({ id: uid(), firmId: firmId(), email: e, role, accepted: false });
+      save();
+    },
+    async deleteInvite(id) {
+      s.invites = s.invites.filter((i) => !(i.id === id && i.firmId === firmId()));
+      save();
+    },
+    async setMemberRole(userId, role) {
+      const f = s.firms[firmId()];
+      if (f.members.find((m) => m.userId === me().id)?.role !== 'partner') throw new Error('Only a partner can change roles.');
+      const m = f.members.find((x) => x.userId === userId)!;
+      if (m.role === 'partner' && role !== 'partner' && f.members.filter((x) => x.role === 'partner').length === 1)
+        throw new Error('A firm must keep at least one partner.');
+      m.role = role;
+      save();
+    },
+    async removeMember(userId) {
+      const f = s.firms[firmId()];
+      if (f.members.find((m) => m.userId === me().id)?.role !== 'partner') throw new Error('Only a partner can remove a member.');
+      const m = f.members.find((x) => x.userId === userId)!;
+      if (m.role === 'partner' && f.members.filter((x) => x.role === 'partner').length === 1)
+        throw new Error('A firm must keep at least one partner.');
+      f.members = f.members.filter((x) => x.userId !== userId);
+      delete s.memberOf[userId];
+      save();
+    },
+    async myInvites() {
+      if (!s.user) return [];
+      return s.invites
+        .filter((i) => !i.accepted && i.email === s.user!.email)
+        .map((i) => ({ id: i.id, firmName: s.firms[i.firmId]?.firm.name ?? '', role: i.role }));
+    },
+    async acceptInvite(id, fullName, frcNumber) {
+      const i = s.invites.find((x) => x.id === id && !x.accepted && x.email === me().email);
+      if (!i) throw new Error('This invitation is not available.');
+      if (s.memberOf[me().id]) throw new Error('You already belong to a firm.');
+      s.firms[i.firmId].members.push({ userId: me().id, role: i.role, fullName: fullName.trim(), frcNumber: frcNumber.trim() });
+      s.memberOf[me().id] = i.firmId;
+      i.accepted = true;
       save();
     },
 
@@ -308,6 +366,46 @@ export function createDemoRepo(): Repo {
         save();
         return;
       }
+    },
+
+    async listEvidence(id) {
+      eng(id);
+      return (s.evidence[id] ?? []).map((e) => ({ ...e }));
+    },
+    async addEvidence(id, file, meta) {
+      open(id);
+      const path = `${firmId()}/${id}/${uid()}`;
+      blobs.set(path, URL.createObjectURL(file));
+      (s.evidence[id] ??= []).push({
+        id: uid(),
+        path,
+        fileName: file.name,
+        size: file.size,
+        refType: meta.refType,
+        refId: meta.refId,
+        note: meta.note,
+        uploadedByName: meta.uploadedByName,
+        createdAt: new Date().toISOString(),
+      });
+      log(id, 'evidence', 'insert', { file: file.name, ref_type: meta.refType, ref_id: meta.refId });
+      save();
+    },
+    async deleteEvidence(e) {
+      for (const [engId, list] of Object.entries(s.evidence)) {
+        const i = list.findIndex((x) => x.id === e.id);
+        if (i < 0) continue;
+        open(engId);
+        list.splice(i, 1);
+        blobs.delete(e.path);
+        log(engId, 'evidence', 'delete', { file: e.fileName });
+        save();
+        return;
+      }
+    },
+    async evidenceUrl(e) {
+      const url = blobs.get(e.path);
+      if (!url) throw new Error('Demo mode keeps file contents only until the page is reloaded. Upload the file again.');
+      return url;
     },
 
     async sign(id) {

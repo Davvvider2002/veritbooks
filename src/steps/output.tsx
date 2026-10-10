@@ -404,6 +404,7 @@ const TABLE_LABEL: Record<string, string> = {
   gl_entries: 'General ledger',
   bank_accounts: 'Bank statement',
   bank_lines: 'Bank transactions',
+  evidence: 'Evidence file',
 };
 
 export function TrailStep({ eng, ws }: Ctx) {

@@ -3,7 +3,8 @@ import { reconcile, type Reconciliation } from './engine/bank';
 import { computeMateriality, type BankGate } from './engine/checks';
 import { testLedger, type GlEntry, type LedgerTest } from './engine/ledger';
 import { adjustedBalances } from './engine/statements';
-import type { BankAccount, StoredBankLine } from './data/repo';
+import type { BankAccount, Evidence, StoredBankLine } from './data/repo';
+import { EvidenceStep } from './steps/evidence';
 import { BankStep, LedgerStep } from './steps/analytics';
 import { Link, useParams } from 'react-router-dom';
 import { PROGRAMMES } from './content/programmes';
@@ -35,6 +36,9 @@ export interface Ctx {
   bankAccounts: BankAccount[];
   recons: Recon[];
   bankGates: BankGate[];
+  /** False when the database has not had the evidence migration applied. */
+  evidenceReady: boolean;
+  evidence: Evidence[];
 }
 
 export interface Recon {
@@ -82,6 +86,7 @@ const STEPS = [
   { slug: 'ledger', label: 'Journal testing', el: LedgerStep },
   { slug: 'bank', label: 'Bank', el: BankStep },
   { slug: 'journals', label: 'Journals', el: JournalsStep },
+  { slug: 'evidence', label: 'Evidence', el: EvidenceStep },
   { slug: 'statements', label: 'Financial statements', el: StatementsStep },
   { slug: 'report', label: 'Report', el: ReportStep },
   { slug: 'sign-off', label: 'Sign-off', el: SignOffStep },
@@ -93,13 +98,14 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
   const { data, error, reload } = useLoad(async () => {
     const eng = await repo.getEngagement(id);
     if (!eng) return null;
-    const [clients, lines, adjustments, heavy] = await Promise.all([
+    const [clients, lines, adjustments, heavy, evidence] = await Promise.all([
       repo.listClients(),
       repo.listLines(id),
       repo.listAdjustments(id),
       loadHeavy(id),
+      repo.listEvidence(id).catch(() => null),
     ]);
-    return { eng, client: clients.find((c) => c.id === eng.clientId) ?? null, lines, adjustments, heavy };
+    return { eng, client: clients.find((c) => c.id === eng.clientId) ?? null, lines, adjustments, heavy, evidence };
   }, [id]);
 
   const statements = useMemo(
@@ -178,6 +184,8 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
     bankAccounts: data.heavy.bankAccounts,
     recons: analytics.recons,
     bankGates: analytics.bankGates,
+    evidenceReady: data.evidence !== null,
+    evidence: data.evidence ?? [],
   };
   const tb = validateTrialBalance(data.lines);
   const programmeDone = PROGRAMMES[data.eng.type].filter((i) => data.eng.programme[i.id]?.done).length;
@@ -201,6 +209,7 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
           <span className="tag">
             Programme {programmeDone}/{PROGRAMMES[data.eng.type].length}
           </span>
+          {ctx.evidence.length > 0 && <span className="tag">{ctx.evidence.length} evidence file{ctx.evidence.length === 1 ? '' : 's'}</span>}
           {ctx.locked ? <span className="tag ok">Signed and locked</span> : <span className="tag">In progress</span>}
         </div>
       </div>

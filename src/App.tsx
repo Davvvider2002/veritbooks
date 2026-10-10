@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, Navigate, Route, Routes } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { repo } from './data';
 import type { User, Workspace } from './data/repo';
 import { AuthPage, Dashboard, FirmSettings, FirmSetup } from './pages';
@@ -15,6 +15,7 @@ type Session =
 
 export function App() {
   const [session, setSession] = useState<Session>({ state: 'loading' });
+  const nav = useNavigate();
 
   const refresh = async () => {
     try {
@@ -55,7 +56,15 @@ export function App() {
           </>
         )}
         {(session.state === 'ready' || session.state === 'no-firm') && (
-          <button onClick={() => void repo.signOut()}>Sign out</button>
+          <button
+            onClick={() => {
+              // The next person to sign in on this browser starts from the home page.
+              nav('/');
+              void repo.signOut();
+            }}
+          >
+            Sign out
+          </button>
         )}
       </header>
 

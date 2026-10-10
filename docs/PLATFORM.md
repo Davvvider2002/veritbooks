@@ -1,6 +1,6 @@
 # VeritBooks: platform definition
 
-Version 0.2, 10 October 2026.
+Version 0.3, 10 October 2026.
 
 ## What it is
 
@@ -18,7 +18,7 @@ VeritBooks does not issue an audit opinion. The opinion is the engagement partne
 | Manager | Prepare and review. Same data rights as staff in this version. |
 | Staff | Create clients and engagements, import, map, plan, complete programme steps, post journals. |
 
-One user belongs to one firm. A firm sees only its own data.
+One user belongs to one firm. A firm sees only its own data. Partners invite colleagues and set their roles.
 
 ## Scope of phase 1 (built)
 
@@ -53,7 +53,18 @@ Both features apply to audit engagements. They need `supabase/migrations/0002_le
 | Unbooked items | Audit journals posted to the cash account are set against statement items the client had not booked. |
 | Sign-off gates | Blocking: every high-risk journal concluded, and every bank account either reconciled or carrying a written conclusion. Advisory: ledger agrees to the trial balance, journals concluded as exceptions, breaks in a running balance, no ledger or no statement imported. |
 
-Not yet built from phase 2: PDF bank statements, evidence upload with links from figures to source pages, accounting system connections, team invitations.
+### Team and evidence
+
+These need `supabase/migrations/0003_team_and_evidence.sql`.
+
+| Area | Behaviour |
+| --- | --- |
+| Invitations | A partner invites a colleague by email and role. No email is sent. The colleague creates an account with that address, confirms it, and is offered a place in the firm. An unconfirmed address cannot claim an invitation. |
+| Team management | Partners change roles and remove members. A firm always keeps at least one partner. Every member can keep their own name and FRC number up to date. |
+| Evidence files | Any file up to 25 MB, attached to the engagement and linked to a work programme step, a high-risk journal, a bank account, an adjusting journal, or the file in general. Counts show beside the item each file supports. |
+| Evidence security | Files sit in a private storage bucket, readable only by members of the engagement's firm. Once the engagement is signed, files cannot be added or removed. Every upload and removal is in the audit trail. |
+
+Not yet built from phase 2: PDF bank statements, links from individual figures to a page of a source document, accounting system connections.
 
 ## Rules the software enforces
 
@@ -81,18 +92,18 @@ The work programmes, accounting policy wording and report wording are starter co
 
 - Disclosures not produced: property, plant and equipment movement schedule, tax reconciliation, related party and directors' disclosures, comparatives for the statement of changes in equity, years three to five of the financial summary.
 - Cash flow: purchases and disposals of assets are shown net, and interest and tax paid are derived from balance movements.
-- Team: no invitations yet. A firm has the partner who created it.
+- Team: invitations are not emailed. Managers and staff have the same data rights; only the partner role is distinct.
 - Sign-off gates: partner role, FRC numbers, a footing and fully mapped trial balance and balanced journals are enforced in the database. Materiality, programme completion, opinion selection, journal conclusions and bank reconciliation are enforced in the application only.
 - Journal testing uses fixed rules. The thresholds are not yet configurable per firm, and Nigerian public holidays are not flagged.
 - Bank matching is on exact amount only. One ledger posting covering several bank lines, or the reverse, is left unmatched for the auditor.
 - Trial balance import is not a single database transaction.
-- No working paper file uploads.
+- Evidence files are not scanned for viruses and are not previewed in the app.
 
 ## Roadmap
 
 | Phase | Scope |
 | --- | --- |
-| 2, remaining | PDF bank statements. Evidence upload with links from figures to source pages. Accounting system connections. Team invitations. |
+| 2, remaining | PDF bank statements. Links from figures to source pages. Accounting system connections. |
 | 3 | Full IFRS template. Industry packs. Consolidations. Client request portal. Firm-level quality management. |
 | 4 | AI assistance for risk suggestions, disclosure review and expense testing, inside the file and under partner review. |
 
@@ -119,4 +130,6 @@ The work programmes, accounting policy wording and report wording are starter co
 | `gl_entries` | The client's general ledger: journal number, date, account, description, amount, posted by. |
 | `bank_accounts` | One row per statement: name, ledger account, opening and year-end balance, balance breaks. |
 | `bank_lines` | Statement transactions: date, narration, amount, running balance. |
+| `firm_invites` | Email, role, and whether the invitation was accepted. |
+| `evidence` | One row per attached file: name, size, what it supports, who added it. The file is in the `evidence` storage bucket. |
 | `audit_log` | Who changed what, and when. |

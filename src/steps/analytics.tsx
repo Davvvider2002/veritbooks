@@ -7,6 +7,7 @@ import { FLAG_LABEL, HIGH_RISK_SCORE, parseLedger, type Flag, type Journal, type
 import { fmt2, parseAmount } from '../engine/money';
 import { ErrorNote, Field, message, useAction } from '../ui';
 import { invalidateAnalytics, type Ctx, type Recon } from '../workspace';
+import { FileCount } from './evidence';
 import { readRows } from './input';
 
 function NotReady() {
@@ -45,6 +46,7 @@ function JournalCard({ ctx, j, defaultOpen }: { ctx: Ctx; j: Journal; defaultOpe
         <span style={{ minWidth: 92 }}>{shortDate(j.date)}</span>
         <span style={{ flex: 1, textAlign: 'left' }}>{j.description || <em className="muted">No description</em>}</span>
         <span className="num">{fmt2(j.value)}</span>
+        <FileCount evidence={ctx.evidence} type="journal" id={j.entryNo} />
         {done ? (
           <span className={`tag ${done.status === 'clear' ? 'ok' : 'bad'}`}>{done.status === 'clear' ? 'No exception' : 'Exception'}</span>
         ) : j.score >= HIGH_RISK_SCORE ? (
@@ -300,6 +302,7 @@ function ReconCard({ ctx, r }: { ctx: Ctx; r: Recon }) {
           </div>
         </div>
         <div className="row">
+          <FileCount evidence={ctx.evidence} type="bank" id={r.account.id} />
           {x && <span className={`tag ${clean ? 'ok' : 'warn'}`}>{clean ? 'Reconciled' : 'Needs attention'}</span>}
           {!locked && (
             <button

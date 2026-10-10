@@ -92,6 +92,36 @@ export interface BankAccount {
 
 export type StoredBankLine = BankLine & { accountId: string };
 
+export interface Invite {
+  id: string;
+  email: string;
+  role: Role;
+  accepted: boolean;
+}
+
+/** An invitation waiting for the signed-in user. */
+export interface PendingInvite {
+  id: string;
+  firmName: string;
+  role: Role;
+}
+
+export type EvidenceRef = 'general' | 'programme' | 'journal' | 'bank' | 'adjustment';
+
+export interface Evidence {
+  id: string;
+  path: string;
+  fileName: string;
+  size: number;
+  refType: EvidenceRef;
+  refId: string;
+  note: string;
+  uploadedByName: string;
+  createdAt: string;
+}
+
+export const MAX_EVIDENCE_BYTES = 25 * 1024 * 1024;
+
 export type ImportLine = Pick<TbLine, 'code' | 'name' | 'balance' | 'prior' | 'mapCode' | 'nature'>;
 
 /**
@@ -111,6 +141,15 @@ export interface Repo {
   createFirm(f: NewFirm): Promise<void>;
   updateFirm(patch: Pick<Firm, 'name' | 'frcNumber' | 'address'>): Promise<void>;
   updateMyProfile(patch: Pick<Member, 'fullName' | 'frcNumber'>): Promise<void>;
+
+  /** Partners only. */
+  listInvites(): Promise<Invite[]>;
+  createInvite(email: string, role: Role): Promise<void>;
+  deleteInvite(id: string): Promise<void>;
+  setMemberRole(userId: string, role: Role): Promise<void>;
+  removeMember(userId: string): Promise<void>;
+  myInvites(): Promise<PendingInvite[]>;
+  acceptInvite(id: string, fullName: string, frcNumber: string): Promise<void>;
 
   listClients(): Promise<Client[]>;
   createClient(c: Omit<Client, 'id'>): Promise<Client>;
@@ -137,6 +176,12 @@ export interface Repo {
   listBankLines(engagementId: string): Promise<StoredBankLine[]>;
   addBankStatement(engagementId: string, account: Omit<BankAccount, 'id'>, lines: BankLine[]): Promise<void>;
   deleteBankAccount(id: string): Promise<void>;
+
+  listEvidence(engagementId: string): Promise<Evidence[]>;
+  addEvidence(engagementId: string, file: File, meta: { refType: EvidenceRef; refId: string; note: string; uploadedByName: string }): Promise<void>;
+  deleteEvidence(e: Evidence): Promise<void>;
+  /** A short-lived link to open the file. */
+  evidenceUrl(e: Evidence): Promise<string>;
 
   sign(engagementId: string): Promise<void>;
   listLog(engagementId: string): Promise<LogEntry[]>;

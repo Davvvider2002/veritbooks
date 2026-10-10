@@ -7,7 +7,14 @@ const db = new PGlite();
 await db.exec(`
   create role anon nologin; create role authenticated nologin;
   create schema auth;
-  create table auth.users (id uuid primary key);
+  create table auth.users (id uuid primary key, email text, email_confirmed_at timestamptz);
+  -- Stand-in for Supabase Storage: enough to run the bucket row and the object policies.
+  create schema storage;
+  create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint);
+  create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text references storage.buckets (id), name text);
+  alter table storage.objects enable row level security;
+  grant usage on schema storage to authenticated, anon;
+  grant select, insert, update, delete on storage.objects to authenticated;
   create function auth.uid() returns uuid language sql stable as
     $$ select nullif(current_setting('request.jwt.sub', true), '')::uuid $$;
   grant usage on schema auth to authenticated, anon;
@@ -15,11 +22,17 @@ await db.exec(`
 `);
 await db.exec(readFileSync('supabase/migrations/0001_init.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0002_ledger_and_bank.sql', 'utf8'));
+await db.exec(readFileSync('supabase/migrations/0003_team_and_evidence.sql', 'utf8'));
 
 const A = '00000000-0000-0000-0000-00000000000a'; // partner, firm 1
 const B = '00000000-0000-0000-0000-00000000000b'; // partner, firm 2
 const C = '00000000-0000-0000-0000-00000000000c'; // staff, firm 1
-await db.exec(`insert into auth.users values ('${A}'), ('${B}'), ('${C}')`);
+const D = '00000000-0000-0000-0000-00000000000d'; // invited manager, firm 1
+const E = '00000000-0000-0000-0000-00000000000e'; // signed up with the invited address but never confirmed it
+const F = '00000000-0000-0000-0000-00000000000f'; // an outsider
+await db.exec(`insert into auth.users (id, email, email_confirmed_at) values
+  ('${A}', 'ada@firm1.ng', now()), ('${B}', 'bola@firm2.ng', now()), ('${C}', 'chidi@firm1.ng', now()),
+  ('${D}', 'Dayo@Firm1.ng', now()), ('${E}', 'emeka@firm1.ng', null), ('${F}', 'femi@else.ng', now())`);
 
 let failed = 0;
 const as = async (uid, sql, params = []) =>
@@ -69,6 +82,43 @@ const [e3] = await as(B, `insert into engagements (firm_id, client_id, type, yea
 await as(B, `insert into tb_lines (engagement_id, code, name, balance, map_code) values ($1,'1','Bank',100,'cash'), ($1,'2','Capital',-100,'share_capital')`, [e3.id]);
 await denied('a partner with no FRC number cannot sign', () => as(B, `select sign_engagement($1)`, [e3.id]), /FRC registration number is missing/);
 
+// Team invitations.
+await denied('staff cannot invite', () => as(C, `insert into firm_invites (firm_id, email, role) values ($1,'x@y.ng','staff')`, [f1.id]), /row-level security/);
+await denied('a partner cannot invite into another firm', () => as(B, `insert into firm_invites (firm_id, email, role) values ($1,'x@y.ng','partner')`, [f1.id]), /row-level security/);
+const [invD] = await as(A, `insert into firm_invites (firm_id, email, role) values ($1,'dayo@firm1.ng','manager') returning *`, [f1.id]);
+const [invE] = await as(A, `insert into firm_invites (firm_id, email, role) values ($1,'emeka@firm1.ng','partner') returning *`, [f1.id]);
+ok('staff cannot see invitations', (await as(C, `select * from firm_invites`)).length === 0);
+ok('the invited person sees their invitation, matched without regard to case', (await as(D, `select * from my_invites()`)).length === 1);
+ok('an outsider sees no invitations', (await as(F, `select * from my_invites()`)).length === 0);
+ok('an unconfirmed email sees no invitations', (await as(E, `select * from my_invites()`)).length === 0);
+await denied('an unconfirmed email cannot accept', () => as(E, `select accept_invite($1,'Emeka','')`, [invE.id]), /Confirm your email/);
+await denied('an outsider cannot accept someone else\'s invitation', () => as(F, `select accept_invite($1,'Femi','')`, [invD.id]), /not available/);
+await denied('an existing member cannot accept an invitation', async () => { await db.exec(`update auth.users set email = 'dayo@firm1.ng' where id = '${C}'`); try { return await as(C, `select accept_invite($1,'Chidi','')`, [invD.id]); } finally { await db.exec(`update auth.users set email = 'chidi@firm1.ng' where id = '${C}'`); } }, /already belong/);
+await as(D, `select accept_invite($1,'Dayo Manager','FRC/P/4')`, [invD.id]);
+ok('accepting joins the firm in the invited role', (await as(D, `select role, full_name from firm_members where user_id = $1`, [D]))[0]?.role === 'manager');
+await denied('an invitation cannot be used twice', () => as(D, `select accept_invite($1,'Dayo','')`, [invD.id]), /not available/);
+ok('the new member can see the firm\'s engagements', (await as(D, `select * from engagements`)).length === 1);
+await as(C, `select update_my_profile('Chidi A. Staff', 'FRC/P/3')`);
+ok('a member can update their own name and FRC number, and nothing else', (await as(A, `select full_name, frc_number, role from firm_members where user_id = $1`, [C]))[0].full_name === 'Chidi A. Staff' && (await as(A, `select role from firm_members where user_id = $1`, [C]))[0].role === 'staff');
+ok('staff cannot remove a member', (await as(C, `delete from firm_members where user_id = $1 returning *`, [D])).length === 0);
+await denied('the last partner cannot be demoted', () => as(A, `update firm_members set role = 'staff' where user_id = $1`, [A]), /at least one partner/);
+await denied('the last partner cannot be removed', () => as(A, `delete from firm_members where user_id = $1`, [A]), /at least one partner/);
+await denied('a membership cannot be moved to another firm', () => as(A, `update firm_members set firm_id = $2 where user_id = $1`, [D, f2.id]), /cannot be moved|row-level/);
+ok('a partner can change a role', (await as(A, `update firm_members set role = 'staff' where user_id = $1 returning *`, [D])).length === 1);
+
+// Evidence files.
+const path = (firm, eng, file = 'a.pdf') => `${firm}/${eng}/${file}`;
+await as(C, `insert into storage.objects (bucket_id, name) values ('evidence', $1)`, [path(f1.id, e1.id)]);
+const [ev] = await as(C, `insert into evidence (engagement_id, path, file_name) values ($1, $2, 'Bank confirmation.pdf') returning *`, [e1.id, path(f1.id, e1.id)]);
+ok('a member can read the firm\'s evidence files', (await as(D, `select * from storage.objects`)).length === 1 && (await as(D, `select * from evidence`)).length === 1);
+ok('another firm cannot read them', (await as(B, `select * from storage.objects`)).length === 0 && (await as(B, `select * from evidence`)).length === 0);
+await denied('another firm cannot upload into this engagement', () => as(B, `insert into storage.objects (bucket_id, name) values ('evidence', $1)`, [path(f1.id, e1.id, 'b.pdf')]), /row-level security/);
+await denied('a file cannot be uploaded under a firm that does not own the engagement', () => as(B, `insert into storage.objects (bucket_id, name) values ('evidence', $1)`, [path(f2.id, e1.id, 'b.pdf')]), /row-level security/);
+await denied('a malformed object name is refused', () => as(C, `insert into storage.objects (bucket_id, name) values ('evidence', 'loose-file.pdf')`), /row-level security/);
+await denied('an evidence row must point inside its own engagement', () => as(C, `insert into evidence (engagement_id, path, file_name) values ($1, $2, 'x')`, [e1.id, path(f2.id, e1.id, 'x.pdf')]), /not stored under this engagement/);
+await denied('another firm cannot register evidence on this engagement', () => as(B, `insert into evidence (engagement_id, path, file_name) values ($1, $2, 'x')`, [e1.id, path(f1.id, e1.id, 'y.pdf')]), /row-level security/);
+ok('another firm cannot delete the file', (await as(B, `delete from storage.objects returning id`)).length === 0);
+
 // Phase 2: general ledger and bank statements.
 await as(C, `insert into gl_entries (engagement_id, entry_no, entry_date, account_code, amount, row_no) values ($1,'JV1','2025-03-01','1400',5000,1), ($1,'JV1','2025-03-01','3000',-5000,2)`, [e1.id]);
 const [ba] = await as(C, `insert into bank_accounts (engagement_id, name, account_code, closing) values ($1,'Main account','1400',5000) returning *`, [e1.id]);
@@ -95,6 +145,11 @@ await denied('locked: ledger cannot be removed', () => as(A, `delete from gl_ent
 await denied('locked: bank statement cannot be removed', () => as(A, `delete from bank_accounts where engagement_id = $1`, [e1.id]), /signed and locked/);
 await denied('locked: bank lines cannot be changed', () => as(A, `update bank_lines set amount = 1 where engagement_id = $1`, [e1.id]), /signed and locked/);
 await denied('locked: testing conclusions cannot be changed', () => as(A, `update engagements set testing = '{}' where id = $1`, [e1.id]), /signed and locked/);
+await denied('locked: evidence cannot be added', () => as(A, `insert into evidence (engagement_id, path, file_name) values ($1, $2, 'late.pdf')`, [e1.id, path(f1.id, e1.id, 'late.pdf')]), /signed and locked/);
+await denied('locked: evidence cannot be removed', () => as(A, `delete from evidence where id = $1`, [ev.id]), /signed and locked/);
+await denied('locked: files cannot be uploaded', () => as(A, `insert into storage.objects (bucket_id, name) values ('evidence', $1)`, [path(f1.id, e1.id, 'late.pdf')]), /row-level security/);
+ok('locked: files cannot be deleted from storage', (await as(A, `delete from storage.objects returning id`)).length === 0);
+ok('locked: files can still be read', (await as(A, `select * from storage.objects`)).length === 1);
 await denied('locked: engagement cannot be deleted', () => as(A, `delete from engagements where id = $1`, [e1.id]), /signed and locked/);
 await denied('locked: cannot be signed twice', () => as(A, `select sign_engagement($1)`, [e1.id]), /signed and locked|already signed/);
 
