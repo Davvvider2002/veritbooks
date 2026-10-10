@@ -124,6 +124,16 @@ No database update is needed. Answers are kept with the engagement's disclosures
 - Sign-off is blocked while any item has no answer.
 - The checklist is starter content, version 0.1. It summarises disclosure areas in plain language. It is not the text of the Standard and is not complete. Section numbers follow the second edition (2015). It needs review against the edition in force, FRC Nigeria rules and CAMA 2020 by a qualified technical author.
 
+### Industry packs
+
+No database update is needed. The choice is kept with the engagement's planning.
+
+- A pack adds to the general content for one kind of business: work programme steps, disclosure checklist items and client requests. It never removes anything. It is chosen on the Work programme step and can be changed at any time without losing answers.
+- First pack: trading and manufacturing. It adds 11 audit steps or 4 review steps on inventories and production, 4 checklist items on inventories, and 6 client requests. A compilation gets no extra steps, because no assurance work is done.
+- Pack steps count towards sign-off like any other step.
+- Pack content is starter material, version 0.1, and needs the same technical review as the rest.
+- Not in a pack yet: sector-specific statement lines and mapping, and sector regulators' reporting rules.
+
 ## Rules the software enforces
 
 1. Numbers are computed, never generated. Every figure in a statement is a sum of mapped account balances. No language model produces or alters a figure.

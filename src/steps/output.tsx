@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { POLICIES } from '../content/notes';
-import { PROGRAMMES } from '../content/programmes';
+import { checklistFor, programmeFor } from '../content/packs';
 import { repo } from '../data';
-import { CHECKLIST } from '../content/checklist';
 import { buildChecklist, checklistOpen } from '../engine/checklist';
 import { canSign, signOffChecks } from '../engine/checks';
 import { directorList, disclosureGaps, financialSummary, ppeSchedule, priorEquity, taxReconciliation, type PpeRow } from '../engine/disclosures';
@@ -644,7 +643,7 @@ export function SignOffStep({ eng, ws, lines, adjustments, statements, locked, r
     adjustments,
     planning: eng.planning,
     programme: eng.programme,
-    programmeItemIds: PROGRAMMES[eng.type].map((i) => i.id),
+    programmeItemIds: programmeFor(eng.type, eng.planning).map((i) => i.id),
     report: eng.report,
     firmFrc: locked ? (eng.firmFrc ?? '') : ws.firm.frcNumber,
     signerRole: locked ? 'partner' : ws.me.role,
@@ -653,7 +652,7 @@ export function SignOffStep({ eng, ws, lines, adjustments, statements, locked, r
     testing: eng.testing,
     bank: bankGates,
     checklistOpen: lines.length
-      ? checklistOpen(buildChecklist(CHECKLIST, { statements, lines, adjustments, disclosures: eng.disclosures, principalActivity: eng.report.principalActivity })).length
+      ? checklistOpen(buildChecklist(checklistFor(eng.planning), { statements, lines, adjustments, disclosures: eng.disclosures, principalActivity: eng.report.principalActivity })).length
       : undefined,
     openRequests: requests.length ? requests.filter((r) => r.status !== 'accepted').length : undefined,
     disclosureGaps: disclosureGaps(eng.disclosures, statements, lines, adjustments, eng.yearEnd),

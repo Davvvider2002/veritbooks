@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { PROGRAMMES } from '../content/programmes';
+import { PACKS, PACK_VERSION, packOf, programmeFor } from '../content/packs';
 import { repo } from '../data';
 import { BENCHMARKS, benchmarkBase, computeMateriality, unadjustedEffect } from '../engine/checks';
 import { fmt, fmt2, parseAmount } from '../engine/money';
@@ -96,7 +96,8 @@ export function PlanningStep({ eng, statements, locked, reload }: Ctx) {
 }
 
 export function ProgrammeStep({ eng, ws, locked, reload, evidence }: Ctx) {
-  const items = PROGRAMMES[eng.type];
+  const items = programmeFor(eng.type, eng.planning);
+  const pack = packOf(eng.planning);
   const { error, run } = useAction();
   const [notes, setNotes] = useState<Record<string, string>>(
     Object.fromEntries(items.map((i) => [i.id, eng.programme[i.id]?.note ?? ''])),
@@ -128,6 +129,39 @@ export function ProgrammeStep({ eng, ws, locked, reload, evidence }: Ctx) {
       </div>
       <div className="banner warn">
         Starter content, version {eng.programmeVersion || 'unversioned'}. These steps show how the programme works. They are not a reviewed methodology and must be replaced by one written against the standards adopted by the FRC of Nigeria before live use.
+      </div>
+      <div className="card stack">
+        <h3>Industry pack</h3>
+        <div className="row" style={{ alignItems: 'flex-end' }}>
+          <label className="field" style={{ width: 300 }}>
+            <span>This client’s business</span>
+            <select
+              disabled={locked}
+              value={pack?.id ?? ''}
+              onChange={(e) =>
+                void run(async () => {
+                  await repo.updateEngagement(eng.id, { planning: { ...eng.planning, industry: e.target.value || undefined } });
+                  reload();
+                })
+              }
+            >
+              <option value="">General: no pack</option>
+              {PACKS.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </label>
+          {pack && (
+            <span className="small muted" style={{ paddingBottom: 8 }}>
+              Adds {pack.programme[eng.type]?.length ?? 0} step(s) here, {pack.checklist.length} disclosure checklist item(s) and {pack.requests.length} client request(s).
+            </span>
+          )}
+        </div>
+        <p className="small muted" style={{ margin: 0 }}>
+          {pack ? `${pack.summary} ` : 'A pack adds steps, disclosure checks and client requests for one kind of business. It never removes any. '}
+          {pack && `Pack content is starter material, version ${PACK_VERSION}, and needs the same review as the rest. `}
+          Changing the pack keeps every answer already recorded.
+        </p>
       </div>
       <ErrorNote error={error} />
       {areas.map((area) => (

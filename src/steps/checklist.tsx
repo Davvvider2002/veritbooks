@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CHECKLIST, CHECKLIST_VERSION } from '../content/checklist';
+import { CHECKLIST_VERSION } from '../content/checklist';
+import { checklistFor, packOf } from '../content/packs';
 import { repo } from '../data';
 import { buildChecklist, type ChecklistResult } from '../engine/checklist';
 import type { ChecklistAnswer } from '../engine/types';
@@ -36,8 +37,8 @@ export function ChecklistStep({ eng, ws, lines, adjustments, statements, locked,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft]);
   const results = useMemo(
-    () => buildChecklist(CHECKLIST, { statements, lines, adjustments, disclosures: { ...eng.disclosures, checklist: answers }, principalActivity: eng.report.principalActivity }),
-    [statements, lines, adjustments, eng.disclosures, eng.report.principalActivity, answers],
+    () => buildChecklist(checklistFor(eng.planning), { statements, lines, adjustments, disclosures: { ...eng.disclosures, checklist: answers }, principalActivity: eng.report.principalActivity }),
+    [statements, lines, adjustments, eng.disclosures, eng.report.principalActivity, eng.planning, answers],
   );
   const count = (s: ChecklistResult['state']) => results.filter((r) => r.state === s).length;
   const dirty = JSON.stringify(Object.entries(answers).map(([k, a]) => [k, a.status, a.note]).sort()) !== JSON.stringify(Object.entries(saved).map(([k, a]) => [k, a.status, a.note]).sort());
@@ -60,7 +61,7 @@ export function ChecklistStep({ eng, ws, lines, adjustments, statements, locked,
       <div>
         <h2>Disclosure checklist</h2>
         <p className="muted" style={{ marginTop: 4 }}>
-          What the financial statements must disclose under the IFRS for SMEs, limited to the lines this company has. Items the file already shows are covered for you. Answer the rest: say where it is disclosed, or why it does not apply. Sign-off waits until every item has an answer.
+          What the financial statements must disclose under the IFRS for SMEs, limited to the lines this company has{packOf(eng.planning) ? `, with the ${packOf(eng.planning)!.name.toLowerCase()} pack added` : ''}. Items the file already shows are covered for you. Answer the rest: say where it is disclosed, or why it does not apply. Sign-off waits until every item has an answer.
         </p>
       </div>
       {!locked && (

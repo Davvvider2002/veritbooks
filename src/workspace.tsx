@@ -10,7 +10,7 @@ import { BankStep, LedgerStep } from './steps/analytics';
 import { DisclosuresStep } from './steps/disclosures';
 import { ChecklistStep } from './steps/checklist';
 import { Link, useParams } from 'react-router-dom';
-import { PROGRAMMES } from './content/programmes';
+import { packOf, programmeFor } from './content/packs';
 import { repo } from './data';
 import type { Client, Engagement, Workspace } from './data/repo';
 import { validateTrialBalance } from './engine/checks';
@@ -209,7 +209,8 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
     requests: data.requests ?? [],
   };
   const tb = validateTrialBalance(data.lines);
-  const programmeDone = PROGRAMMES[data.eng.type].filter((i) => data.eng.programme[i.id]?.done).length;
+  const programme = programmeFor(data.eng.type, data.eng.planning);
+  const programmeDone = programme.filter((i) => data.eng.programme[i.id]?.done).length;
 
   return (
     <div className="page">
@@ -219,7 +220,7 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
             <Link to="/">Engagements</Link> / {TYPE_LABEL[data.eng.type]}
           </div>
           <h1 style={{ marginTop: 4 }}>{data.client.name}</h1>
-          <div className="muted">Year ended {longDate(data.eng.yearEnd)} · IFRS for SMEs</div>
+          <div className="muted">Year ended {longDate(data.eng.yearEnd)} · IFRS for SMEs{packOf(data.eng.planning) ? ` · ${packOf(data.eng.planning)!.name}` : ''}</div>
         </div>
         <div className="row">
           {data.lines.length > 0 && (
@@ -228,7 +229,7 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
             </span>
           )}
           <span className="tag">
-            Programme {programmeDone}/{PROGRAMMES[data.eng.type].length}
+            Programme {programmeDone}/{programme.length}
           </span>
           {ctx.evidence.length > 0 && <span className="tag">{ctx.evidence.length} evidence file{ctx.evidence.length === 1 ? '' : 's'}</span>}
           {ctx.locked ? <span className="tag ok">Signed and locked</span> : <span className="tag">In progress</span>}

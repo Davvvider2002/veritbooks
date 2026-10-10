@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { PROGRAMMES } from '../content/programmes';
+import { programmeFor } from '../content/packs';
 import { repo } from '../data';
 import { MAX_EVIDENCE_BYTES, opensAtPage, type Evidence, type EvidenceRef } from '../data/repo';
 import { ErrorNote, Field, useAction } from '../ui';
@@ -63,7 +63,7 @@ export function EvidenceStep(ctx: Ctx) {
   const [files, setFiles] = useState<File[]>([]);
   const [inputKey, setInputKey] = useState(0);
   const { busy, error, run, setError } = useAction();
-  const programme = PROGRAMMES[eng.type];
+  const programme = programmeFor(eng.type, eng.planning);
 
   const label = (e: Evidence): string => {
     switch (e.refType) {

@@ -34,6 +34,8 @@ export interface Planning {
   performancePercent?: number;
   trivialPercent?: number;
   rationale?: string;
+  /** The industry pack that adds to the general programme, checklist and request list. */
+  industry?: string;
 }
 
 export interface ProgrammeState {

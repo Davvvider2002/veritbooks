@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { STANDARD_REQUESTS } from '../content/requests';
+import { packOf, requestsFor } from '../content/packs';
 import { repo } from '../data';
 import type { ClientRequest, RequestStatus } from '../data/repo';
 import { longDate } from '../engine/report';
@@ -34,7 +34,7 @@ export function RequestsStep({ eng, client, requests, requestsReady, evidence, l
       reload();
     });
   const filesFor = (r: ClientRequest) => evidence.filter((e) => e.refType === 'request' && e.refId === r.id);
-  const missing = STANDARD_REQUESTS.filter((s) => !requests.some((r) => r.title === s.title));
+  const missing = requestsFor(eng.planning).filter((s) => !requests.some((r) => r.title === s.title));
   const count = (s: RequestStatus) => requests.filter((r) => r.status === s).length;
 
   if (!requestsReady)
@@ -108,7 +108,7 @@ export function RequestsStep({ eng, client, requests, requestsReady, evidence, l
             )}
           </div>
           <p className="small muted" style={{ margin: 0 }}>
-            The standard list is a starting point. Remove what does not apply and add what this client needs.
+            The standard list is a starting point{packOf(eng.planning) ? `, and includes the ${packOf(eng.planning)!.name.toLowerCase()} pack` : ''}. Remove what does not apply and add what this client needs.
           </p>
         </div>
       )}
