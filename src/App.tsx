@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { BillingPage, PlanStrip } from './billing';
 import { PortalPage } from './portal';
 import { QualityPage } from './quality';
 import { repo } from './data';
@@ -66,6 +67,9 @@ export function App() {
             <Link to="/quality" className="small">
               Quality
             </Link>
+            <Link to="/billing" className="small">
+              Billing
+            </Link>
             <Link to="/firm" className="small">
               {session.ws.firm.name}
             </Link>
@@ -87,6 +91,7 @@ export function App() {
         )}
       </header>
 
+      {session.state === 'ready' && <PlanStrip billing={session.ws.billing} />}
       {session.state === 'loading' && <div className="page muted">Loading…</div>}
       {session.state === 'error' && (
         <div className="page">
@@ -99,6 +104,7 @@ export function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/quality" element={<QualityPage ws={session.ws} />} />
+          <Route path="/billing" element={<BillingPage ws={session.ws} onChanged={refresh} />} />
           <Route path="/firm" element={<FirmSettings ws={session.ws} onSaved={refresh} />} />
           <Route path="/engagements/:id/:step?" element={<EngagementPage ws={session.ws} />} />
           <Route path="*" element={<Navigate to="/" replace />} />

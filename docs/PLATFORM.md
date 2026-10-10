@@ -1,6 +1,6 @@
 # VeritBooks: platform definition
 
-Version 0.6, 10 October 2026.
+Version 0.7, 10 October 2026.
 
 ## What it is
 
@@ -254,6 +254,22 @@ No database update is needed.
 ### Technical review pack
 
 `docs/REVIEW-PACK.md` holds every programme, checklist item, policy, report variant and method for a qualified technical author to review and sign, section by section. It is generated from the product's own content by `src/content/reviewPack.ts`, and a test fails if the two differ. Regenerate with `UPDATE_PACK=1 npx vitest run src/content/reviewPack.test.ts`.
+
+## Trial, plans and payments
+
+Every new firm starts a 14 day free trial. No card is asked for.
+
+- **In the trial:** every feature, up to 3 engagements and 3 users. A file cannot be signed until the firm is on a paid plan.
+- **When the trial or a paid year ends:** nothing is deleted. Every file can be opened, read and printed. Nothing can be changed until a partner chooses a plan. The database enforces this, not only the screens.
+- **Plans, each for one year:** Solo, 3 users and 15 new engagements, ₦180,000. Practice, 8 users and 50 engagements, ₦480,000. Firm, any number of users and 150 engagements, ₦1,200,000. All plans carry every feature. Limits are on users and on new engagements in the year.
+- **Founding firm offer:** the first 20 firms to pay get 40% off their first year. The prices on the day they join are held for two years. The count is kept by the database, and a place being paid for is reserved for half an hour.
+- **Payment:** in naira through Flutterwave. A partner chooses a plan on the Billing page and is sent to Flutterwave's checkout. VeritBooks never sees card details.
+- **How a plan is activated:** the price is fixed and recorded on the server before the partner leaves. On return, and again when Flutterwave's webhook arrives, the billing function asks Flutterwave directly whether the payment succeeded and checks the amount, currency and reference. Only then is the plan switched on. A payment applied twice changes nothing the second time. Each payment is written to the audit trail.
+- **What a partner cannot do:** change the trial date, the plan or the paid-until date from the browser. Only the payment function can.
+
+Not built yet: pay-per-engagement pricing, pro-rata credit when changing plan mid-year, VAT invoices and receipts by email, and renewal reminders by email.
+
+Setting up: add `FLW_SECRET_KEY` and `FLW_WEBHOOK_HASH` as secrets of the `billing` Edge Function in Supabase. In Flutterwave, set the webhook URL to `https://bdlelkdqlhuhyswofjni.supabase.co/functions/v1/billing` with the same secret hash.
 
 ## Rules the software enforces
 

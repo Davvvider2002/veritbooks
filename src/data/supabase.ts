@@ -86,6 +86,16 @@ export function createSupabaseRepo(url: string, key: string): Repo {
     return data as { result: any; model: string };
   };
 
+  /** Calls the billing function, which holds the payment provider's secret key. */
+  const billing = async (body: Record<string, unknown>) => {
+    const { data, error } = await db.functions.invoke('billing', { body });
+    if (error) {
+      const reply = await (error as { context?: Response }).context?.json?.().catch(() => null);
+      throw new Error(reply?.error ?? 'Payments could not be reached. Check that the billing function is deployed.');
+    }
+    return data as Record<string, unknown>;
+  };
+
   const firmId = async () => {
     const { data, error } = await db.from('firm_members').select('firm_id').limit(1).maybeSingle();
     fail(error);
@@ -133,7 +143,26 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       if (!mine) return null;
       const { data: firm, error: e2 } = await db.from('firms').select('*').eq('id', mine.firm_id).single();
       fail(e2);
+      const { data: b, error: e3 } = await db.rpc('billing_overview');
+      if (e3 && /billing_overview/.test(e3.message)) throw new Error('Plans and payments need a database update. Run supabase/migrations/0009_billing.sql in the Supabase SQL editor.');
+      fail(e3);
       return {
+        billing: {
+          state: b.state,
+          plan: b.plan,
+          planName: b.plan_name,
+          trialEndsAt: b.trial_ends_at,
+          paidUntil: b.paid_until,
+          foundingNumber: b.founding_number,
+          priceLockUntil: b.price_lock_until,
+          foundingLeft: b.founding_left,
+          engagementsUsed: b.engagements_used,
+          maxEngagements: b.max_engagements,
+          users: b.users,
+          maxUsers: b.max_users,
+          plans: (b.plans ?? []).map((p: any) => ({ code: p.code, name: p.name, maxUsers: p.max_users, maxEngagements: p.max_engagements, listKobo: p.list_kobo, amountKobo: p.amount_kobo, founding: p.founding })),
+          payments: (b.payments ?? []).map((p: any) => ({ id: p.id, plan: p.plan, amountKobo: p.amount_kobo, founding: p.founding, paidAt: p.paid_at, coversUntil: p.covers_until, reference: p.tx_ref })),
+        },
         firm: { id: firm.id, name: firm.name, frcNumber: firm.frc_number, address: firm.address, aiEnabled: !!firm.ai_enabled },
         me: toMember(mine),
         members: (members ?? []).filter((m) => m.firm_id === mine.firm_id).map(toMember),
@@ -492,6 +521,14 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       const { data, error } = await db.storage.from('evidence').createSignedUrl(e.path, 120, inline ? undefined : { download: e.fileName });
       fail(error);
       return inline ? `${data!.signedUrl}#page=${e.page}` : data!.signedUrl;
+    },
+
+    async startCheckout(plan) {
+      const d = await billing({ action: 'start', plan });
+      return { link: d.link as string };
+    },
+    async confirmPayment(transactionId) {
+      return (await billing({ action: 'confirm', transactionId })).message as string;
     },
 
     async setAssist(enabled) {

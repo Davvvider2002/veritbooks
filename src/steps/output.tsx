@@ -22,7 +22,7 @@ function DraftMark({ locked }: { locked: boolean }) {
 function SheetHead({ ctx, title, sub }: { ctx: Ctx; title: string; sub?: string }) {
   return (
     <>
-      <DraftMark locked={ctx.locked} />
+      <DraftMark locked={ctx.eng.status === 'locked'} />
       <div className="entity">{ctx.client.name}</div>
       <h2>{title}</h2>
       <div className="sub">{sub ?? `for the year ended ${longDate(ctx.eng.yearEnd)}`}</div>
@@ -510,6 +510,7 @@ function draftFor(ctx: Ctx, settings: ReportSettings) {
 
 export function ReportStep(ctx: Ctx) {
   const { eng, ws, locked, reload } = ctx;
+  const signed = eng.status === 'locked';
   const [r, setR] = useState<ReportSettings>(eng.report);
   const [saved, setSaved] = useState(false);
   const { busy, error, run } = useAction();
@@ -519,7 +520,7 @@ export function ReportStep(ctx: Ctx) {
     setR({ ...r, ...patch });
   };
   // A signed report is shown as it was signed. Later changes to the wording in the software do not reach it.
-  const draft = (locked && eng.report.signedReport) || draftFor(ctx, r);
+  const draft = (signed && eng.report.signedReport) || draftFor(ctx, r);
 
   return (
     <div>
@@ -650,7 +651,7 @@ export function ReportStep(ctx: Ctx) {
       </div>
 
       <section className="sheet">
-        <DraftMark locked={locked} />
+        <DraftMark locked={signed} />
         <div className="entity">{ws.firm.name}</div>
         <h2>{draft.title}</h2>
         <div className="sub">{draft.addressee}</div>
@@ -668,7 +669,7 @@ export function ReportStep(ctx: Ctx) {
         )}
         <div className="sign-grid">
           <div className="sign-line">
-            {locked ? (
+            {signed ? (
               <>
                 {eng.signedByName}
                 <br />
@@ -698,6 +699,7 @@ export function ReportStep(ctx: Ctx) {
 
 export function SignOffStep(ctx: Ctx) {
   const { eng, ws, client, lines, adjustments, statements, locked, reload, ledgerTest, bankGates, requests, group } = ctx;
+  const signed = eng.status === 'locked';
   const [confirm, setConfirm] = useState(false);
   const { busy, error, run } = useAction();
   const confirmations = eng.planning.independence ?? {};
@@ -719,15 +721,15 @@ export function SignOffStep(ctx: Ctx) {
     programme: eng.programme,
     programmeItemIds: programmeFor(eng.type, eng.planning).map((i) => i.id),
     report: eng.report,
-    firmFrc: locked ? (eng.firmFrc ?? '') : ws.firm.frcNumber,
-    signerRole: locked ? 'partner' : ws.me.role,
-    signerFrc: locked ? (eng.signedByFrc ?? '') : ws.me.frcNumber,
+    firmFrc: signed ? (eng.firmFrc ?? '') : ws.firm.frcNumber,
+    signerRole: signed ? 'partner' : ws.me.role,
+    signerFrc: signed ? (eng.signedByFrc ?? '') : ws.me.frcNumber,
     ledger: ledgerTest,
     testing: eng.testing,
     bank: bankGates,
     movements:
       // Files signed before this step existed are not marked down for lacking it.
-      eng.type !== 'compilation' && statements.hasPrior && !(locked && !eng.testing.movements)
+      eng.type !== 'compilation' && statements.hasPrior && !(signed && !eng.testing.movements)
         ? { unexplained: unexplainedMovements(analyticalReview(statements, eng.type === 'audit' ? (computeMateriality(statements.cur, eng.planning)?.performance ?? null) : null), eng.testing.movements).map((m) => m.label) }
         : undefined,
     group: group
@@ -742,9 +744,9 @@ export function SignOffStep(ctx: Ctx) {
       : undefined,
     // Files signed before confirmations existed are not marked down for lacking them.
     independence:
-      locked && Object.keys(confirmations).length === 0
+      signed && Object.keys(confirmations).length === 0
         ? undefined
-        : { signer: locked ? confirmedNames.has(eng.signedByName ?? '') : !!mine, unconfirmed: [...workers].filter((n) => !confirmedNames.has(n)) },
+        : { signer: signed ? confirmedNames.has(eng.signedByName ?? '') : !!mine, unconfirmed: [...workers].filter((n) => !confirmedNames.has(n)) },
     checklistOpen: lines.length
       ? checklistOpen(buildChecklist(checklistFor(eng.planning), { statements, lines, adjustments, disclosures: eng.disclosures, principalActivity: eng.report.principalActivity, policyCodes: policyCodes(statements) })).length
       : undefined,
@@ -762,7 +764,7 @@ export function SignOffStep(ctx: Ctx) {
           Signing records the engagement partner’s name and FRC number on the report and locks the file. A locked file cannot be changed.
         </p>
       </div>
-      {locked && (
+      {signed && (
         <div className="card">
           <h3>Signed</h3>
           <p style={{ marginTop: 8, marginBottom: 0 }}>
@@ -820,7 +822,7 @@ export function SignOffStep(ctx: Ctx) {
           ))}
       </div>
       <div className="card">
-        <h3>{locked ? 'Checks at sign-off' : 'Before you can sign'}</h3>
+        <h3>{signed ? 'Checks at sign-off' : 'Before you can sign'}</h3>
         <ChecksList checks={checks} />
       </div>
       {!locked && (

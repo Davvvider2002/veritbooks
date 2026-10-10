@@ -68,7 +68,51 @@ export interface LogEntry {
   detail: Record<string, unknown> | null;
 }
 
+export type PlanCode = 'solo' | 'practice' | 'firm';
+
+export interface PlanOffer {
+  code: PlanCode;
+  name: string;
+  maxUsers: number | null;
+  maxEngagements: number;
+  /** The full price for a year, in kobo. */
+  listKobo: number;
+  /** What this firm would pay today, in kobo. */
+  amountKobo: number;
+  /** True when amountKobo is the founding firm price. */
+  founding: boolean;
+}
+
+export interface PaymentRecord {
+  id: string;
+  plan: string;
+  amountKobo: number;
+  founding: boolean;
+  paidAt: string;
+  coversUntil: string;
+  reference: string;
+}
+
+/** Where the firm stands: in its free trial, on a paid plan, or lapsed and read-only. */
+export interface Billing {
+  state: 'trial' | 'active' | 'expired';
+  plan: 'trial' | PlanCode;
+  planName: string;
+  trialEndsAt: string;
+  paidUntil: string | null;
+  foundingNumber: number | null;
+  priceLockUntil: string | null;
+  foundingLeft: number;
+  engagementsUsed: number;
+  maxEngagements: number;
+  users: number;
+  maxUsers: number | null;
+  plans: PlanOffer[];
+  payments: PaymentRecord[];
+}
+
 export interface Workspace {
+  billing: Billing;
   firm: Firm;
   me: Member;
   members: Member[];
@@ -254,6 +298,11 @@ export interface Repo {
 
   sign(engagementId: string): Promise<void>;
   listLog(engagementId: string): Promise<LogEntry[]>;
+
+  /** Starts payment for a year of a plan. Partners only. Returns the checkout page to send the partner to, or a message when there is nowhere to go (demo mode). */
+  startCheckout(plan: PlanCode): Promise<{ link?: string; message?: string }>;
+  /** Checks a payment with the payment provider after the partner is sent back, and activates the plan if it was paid. */
+  confirmPayment(transactionId: string): Promise<string>;
 
   /** Turns AI assistance on or off for the firm. Partners only. */
   setAssist(enabled: boolean): Promise<void>;

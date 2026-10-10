@@ -1,4 +1,5 @@
 import type { GlEntry } from '../engine/ledger';
+import { FOUNDING_PLACES, PLANS, PRICE_HOLD_YEARS, TRIAL_DAYS, addYears, currentPlan, firmState, planOf, quote, type Subscription } from '../engine/billing';
 import { suggestMapping } from '../engine/mapping';
 import type { Adjustment, Nature, TbLine } from '../engine/types';
 import {
@@ -15,7 +16,10 @@ import {
   type Engagement,
   type Evidence,
   type Invite,
+  type Billing,
   type Firm,
+  type PaymentRecord,
+  type PlanCode,
   type LogEntry,
   type Member,
   type Repo,
@@ -28,10 +32,12 @@ import {
  * before Supabase is connected. It applies the same lock and sign-off rules as the database,
  * but it is not a secure store and must not hold real client data.
  */
+type DemoSub = Subscription & { payments: PaymentRecord[]; yearStart: string | null };
+
 interface Store {
   user: User | null;
   accounts: Record<string, { id: string; password: string }>;
-  firms: Record<string, { firm: Firm; members: Member[] }>; // keyed by firm id
+  firms: Record<string, { firm: Firm; members: Member[]; sub?: DemoSub }>; // keyed by firm id
   memberOf: Record<string, string>; // user id -> firm id
   clients: (Client & { firmId: string })[];
   engagements: (Engagement & { firmId: string })[];
@@ -113,6 +119,40 @@ export function createDemoRepo(): Repo {
     if (!id) throw new Error('Set up your firm first.');
     return id;
   };
+  /** The firm's trial and plan. Firms saved before plans existed start their trial now. */
+  const subOf = (id: string): DemoSub =>
+    (s.firms[id].sub ??= { trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 86_400_000).toISOString(), plan: 'trial', paidUntil: null, foundingNumber: null, priceLockUntil: null, lockedPrices: null, hasPaid: false, payments: [], yearStart: null });
+  const foundingTaken = () => Object.values(s.firms).filter((f) => f.sub?.foundingNumber != null).length;
+  const requireOpen = () => {
+    if (firmState(subOf(firmId()), new Date()) === 'expired')
+      throw new Error("Your firm's plan is not active, so the file is read-only. A partner can choose a plan under Billing.");
+  };
+  const used = (id: string) => {
+    const sub = subOf(id);
+    const since = firmState(sub, new Date()) === 'active' ? (sub.yearStart ?? '') : '';
+    return s.engagements.filter((e) => e.firmId === id && ((e as { createdAt?: string }).createdAt ?? '9') >= since).length;
+  };
+  const billingOf = (id: string): Billing => {
+    const sub = subOf(id);
+    const now = new Date();
+    const plan = currentPlan(sub, now);
+    return {
+      state: firmState(sub, now),
+      plan: plan.code,
+      planName: plan.name,
+      trialEndsAt: sub.trialEndsAt,
+      paidUntil: sub.paidUntil,
+      foundingNumber: sub.foundingNumber,
+      priceLockUntil: sub.priceLockUntil,
+      foundingLeft: Math.max(FOUNDING_PLACES - foundingTaken(), 0),
+      engagementsUsed: used(id),
+      maxEngagements: plan.maxEngagements,
+      users: s.firms[id].members.length,
+      maxUsers: plan.maxUsers,
+      plans: PLANS.filter((p) => p.code !== 'trial').map((p) => ({ code: p.code as PlanCode, name: p.name, maxUsers: p.maxUsers, maxEngagements: p.maxEngagements, ...quote(sub, p, foundingTaken(), now) })),
+      payments: [...sub.payments].reverse(),
+    };
+  };
   const eng = (id: string) => {
     const e = s.engagements.find((x) => x.id === id && x.firmId === firmId());
     if (!e) throw new Error('Engagement not found.');
@@ -121,6 +161,7 @@ export function createDemoRepo(): Repo {
   const open = (id: string) => {
     const e = eng(id);
     if (e.status === 'locked') throw new LockedError();
+    requireOpen();
     return e;
   };
   const log = (engagementId: string, table: string, action: string, detail: Record<string, unknown> | null = null) => {
@@ -179,7 +220,7 @@ export function createDemoRepo(): Repo {
       if (!s.user) return null;
       const f = s.firms[s.memberOf[s.user.id]];
       if (!f) return null;
-      return { firm: f.firm, members: f.members, me: f.members.find((m) => m.userId === s.user!.id)! };
+      return { billing: billingOf(s.memberOf[s.user.id]), firm: f.firm, members: f.members, me: f.members.find((m) => m.userId === s.user!.id)! };
     },
     async createFirm(f) {
       if (s.memberOf[me().id]) throw new Error('You already belong to a firm.');
@@ -248,6 +289,9 @@ export function createDemoRepo(): Repo {
       const i = s.invites.find((x) => x.id === id && !x.accepted && x.email === me().email);
       if (!i) throw new Error('This invitation is not available.');
       if (s.memberOf[me().id]) throw new Error('You already belong to a firm.');
+      const limit = currentPlan(subOf(i.firmId), new Date());
+      if (limit.maxUsers !== null && s.firms[i.firmId].members.length >= limit.maxUsers)
+        throw new Error(`This firm's ${limit.name} plan allows ${limit.maxUsers} users. A partner can change the plan under Billing.`);
       s.firms[i.firmId].members.push({ userId: me().id, role: i.role, fullName: fullName.trim(), frcNumber: frcNumber.trim() });
       s.memberOf[me().id] = i.firmId;
       i.accepted = true;
@@ -267,8 +311,13 @@ export function createDemoRepo(): Repo {
       return s.engagements.filter((e) => e.firmId === firmId()).map(strip) as Engagement[];
     },
     async createEngagement(e) {
+      requireOpen();
+      const limit = currentPlan(subOf(firmId()), new Date());
+      if (used(firmId()) >= limit.maxEngagements)
+        throw new Error(`Your ${limit.name} plan allows ${limit.maxEngagements} engagements. A partner can change the plan under Billing.`);
       const row = {
         id: uid(),
+        createdAt: new Date().toISOString(),
         firmId: firmId(),
         clientId: e.clientId,
         type: e.type,
@@ -444,6 +493,31 @@ export function createDemoRepo(): Repo {
       const url = blobs.get(e.path);
       if (!url) throw new Error('Demo mode keeps file contents only until the page is reloaded. Upload the file again.');
       return opensAtPage(e) ? `${url}#page=${e.page}` : url;
+    },
+
+    // There is no payment provider in demo mode, so the payment is treated as made.
+    async startCheckout(code) {
+      const f = s.firms[firmId()];
+      if (f.members.find((m) => m.userId === me().id)?.role !== 'partner') throw new Error('Only a partner can choose a plan.');
+      const sub = subOf(firmId());
+      const now = new Date();
+      const q = quote(sub, planOf(code), foundingTaken(), now);
+      const from = sub.paidUntil && new Date(sub.paidUntil) > now ? new Date(sub.paidUntil) : now;
+      if (firmState(sub, now) !== 'active') sub.yearStart = now.toISOString();
+      if (q.founding) {
+        sub.foundingNumber = foundingTaken() + 1;
+        sub.priceLockUntil = addYears(now, PRICE_HOLD_YEARS);
+        sub.lockedPrices = Object.fromEntries(PLANS.filter((p) => p.code !== 'trial').map((p) => [p.code, p.priceKobo]));
+      }
+      sub.plan = code;
+      sub.paidUntil = addYears(from, 1);
+      sub.hasPaid = true;
+      sub.payments.push({ id: uid(), plan: code, amountKobo: q.amountKobo, founding: q.founding, paidAt: now.toISOString(), coversUntil: sub.paidUntil, reference: 'demo-' + uid().slice(0, 8) });
+      save();
+      return { message: 'Demo mode: no money was taken. The plan is active so you can see how it works.' };
+    },
+    async confirmPayment() {
+      return 'Demo mode: there is no payment to confirm.';
     },
 
     async setAssist(enabled) {
@@ -637,6 +711,8 @@ export function createDemoRepo(): Repo {
       const f = s.firms[firmId()];
       const m = f.members.find((x) => x.userId === me().id)!;
       if (m.role !== 'partner') throw new Error('Only an engagement partner can sign.');
+      if (firmState(subOf(firmId()), new Date()) !== 'active')
+        throw new Error('A file can be signed once your firm is on a paid plan. A partner can choose one under Billing.');
       if (!m.frcNumber.trim()) throw new Error('Your FRC registration number is missing.');
       if (!f.firm.frcNumber.trim()) throw new Error("The firm's FRC registration number is missing.");
       const lines = s.lines[id] ?? [];

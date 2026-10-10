@@ -280,7 +280,8 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
     lines: data.lines,
     adjustments: data.adjustments,
     statements,
-    locked: data.eng.status === 'locked',
+    // A firm whose trial or plan has ended can read its files and change nothing.
+    locked: data.eng.status === 'locked' || ws.billing.state === 'expired',
     reload,
     analyticsReady: data.heavy.ready,
     ledger: data.heavy.ledger,
@@ -320,7 +321,7 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
             Programme {programmeDone}/{programme.length}
           </span>
           {ctx.evidence.length > 0 && <span className="tag">{ctx.evidence.length} evidence file{ctx.evidence.length === 1 ? '' : 's'}</span>}
-          {ctx.locked ? <span className="tag ok">Signed and locked</span> : <span className="tag">In progress</span>}
+          {data.eng.status === 'locked' ? <span className="tag ok">Signed and locked</span> : ctx.locked ? <span className="tag bad">Read-only</span> : <span className="tag">In progress</span>}
         </div>
       </div>
 
@@ -339,7 +340,7 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
           ))}
         </nav>
         <main>
-          {ctx.locked && current.slug !== 'statements' && current.slug !== 'report' && (
+          {data.eng.status === 'locked' && current.slug !== 'statements' && current.slug !== 'report' && (
             <div className="banner info no-print" style={{ marginBottom: 16 }}>
               This file was signed by {data.eng.signedByName} on {longDate((data.eng.signedAt ?? '').slice(0, 10))} and is locked. Nothing in it can be changed.
             </div>
