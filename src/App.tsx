@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { PortalPage } from './portal';
+import { QualityPage } from './quality';
 import { repo } from './data';
 import type { User, Workspace } from './data/repo';
 import { AuthPage, Dashboard, FirmSettings, FirmSetup } from './pages';
@@ -62,6 +63,9 @@ export function App() {
         <div className="spacer" />
         {session.state === 'ready' && (
           <>
+            <Link to="/quality" className="small">
+              Quality
+            </Link>
             <Link to="/firm" className="small">
               {session.ws.firm.name}
             </Link>
@@ -94,6 +98,7 @@ export function App() {
       {session.state === 'ready' && (
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/quality" element={<QualityPage ws={session.ws} />} />
           <Route path="/firm" element={<FirmSettings ws={session.ws} onSaved={refresh} />} />
           <Route path="/engagements/:id/:step?" element={<EngagementPage ws={session.ws} />} />
           <Route path="*" element={<Navigate to="/" replace />} />

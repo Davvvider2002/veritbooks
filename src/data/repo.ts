@@ -252,6 +252,44 @@ export interface Repo {
 
   sign(engagementId: string): Promise<void>;
   listLog(engagementId: string): Promise<LogEntry[]>;
+
+  /** The firm's system of quality management. Everyone in the firm reads it; partners maintain it. */
+  listQuality(): Promise<QualityItem[]>;
+  addQuality(items: QualityDraft[]): Promise<void>;
+  updateQuality(id: string, patch: Partial<Omit<QualityDraft, 'kind'>>): Promise<void>;
+  /** Removes a risk. A finding is closed, never removed. */
+  deleteQuality(id: string): Promise<void>;
+  listEvaluations(): Promise<QualityEvaluation[]>;
+  /** Records the annual evaluation. It cannot be changed afterwards. */
+  addEvaluation(e: { asAt: string; conclusion: QualityEvaluation['conclusion']; basis: string }): Promise<void>;
+}
+
+/** A quality risk with the firm's response, or a finding from monitoring with its remedial action. */
+export interface QualityItem {
+  id: string;
+  kind: 'risk' | 'finding';
+  component: string;
+  title: string;
+  /** Risk: what could go wrong. Finding: what was found, and its root cause. */
+  detail: string;
+  /** Risk: the firm's response. Finding: the remedial action. */
+  response: string;
+  owner: string;
+  /** Risk: open (response still needed) or in_place. Finding: open or closed. */
+  status: 'open' | 'in_place' | 'closed';
+  severity: string | null;
+  dueDate: string | null;
+  updatedAt: string;
+}
+export type QualityDraft = Omit<QualityItem, 'id' | 'updatedAt'>;
+
+export interface QualityEvaluation {
+  id: string;
+  asAt: string;
+  conclusion: 'effective' | 'effective_except' | 'not_effective';
+  basis: string;
+  concludedByName: string;
+  createdAt: string;
 }
 
 export class LockedError extends Error {

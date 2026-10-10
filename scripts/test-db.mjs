@@ -27,6 +27,7 @@ await db.exec(readFileSync('supabase/migrations/0003_team_and_evidence.sql', 'ut
 await db.exec(readFileSync('supabase/migrations/0004_disclosures.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0005_client_requests.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0006_prior_ledger_and_pages.sql', 'utf8'));
+await db.exec(readFileSync('supabase/migrations/0007_quality_management.sql', 'utf8'));
 
 const A = '00000000-0000-0000-0000-00000000000a'; // partner, firm 1
 const B = '00000000-0000-0000-0000-00000000000b'; // partner, firm 2
@@ -187,6 +188,30 @@ await denied('firm 2 cannot add a bank account to firm 1', () => as(B, `insert i
 await denied('a bank line cannot point at another engagement\'s account', () => as(B, `insert into bank_lines (bank_account_id, engagement_id, txn_date, amount, row_no) values ($1,$2,'2025-01-01',1,1)`, [ba.id, e3.id]), /does not belong/);
 const bulk = await as(A, `select table_name, action, detail from audit_log where engagement_id = $1 and table_name in ('gl_entries','bank_lines','bank_accounts') order by id`, [e1.id]);
 ok('imports are logged once with a row count', bulk.length === 3 && bulk[0].table_name === 'gl_entries' && bulk[0].action === 'import' && bulk[0].detail.rows === 2 && bulk[2].detail.rows === 1);
+
+// Firm-level quality management.
+const [qr] = await as(A, `insert into quality_items (firm_id, kind, component, title) values ($1, 'risk', 'ethics', 'Independence threats are not identified') returning *`, [f1.id]);
+const [qf] = await as(A, `insert into quality_items (firm_id, kind, component, title, severity) values ($1, 'finding', 'performance', 'Review not evidenced on two files', 'deficiency') returning *`, [f1.id]);
+ok('staff can read the firm\'s quality register', (await as(C, `select * from quality_items`)).length === 2);
+ok('another firm cannot read it', (await as(B, `select * from quality_items`)).length === 0);
+await denied('staff cannot add to the register', () => as(C, `insert into quality_items (firm_id, kind, component, title) values ($1, 'risk', 'ethics', 'x')`, [f1.id]), /row-level security/);
+await denied('another firm\'s partner cannot add to it', () => as(B, `insert into quality_items (firm_id, kind, component, title) values ($1, 'risk', 'ethics', 'x')`, [f1.id]), /row-level security/);
+ok('staff cannot change a record', (await as(C, `update quality_items set status = 'in_place' where id = $1 returning id`, [qr.id])).length === 0);
+ok('a partner can record that a response is in place', (await as(A, `update quality_items set status = 'in_place', response = 'Annual declarations' where id = $1 returning status`, [qr.id]))[0].status === 'in_place');
+await denied('a risk cannot be marked closed, which is a finding status', () => as(A, `update quality_items set status = 'closed' where id = $1`, [qr.id]), /check constraint/);
+await denied('a finding needs a severity', () => as(A, `insert into quality_items (firm_id, kind, component, title) values ($1, 'finding', 'ethics', 'x')`, [f1.id]), /check constraint/);
+await denied('a record cannot be moved to another firm', () => as(A, `update quality_items set firm_id = $2 where id = $1`, [qr.id, f2.id]), /cannot be moved|row-level security/);
+ok('a finding cannot be removed', (await as(A, `delete from quality_items where id = $1 returning id`, [qf.id])).length === 0);
+ok('a finding can be closed', (await as(A, `update quality_items set status = 'closed' where id = $1 returning status`, [qf.id]))[0].status === 'closed');
+ok('a risk can be removed', (await as(A, `delete from quality_items where id = $1 returning id`, [qr.id])).length === 1);
+await denied('staff cannot record the annual evaluation', () => as(C, `insert into quality_evaluations (firm_id, as_at, conclusion, basis) values ($1, '2025-12-31', 'effective', 'x')`, [f1.id]), /row-level security/);
+const [qe] = await as(A, `insert into quality_evaluations (firm_id, as_at, conclusion, basis, concluded_by_name, concluded_by) values ($1, '2025-12-31', 'effective_except', 'One deficiency in review evidence.', 'Someone Else', $2) returning *`, [f1.id, C]);
+ok('the evaluation carries the partner\'s own name, whatever was sent', qe.concluded_by_name === 'Ada Partner' && qe.concluded_by === A);
+await denied('an evaluation cannot be changed', () => as(A, `update quality_evaluations set conclusion = 'effective' where id = $1`, [qe.id]), /permission denied/);
+await denied('an evaluation cannot be removed', () => as(A, `delete from quality_evaluations where id = $1`, [qe.id]), /permission denied/);
+await denied('an evaluation needs a basis', () => as(A, `insert into quality_evaluations (firm_id, as_at, conclusion, basis) values ($1, '2025-12-31', 'effective', ' ')`, [f1.id]), /check constraint/);
+ok('quality changes are logged against the firm', (await as(A, `select * from audit_log where firm_id = $1 and table_name in ('quality_items','quality_evaluations') and engagement_id is null`, [f1.id])).length === 6);
+await denied('anonymous visitors cannot read the register', () => anon(`select * from quality_items`), /permission denied/);
 
 // Prior year ledger, account evidence and page references.
 await as(C, `insert into gl_entries (engagement_id, entry_no, entry_date, account_code, amount, row_no, period) values ($1,'PY1','2024-03-01','4000',-900,1,'prior'), ($1,'PY1','2024-03-01','1400',900,2,'prior')`, [e1.id]);

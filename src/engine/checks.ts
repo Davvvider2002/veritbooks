@@ -143,6 +143,8 @@ export interface GateInput {
   testing?: Testing;
   /** One entry per bank statement imported. */
   bank?: BankGate[];
+  /** Independence confirmations on this engagement. Leave undefined to skip the checks. */
+  independence?: { signer: boolean; unconfirmed: string[] };
   /** Items of the disclosure checklist with no answer. Leave undefined to skip the check. */
   checklistOpen?: number;
   /** Client requests not yet accepted. Leave undefined to skip the check. */
@@ -352,6 +354,23 @@ export function signOffChecks(g: GateInput): Check[] {
     ok: !!(g.report.ceoName?.trim() && g.report.ceoFrc?.trim() && g.report.cfoName?.trim() && g.report.cfoFrc?.trim()),
     blocking: g.type === 'audit',
   });
+  if (g.independence) {
+    checks.push({
+      id: 'independence_signer',
+      label: 'The person signing has confirmed their independence from the client',
+      ok: g.independence.signer,
+      blocking: true,
+    });
+    if (g.independence.unconfirmed.length > 0) {
+      checks.push({
+        id: 'independence_team',
+        label: 'Everyone who completed work on the file has confirmed their independence',
+        ok: false,
+        detail: `No confirmation from: ${g.independence.unconfirmed.join(', ')}.`,
+        blocking: false,
+      });
+    }
+  }
   checks.push({
     id: 'firm_frc',
     label: 'The firm has an FRC registration number on file',

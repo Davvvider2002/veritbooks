@@ -34,6 +34,8 @@ export interface Planning {
   performancePercent?: number;
   trivialPercent?: number;
   rationale?: string;
+  /** Each team member's confirmation of independence from the client, by user id. */
+  independence?: Record<string, { name: string; at: string; note: string }>;
   /** The industry pack that adds to the general programme, checklist and request list. */
   industry?: string;
 }

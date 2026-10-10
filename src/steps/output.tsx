@@ -634,9 +634,20 @@ export function ReportStep(ctx: Ctx) {
   );
 }
 
-export function SignOffStep({ eng, ws, lines, adjustments, statements, locked, reload, ledgerTest, bankGates, requests }: Ctx) {
+export function SignOffStep({ eng, ws, client, lines, adjustments, statements, locked, reload, ledgerTest, bankGates, requests }: Ctx) {
   const [confirm, setConfirm] = useState(false);
   const { busy, error, run } = useAction();
+  const confirmations = eng.planning.independence ?? {};
+  const mine = confirmations[ws.me.userId];
+  const [threats, setThreats] = useState('');
+  const confirmedNames = new Set(Object.values(confirmations).map((c) => c.name));
+  // Everyone whose name is on a completed step or a journal conclusion did work on the file.
+  const workers = new Set([...Object.values(eng.programme), ...Object.values(eng.testing.journals ?? {})].map((x) => x.by).filter((x): x is string => !!x));
+  const setIndependence = (next: typeof confirmations) =>
+    run(async () => {
+      await repo.updateEngagement(eng.id, { planning: { ...eng.planning, independence: next } });
+      reload();
+    });
   const checks = signOffChecks({
     type: eng.type,
     lines,
@@ -651,6 +662,11 @@ export function SignOffStep({ eng, ws, lines, adjustments, statements, locked, r
     ledger: ledgerTest,
     testing: eng.testing,
     bank: bankGates,
+    // Files signed before confirmations existed are not marked down for lacking them.
+    independence:
+      locked && Object.keys(confirmations).length === 0
+        ? undefined
+        : { signer: locked ? confirmedNames.has(eng.signedByName ?? '') : !!mine, unconfirmed: [...workers].filter((n) => !confirmedNames.has(n)) },
     checklistOpen: lines.length
       ? checklistOpen(buildChecklist(checklistFor(eng.planning), { statements, lines, adjustments, disclosures: eng.disclosures, principalActivity: eng.report.principalActivity })).length
       : undefined,
@@ -677,6 +693,54 @@ export function SignOffStep({ eng, ws, lines, adjustments, statements, locked, r
           </p>
         </div>
       )}
+      <div className="card stack">
+        <h3>Independence</h3>
+        <p className="small muted" style={{ margin: 0 }}>
+          Each person who works on this file confirms they are independent of {client.name}: no financial interest, no close relationship, and no other threat that has not been dealt with. The person signing must confirm before they can sign.
+        </p>
+        {Object.keys(confirmations).length === 0 ? (
+          <span className="muted">No one has confirmed yet.</span>
+        ) : (
+          <ul className="small files" style={{ marginTop: 0 }}>
+            {Object.entries(confirmations).map(([id, c]) => (
+              <li key={id}>
+                <strong>{c.name}</strong> confirmed on {new Date(c.at).toLocaleDateString('en-GB')}
+                {c.note && `. Threats and safeguards: ${c.note}`}
+              </li>
+            ))}
+          </ul>
+        )}
+        {!locked &&
+          (mine ? (
+            <div>
+              <button
+                className="link danger"
+                disabled={busy}
+                onClick={() => {
+                  const { [ws.me.userId]: _mine, ...rest } = confirmations;
+                  void setIndependence(rest);
+                }}
+              >
+                Withdraw my confirmation
+              </button>
+            </div>
+          ) : (
+            <>
+              <Field label="Threats to your independence and the safeguards applied, if any">
+                <input type="text" maxLength={500} value={threats} placeholder="Leave blank if there are none" onChange={(e) => setThreats(e.target.value)} />
+              </Field>
+              <div>
+                <button
+                  disabled={busy || !ws.me.fullName}
+                  onClick={() => void setIndependence({ ...confirmations, [ws.me.userId]: { name: ws.me.fullName, at: new Date().toISOString(), note: threats.trim() } })}
+                >
+                  I confirm I am independent of {client.name}
+                </button>
+                {!ws.me.fullName && <span className="small muted" style={{ marginLeft: 10 }}>Add your name in the firm settings first.</span>}
+              </div>
+            </>
+          ))}
+      </div>
       <div className="card">
         <h3>{locked ? 'Checks at sign-off' : 'Before you can sign'}</h3>
         <ChecksList checks={checks} />

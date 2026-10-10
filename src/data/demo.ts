@@ -8,6 +8,8 @@ import {
   type ClientRequest,
   type PortalView,
   type RequestLink,
+  type QualityEvaluation,
+  type QualityItem,
   type Client,
   type Engagement,
   type Evidence,
@@ -44,6 +46,8 @@ interface Store {
   evidence: Record<string, Evidence[]>;
   requests: Record<string, ClientRequest[]>;
   links: Record<string, (RequestLink & { token: string })[]>;
+  quality: (QualityItem & { firmId: string })[];
+  evaluations: (QualityEvaluation & { firmId: string })[];
 }
 
 const KEY = 'veritbooks.demo.v1';
@@ -66,6 +70,8 @@ const empty = (): Store => ({
   evidence: {},
   requests: {},
   links: {},
+  quality: [],
+  evaluations: [],
 });
 
 let memory: Store | null = null;
@@ -125,6 +131,11 @@ export function createDemoRepo(): Repo {
       userId: s.user?.id ?? null,
       detail,
     });
+  };
+  const partner = () => {
+    const m = s.firms[firmId()].members.find((x) => x.userId === me().id);
+    if (m?.role !== 'partner') throw new Error('Only a partner can change the firm’s quality records.');
+    return m;
   };
   const strip = <T extends { firmId: string }>(x: T) => {
     const { firmId: _f, ...rest } = x;
@@ -432,6 +443,38 @@ export function createDemoRepo(): Repo {
       const url = blobs.get(e.path);
       if (!url) throw new Error('Demo mode keeps file contents only until the page is reloaded. Upload the file again.');
       return opensAtPage(e) ? `${url}#page=${e.page}` : url;
+    },
+
+    async listQuality() {
+      return s.quality.filter((q) => q.firmId === firmId()).map(strip);
+    },
+    async addQuality(items) {
+      partner();
+      s.quality.push(...items.map((i) => ({ ...i, title: i.title.trim(), id: uid(), firmId: firmId(), updatedAt: new Date().toISOString() })));
+      save();
+    },
+    async updateQuality(id, patch) {
+      partner();
+      const q = s.quality.find((x) => x.id === id && x.firmId === firmId());
+      if (!q) throw new Error('That record was not found.');
+      Object.assign(q, patch, { updatedAt: new Date().toISOString() });
+      save();
+    },
+    async deleteQuality(id) {
+      partner();
+      const i = s.quality.findIndex((x) => x.id === id && x.firmId === firmId());
+      if (i < 0 || s.quality[i].kind !== 'risk') throw new Error('Only a partner can remove a risk, and a finding cannot be removed.');
+      s.quality.splice(i, 1);
+      save();
+    },
+    async listEvaluations() {
+      return s.evaluations.filter((e) => e.firmId === firmId()).map(strip).sort((a, b) => b.asAt.localeCompare(a.asAt) || b.createdAt.localeCompare(a.createdAt));
+    },
+    async addEvaluation(e) {
+      const m = partner();
+      if (!e.basis.trim()) throw new Error('Give the basis for the conclusion.');
+      s.evaluations.push({ id: uid(), firmId: firmId(), asAt: e.asAt, conclusion: e.conclusion, basis: e.basis.trim(), concludedByName: m.fullName, createdAt: new Date().toISOString() });
+      save();
     },
 
     async listRequests(id) {

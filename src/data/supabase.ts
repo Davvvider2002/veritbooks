@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { GlEntry } from '../engine/ledger';
 import type { Adjustment, Nature, TbLine } from '../engine/types';
-import { hashToken, LockedError, opensAtPage, MAX_EVIDENCE_BYTES, newToken, type BankAccount, type ClientRequest, type RequestLink, type Client, type Engagement, type Evidence, type Invite, type Member, type Repo, type StoredBankLine } from './repo';
+import { hashToken, LockedError, opensAtPage, MAX_EVIDENCE_BYTES, newToken, type BankAccount, type ClientRequest, type RequestLink, type QualityEvaluation, type QualityItem, type Client, type Engagement, type Evidence, type Invite, type Member, type Repo, type StoredBankLine } from './repo';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const toEngagement = (r: any): Engagement => ({
@@ -480,6 +480,53 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       const { data, error } = await db.storage.from('evidence').createSignedUrl(e.path, 120, inline ? undefined : { download: e.fileName });
       fail(error);
       return inline ? `${data!.signedUrl}#page=${e.page}` : data!.signedUrl;
+    },
+
+    async listQuality() {
+      const { data, error } = await db.from('quality_items').select('*').order('created_at');
+      fail(error);
+      return (data ?? []).map(
+        (r): QualityItem => ({
+          id: r.id,
+          kind: r.kind,
+          component: r.component,
+          title: r.title,
+          detail: r.detail,
+          response: r.response,
+          owner: r.owner,
+          status: r.status,
+          severity: r.severity,
+          dueDate: r.due_date,
+          updatedAt: r.updated_at,
+        }),
+      );
+    },
+    async addQuality(items) {
+      const firm = await firmId();
+      const { error } = await db.from('quality_items').insert(
+        items.map((i) => ({ firm_id: firm, kind: i.kind, component: i.component, title: i.title.trim(), detail: i.detail.trim(), response: i.response.trim(), owner: i.owner.trim(), status: i.status, severity: i.severity, due_date: i.dueDate })),
+      );
+      fail(error);
+    },
+    async updateQuality(id, patch) {
+      const { dueDate, ...rest } = patch;
+      const { data, error } = await db.from('quality_items').update({ ...rest, ...(dueDate !== undefined ? { due_date: dueDate } : {}) }).eq('id', id).select('id');
+      fail(error);
+      if (!data?.length) throw new Error('Only a partner can change the quality register.');
+    },
+    async deleteQuality(id) {
+      const { data, error } = await db.from('quality_items').delete().eq('id', id).select('id');
+      fail(error);
+      if (!data?.length) throw new Error('Only a partner can remove a risk, and a finding cannot be removed.');
+    },
+    async listEvaluations() {
+      const { data, error } = await db.from('quality_evaluations').select('*').order('as_at', { ascending: false }).order('created_at', { ascending: false });
+      fail(error);
+      return (data ?? []).map((r): QualityEvaluation => ({ id: r.id, asAt: r.as_at, conclusion: r.conclusion, basis: r.basis, concludedByName: r.concluded_by_name, createdAt: r.created_at }));
+    },
+    async addEvaluation(e) {
+      const { error } = await db.from('quality_evaluations').insert({ firm_id: await firmId(), as_at: e.asAt, conclusion: e.conclusion, basis: e.basis.trim() });
+      fail(error);
     },
 
     async listRequests(id) {

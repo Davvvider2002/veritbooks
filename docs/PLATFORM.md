@@ -134,6 +134,21 @@ No database update is needed. The choice is kept with the engagement's planning.
 - Pack content is starter material, version 0.1, and needs the same technical review as the rest.
 - Not in a pack yet: sector-specific statement lines and mapping, and sector regulators' reporting rules.
 
+### Firm-level quality management
+
+Needs `supabase/migrations/0007_quality_management.sql`. Independence confirmations need no update.
+
+- A Quality page for the firm, built around ISQM 1. Everyone in the firm can read it. Partners maintain it.
+- Quality risks and responses, by component: governance and leadership, relevant ethical requirements, acceptance and continuance, engagement performance, resources, information and communication, monitoring and remediation. Each has an owner, a review date and a status. A response cannot be marked as in place until it is written down.
+- A starter set of 16 risks with example responses can be added in one click and tailored.
+- Monitoring findings and remediation: what was found, its root cause, severity, the action, an owner and a due date. Overdue actions are flagged. A finding is closed when the action is done. It cannot be removed.
+- The yearly evaluation by the partner with ultimate responsibility: one of the three conclusions in the standard, with a basis. The partner chooses the conclusion; the software does not. The name is taken from the firm's records. A recorded evaluation cannot be changed or removed. The page shows when the next one is due.
+- An engagement monitor: programme progress, independence confirmations and status for every engagement.
+- Independence on each engagement: every team member confirms they are independent of the client, with any threats and safeguards. The person signing cannot sign without confirming. Anyone who completed work without confirming is listed as an advisory.
+- Changes to the register and evaluations are written to the audit log against the firm.
+- This records a firm's system. It does not design one, and it is not evidence that a system operates. The starter risks are examples, version 0.1.
+- Not built: engagement quality reviews by a second partner, annual staff declarations, training and CPD records, client acceptance forms, file inspection programmes.
+
 ## Rules the software enforces
 
 1. Numbers are computed, never generated. Every figure in a statement is a sum of mapped account balances. No language model produces or alters a figure.
