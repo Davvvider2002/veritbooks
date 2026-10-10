@@ -67,7 +67,12 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       fail(error);
     },
     async signUp(email, password) {
-      const { data, error } = await db.auth.signUp({ email, password });
+      // Send the confirmation link back to whichever site the user signed up on.
+      const { data, error } = await db.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: window.location.origin },
+      });
       fail(error);
       return !data.session;
     },
