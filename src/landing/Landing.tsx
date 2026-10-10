@@ -445,9 +445,6 @@ export function Landing() {
                 </div>
               ))}
             </dl>
-            <p className="lp-note">
-              An honest word on where the product stands. The reporting content in this version still needs review by a technical author, and the software still needs testing with real accounting data. The partner who signs remains responsible for the file.
-            </p>
           </div>
         </section>
 
