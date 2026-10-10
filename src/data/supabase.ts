@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { GlEntry } from '../engine/ledger';
 import type { Adjustment, Nature, TbLine } from '../engine/types';
-import { hashToken, LockedError, MAX_EVIDENCE_BYTES, newToken, type BankAccount, type ClientRequest, type RequestLink, type Client, type Engagement, type Evidence, type Invite, type Member, type Repo, type StoredBankLine } from './repo';
+import { hashToken, LockedError, opensAtPage, MAX_EVIDENCE_BYTES, newToken, type BankAccount, type ClientRequest, type RequestLink, type Client, type Engagement, type Evidence, type Invite, type Member, type Repo, type StoredBankLine } from './repo';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const toEngagement = (r: any): Engagement => ({
@@ -46,9 +46,15 @@ const toLine = (r: any): TbLine => ({
   nature: r.nature,
 });
 
+/** True when the database has not had migration 0006 applied: its columns and values are unknown. */
+const needs0006 = (error: { message: string } | null) =>
+  !!error && /period|evidence_ref_type_check|'page'|column .*page|evidence\.page/i.test(error.message);
+const UPDATE_0006 = 'This needs a database update. Run supabase/migrations/0006_prior_ledger_and_pages.sql in the Supabase SQL editor, then reload this page.';
+
 function fail(error: { message: string } | null): void {
   if (!error) return;
   if (/signed and locked/i.test(error.message)) throw new LockedError();
+  if (needs0006(error)) throw new Error(UPDATE_0006);
   throw new Error(error.message);
 }
 
@@ -303,10 +309,17 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       fail(error);
     },
 
-    async listLedger(id) {
-      const rows = await fetchAll((from, to) =>
-        db.from('gl_entries').select('entry_no, entry_date, account_code, description, amount, posted_by').eq('engagement_id', id).order('row_no').range(from, to),
-      );
+    async listLedger(id, period = 'current') {
+      const read = (byYear: boolean) =>
+        fetchAll((from, to) => {
+          const q = db.from('gl_entries').select('entry_no, entry_date, account_code, description, amount, posted_by').eq('engagement_id', id);
+          return (byYear ? q.eq('period', period) : q).order('row_no').range(from, to);
+        });
+      // Before migration 0006 every line belongs to the current year, and no prior year can be held.
+      const rows = await read(true).catch((e) => {
+        if (e instanceof Error && e.message === UPDATE_0006 && period === 'current') return read(false);
+        throw e;
+      });
       return rows.map(
         (r): GlEntry => ({
           entryNo: r.entry_no,
@@ -318,8 +331,9 @@ export function createSupabaseRepo(url: string, key: string): Repo {
         }),
       );
     },
-    async replaceLedger(id, entries) {
-      const { error } = await db.from('gl_entries').delete().eq('engagement_id', id);
+    async replaceLedger(id, entries, period = 'current') {
+      let { error } = await db.from('gl_entries').delete().eq('engagement_id', id).eq('period', period);
+      if (needs0006(error) && period === 'current') ({ error } = await db.from('gl_entries').delete().eq('engagement_id', id));
       fail(error);
       for (let i = 0; i < entries.length; i += CHUNK) {
         const { error: e2 } = await db.from('gl_entries').insert(
@@ -332,6 +346,7 @@ export function createSupabaseRepo(url: string, key: string): Repo {
             amount: e.amount,
             posted_by: e.user,
             row_no: i + j + 1,
+            ...(period === 'prior' ? { period } : {}),
           })),
         );
         fail(e2);
@@ -422,6 +437,7 @@ export function createSupabaseRepo(url: string, key: string): Repo {
           uploadedByName: r.uploaded_by_name,
           createdAt: r.created_at,
           fromClient: !!r.from_client,
+          page: r.page ?? null,
         }),
       );
     },
@@ -440,6 +456,7 @@ export function createSupabaseRepo(url: string, key: string): Repo {
         ref_id: meta.refId,
         note: meta.note,
         uploaded_by_name: meta.uploadedByName,
+        ...(meta.page ? { page: meta.page } : {}),
       });
       if (error) {
         // Do not leave a stored file that the engagement does not list.
@@ -453,10 +470,16 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       const rm = await db.storage.from('evidence').remove([e.path]);
       fail(rm.error);
     },
-    async evidenceUrl(e) {
-      const { data, error } = await db.storage.from('evidence').createSignedUrl(e.path, 120, { download: e.fileName });
+    async setEvidencePage(e, page) {
+      const { error } = await db.from('evidence').update({ page }).eq('id', e.id);
       fail(error);
-      return data!.signedUrl;
+    },
+    async evidenceUrl(e) {
+      // Only a PDF is shown in the browser, so it can open at its page. Everything else downloads.
+      const inline = opensAtPage(e);
+      const { data, error } = await db.storage.from('evidence').createSignedUrl(e.path, 120, inline ? undefined : { download: e.fileName });
+      fail(error);
+      return inline ? `${data!.signedUrl}#page=${e.page}` : data!.signedUrl;
     },
 
     async listRequests(id) {

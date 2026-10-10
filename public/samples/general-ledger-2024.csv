@@ -1,0 +1,313 @@
+Date,Journal No,Account Code,Account Name,Description,Debit,Credit,Posted By
+31/01/2024,PY-00001,4000,Sales,Sales for month 1,,"17,691,666.00",accountant
+31/01/2024,PY-00001,1400,Bank current account,Sales for month 1,"17,691,666.00",,accountant
+29/02/2024,PY-00002,4000,Sales,Sales for month 2,,"17,691,666.00",accountant
+29/02/2024,PY-00002,1400,Bank current account,Sales for month 2,"17,691,666.00",,accountant
+31/03/2024,PY-00003,4000,Sales,Sales for month 3,,"17,691,666.00",accountant
+31/03/2024,PY-00003,1400,Bank current account,Sales for month 3,"17,691,666.00",,accountant
+30/04/2024,PY-00004,4000,Sales,Sales for month 4,,"17,691,666.00",accountant
+30/04/2024,PY-00004,1400,Bank current account,Sales for month 4,"17,691,666.00",,accountant
+31/05/2024,PY-00005,4000,Sales,Sales for month 5,,"17,691,666.00",accountant
+31/05/2024,PY-00005,1400,Bank current account,Sales for month 5,"17,691,666.00",,accountant
+30/06/2024,PY-00006,4000,Sales,Sales for month 6,,"17,691,666.00",accountant
+30/06/2024,PY-00006,1400,Bank current account,Sales for month 6,"17,691,666.00",,accountant
+31/07/2024,PY-00007,4000,Sales,Sales for month 7,,"17,691,666.00",accountant
+31/07/2024,PY-00007,1400,Bank current account,Sales for month 7,"17,691,666.00",,accountant
+31/08/2024,PY-00008,4000,Sales,Sales for month 8,,"17,691,666.00",accountant
+31/08/2024,PY-00008,1400,Bank current account,Sales for month 8,"17,691,666.00",,accountant
+30/09/2024,PY-00009,4000,Sales,Sales for month 9,,"17,691,666.00",accountant
+30/09/2024,PY-00009,1400,Bank current account,Sales for month 9,"17,691,666.00",,accountant
+31/10/2024,PY-00010,4000,Sales,Sales for month 10,,"17,691,666.00",accountant
+31/10/2024,PY-00010,1400,Bank current account,Sales for month 10,"17,691,666.00",,accountant
+30/11/2024,PY-00011,4000,Sales,Sales for month 11,,"17,691,666.00",accountant
+30/11/2024,PY-00011,1400,Bank current account,Sales for month 11,"17,691,666.00",,accountant
+31/12/2024,PY-00012,4000,Sales,Sales for month 12,,"17,691,674.00",accountant
+31/12/2024,PY-00012,1400,Bank current account,Sales for month 12,"17,691,674.00",,accountant
+31/01/2024,PY-00013,4100,Interest income,Interest income for month 1,,"25,833.00",accountant
+31/01/2024,PY-00013,1400,Bank current account,Interest income for month 1,"25,833.00",,accountant
+29/02/2024,PY-00014,4100,Interest income,Interest income for month 2,,"25,833.00",accountant
+29/02/2024,PY-00014,1400,Bank current account,Interest income for month 2,"25,833.00",,accountant
+31/03/2024,PY-00015,4100,Interest income,Interest income for month 3,,"25,833.00",accountant
+31/03/2024,PY-00015,1400,Bank current account,Interest income for month 3,"25,833.00",,accountant
+30/04/2024,PY-00016,4100,Interest income,Interest income for month 4,,"25,833.00",accountant
+30/04/2024,PY-00016,1400,Bank current account,Interest income for month 4,"25,833.00",,accountant
+31/05/2024,PY-00017,4100,Interest income,Interest income for month 5,,"25,833.00",accountant
+31/05/2024,PY-00017,1400,Bank current account,Interest income for month 5,"25,833.00",,accountant
+30/06/2024,PY-00018,4100,Interest income,Interest income for month 6,,"25,833.00",accountant
+30/06/2024,PY-00018,1400,Bank current account,Interest income for month 6,"25,833.00",,accountant
+31/07/2024,PY-00019,4100,Interest income,Interest income for month 7,,"25,833.00",accountant
+31/07/2024,PY-00019,1400,Bank current account,Interest income for month 7,"25,833.00",,accountant
+31/08/2024,PY-00020,4100,Interest income,Interest income for month 8,,"25,833.00",accountant
+31/08/2024,PY-00020,1400,Bank current account,Interest income for month 8,"25,833.00",,accountant
+30/09/2024,PY-00021,4100,Interest income,Interest income for month 9,,"25,833.00",accountant
+30/09/2024,PY-00021,1400,Bank current account,Interest income for month 9,"25,833.00",,accountant
+31/10/2024,PY-00022,4100,Interest income,Interest income for month 10,,"25,833.00",accountant
+31/10/2024,PY-00022,1400,Bank current account,Interest income for month 10,"25,833.00",,accountant
+30/11/2024,PY-00023,4100,Interest income,Interest income for month 11,,"25,833.00",accountant
+30/11/2024,PY-00023,1400,Bank current account,Interest income for month 11,"25,833.00",,accountant
+31/12/2024,PY-00024,4100,Interest income,Interest income for month 12,,"25,837.00",accountant
+31/12/2024,PY-00024,1400,Bank current account,Interest income for month 12,"25,837.00",,accountant
+31/01/2024,PY-00025,5000,Cost of sales,Cost of sales for month 1,"11,825,000.00",,accountant
+31/01/2024,PY-00025,1400,Bank current account,Cost of sales for month 1,,"11,825,000.00",accountant
+29/02/2024,PY-00026,5000,Cost of sales,Cost of sales for month 2,"11,825,000.00",,accountant
+29/02/2024,PY-00026,1400,Bank current account,Cost of sales for month 2,,"11,825,000.00",accountant
+31/03/2024,PY-00027,5000,Cost of sales,Cost of sales for month 3,"11,825,000.00",,accountant
+31/03/2024,PY-00027,1400,Bank current account,Cost of sales for month 3,,"11,825,000.00",accountant
+30/04/2024,PY-00028,5000,Cost of sales,Cost of sales for month 4,"11,825,000.00",,accountant
+30/04/2024,PY-00028,1400,Bank current account,Cost of sales for month 4,,"11,825,000.00",accountant
+31/05/2024,PY-00029,5000,Cost of sales,Cost of sales for month 5,"11,825,000.00",,accountant
+31/05/2024,PY-00029,1400,Bank current account,Cost of sales for month 5,,"11,825,000.00",accountant
+30/06/2024,PY-00030,5000,Cost of sales,Cost of sales for month 6,"11,825,000.00",,accountant
+30/06/2024,PY-00030,1400,Bank current account,Cost of sales for month 6,,"11,825,000.00",accountant
+31/07/2024,PY-00031,5000,Cost of sales,Cost of sales for month 7,"11,825,000.00",,accountant
+31/07/2024,PY-00031,1400,Bank current account,Cost of sales for month 7,,"11,825,000.00",accountant
+31/08/2024,PY-00032,5000,Cost of sales,Cost of sales for month 8,"11,825,000.00",,accountant
+31/08/2024,PY-00032,1400,Bank current account,Cost of sales for month 8,,"11,825,000.00",accountant
+30/09/2024,PY-00033,5000,Cost of sales,Cost of sales for month 9,"11,825,000.00",,accountant
+30/09/2024,PY-00033,1400,Bank current account,Cost of sales for month 9,,"11,825,000.00",accountant
+31/10/2024,PY-00034,5000,Cost of sales,Cost of sales for month 10,"11,825,000.00",,accountant
+31/10/2024,PY-00034,1400,Bank current account,Cost of sales for month 10,,"11,825,000.00",accountant
+30/11/2024,PY-00035,5000,Cost of sales,Cost of sales for month 11,"11,825,000.00",,accountant
+30/11/2024,PY-00035,1400,Bank current account,Cost of sales for month 11,,"11,825,000.00",accountant
+31/12/2024,PY-00036,5000,Cost of sales,Cost of sales for month 12,"11,825,000.00",,accountant
+31/12/2024,PY-00036,1400,Bank current account,Cost of sales for month 12,,"11,825,000.00",accountant
+31/01/2024,PY-00037,6000,Salaries and wages,Salaries and wages for month 1,"2,091,666.00",,accountant
+31/01/2024,PY-00037,1400,Bank current account,Salaries and wages for month 1,,"2,091,666.00",accountant
+29/02/2024,PY-00038,6000,Salaries and wages,Salaries and wages for month 2,"2,091,666.00",,accountant
+29/02/2024,PY-00038,1400,Bank current account,Salaries and wages for month 2,,"2,091,666.00",accountant
+31/03/2024,PY-00039,6000,Salaries and wages,Salaries and wages for month 3,"2,091,666.00",,accountant
+31/03/2024,PY-00039,1400,Bank current account,Salaries and wages for month 3,,"2,091,666.00",accountant
+30/04/2024,PY-00040,6000,Salaries and wages,Salaries and wages for month 4,"2,091,666.00",,accountant
+30/04/2024,PY-00040,1400,Bank current account,Salaries and wages for month 4,,"2,091,666.00",accountant
+31/05/2024,PY-00041,6000,Salaries and wages,Salaries and wages for month 5,"2,091,666.00",,accountant
+31/05/2024,PY-00041,1400,Bank current account,Salaries and wages for month 5,,"2,091,666.00",accountant
+30/06/2024,PY-00042,6000,Salaries and wages,Salaries and wages for month 6,"2,091,666.00",,accountant
+30/06/2024,PY-00042,1400,Bank current account,Salaries and wages for month 6,,"2,091,666.00",accountant
+31/07/2024,PY-00043,6000,Salaries and wages,Salaries and wages for month 7,"2,091,666.00",,accountant
+31/07/2024,PY-00043,1400,Bank current account,Salaries and wages for month 7,,"2,091,666.00",accountant
+31/08/2024,PY-00044,6000,Salaries and wages,Salaries and wages for month 8,"2,091,666.00",,accountant
+31/08/2024,PY-00044,1400,Bank current account,Salaries and wages for month 8,,"2,091,666.00",accountant
+30/09/2024,PY-00045,6000,Salaries and wages,Salaries and wages for month 9,"2,091,666.00",,accountant
+30/09/2024,PY-00045,1400,Bank current account,Salaries and wages for month 9,,"2,091,666.00",accountant
+31/10/2024,PY-00046,6000,Salaries and wages,Salaries and wages for month 10,"2,091,666.00",,accountant
+31/10/2024,PY-00046,1400,Bank current account,Salaries and wages for month 10,,"2,091,666.00",accountant
+30/11/2024,PY-00047,6000,Salaries and wages,Salaries and wages for month 11,"2,091,666.00",,accountant
+30/11/2024,PY-00047,1400,Bank current account,Salaries and wages for month 11,,"2,091,666.00",accountant
+31/12/2024,PY-00048,6000,Salaries and wages,Salaries and wages for month 12,"2,091,674.00",,accountant
+31/12/2024,PY-00048,1400,Bank current account,Salaries and wages for month 12,,"2,091,674.00",accountant
+31/01/2024,PY-00049,6010,Pension contribution expense,Pension contribution expense for month 1,"166,666.00",,accountant
+31/01/2024,PY-00049,1400,Bank current account,Pension contribution expense for month 1,,"166,666.00",accountant
+29/02/2024,PY-00050,6010,Pension contribution expense,Pension contribution expense for month 2,"166,666.00",,accountant
+29/02/2024,PY-00050,1400,Bank current account,Pension contribution expense for month 2,,"166,666.00",accountant
+31/03/2024,PY-00051,6010,Pension contribution expense,Pension contribution expense for month 3,"166,666.00",,accountant
+31/03/2024,PY-00051,1400,Bank current account,Pension contribution expense for month 3,,"166,666.00",accountant
+30/04/2024,PY-00052,6010,Pension contribution expense,Pension contribution expense for month 4,"166,666.00",,accountant
+30/04/2024,PY-00052,1400,Bank current account,Pension contribution expense for month 4,,"166,666.00",accountant
+31/05/2024,PY-00053,6010,Pension contribution expense,Pension contribution expense for month 5,"166,666.00",,accountant
+31/05/2024,PY-00053,1400,Bank current account,Pension contribution expense for month 5,,"166,666.00",accountant
+30/06/2024,PY-00054,6010,Pension contribution expense,Pension contribution expense for month 6,"166,666.00",,accountant
+30/06/2024,PY-00054,1400,Bank current account,Pension contribution expense for month 6,,"166,666.00",accountant
+31/07/2024,PY-00055,6010,Pension contribution expense,Pension contribution expense for month 7,"166,666.00",,accountant
+31/07/2024,PY-00055,1400,Bank current account,Pension contribution expense for month 7,,"166,666.00",accountant
+31/08/2024,PY-00056,6010,Pension contribution expense,Pension contribution expense for month 8,"166,666.00",,accountant
+31/08/2024,PY-00056,1400,Bank current account,Pension contribution expense for month 8,,"166,666.00",accountant
+30/09/2024,PY-00057,6010,Pension contribution expense,Pension contribution expense for month 9,"166,666.00",,accountant
+30/09/2024,PY-00057,1400,Bank current account,Pension contribution expense for month 9,,"166,666.00",accountant
+31/10/2024,PY-00058,6010,Pension contribution expense,Pension contribution expense for month 10,"166,666.00",,accountant
+31/10/2024,PY-00058,1400,Bank current account,Pension contribution expense for month 10,,"166,666.00",accountant
+30/11/2024,PY-00059,6010,Pension contribution expense,Pension contribution expense for month 11,"166,666.00",,accountant
+30/11/2024,PY-00059,1400,Bank current account,Pension contribution expense for month 11,,"166,666.00",accountant
+31/12/2024,PY-00060,6010,Pension contribution expense,Pension contribution expense for month 12,"166,674.00",,accountant
+31/12/2024,PY-00060,1400,Bank current account,Pension contribution expense for month 12,,"166,674.00",accountant
+31/01/2024,PY-00061,6100,Depreciation,Depreciation for month 1,"383,333.00",,accountant
+31/01/2024,PY-00061,1400,Bank current account,Depreciation for month 1,,"383,333.00",accountant
+29/02/2024,PY-00062,6100,Depreciation,Depreciation for month 2,"383,333.00",,accountant
+29/02/2024,PY-00062,1400,Bank current account,Depreciation for month 2,,"383,333.00",accountant
+31/03/2024,PY-00063,6100,Depreciation,Depreciation for month 3,"383,333.00",,accountant
+31/03/2024,PY-00063,1400,Bank current account,Depreciation for month 3,,"383,333.00",accountant
+30/04/2024,PY-00064,6100,Depreciation,Depreciation for month 4,"383,333.00",,accountant
+30/04/2024,PY-00064,1400,Bank current account,Depreciation for month 4,,"383,333.00",accountant
+31/05/2024,PY-00065,6100,Depreciation,Depreciation for month 5,"383,333.00",,accountant
+31/05/2024,PY-00065,1400,Bank current account,Depreciation for month 5,,"383,333.00",accountant
+30/06/2024,PY-00066,6100,Depreciation,Depreciation for month 6,"383,333.00",,accountant
+30/06/2024,PY-00066,1400,Bank current account,Depreciation for month 6,,"383,333.00",accountant
+31/07/2024,PY-00067,6100,Depreciation,Depreciation for month 7,"383,333.00",,accountant
+31/07/2024,PY-00067,1400,Bank current account,Depreciation for month 7,,"383,333.00",accountant
+31/08/2024,PY-00068,6100,Depreciation,Depreciation for month 8,"383,333.00",,accountant
+31/08/2024,PY-00068,1400,Bank current account,Depreciation for month 8,,"383,333.00",accountant
+30/09/2024,PY-00069,6100,Depreciation,Depreciation for month 9,"383,333.00",,accountant
+30/09/2024,PY-00069,1400,Bank current account,Depreciation for month 9,,"383,333.00",accountant
+31/10/2024,PY-00070,6100,Depreciation,Depreciation for month 10,"383,333.00",,accountant
+31/10/2024,PY-00070,1400,Bank current account,Depreciation for month 10,,"383,333.00",accountant
+30/11/2024,PY-00071,6100,Depreciation,Depreciation for month 11,"383,333.00",,accountant
+30/11/2024,PY-00071,1400,Bank current account,Depreciation for month 11,,"383,333.00",accountant
+31/12/2024,PY-00072,6100,Depreciation,Depreciation for month 12,"383,337.00",,accountant
+31/12/2024,PY-00072,1400,Bank current account,Depreciation for month 12,,"383,337.00",accountant
+31/01/2024,PY-00073,6200,Rent and rates,Rent and rates for month 1,"366,666.00",,accountant
+31/01/2024,PY-00073,1400,Bank current account,Rent and rates for month 1,,"366,666.00",accountant
+29/02/2024,PY-00074,6200,Rent and rates,Rent and rates for month 2,"366,666.00",,accountant
+29/02/2024,PY-00074,1400,Bank current account,Rent and rates for month 2,,"366,666.00",accountant
+31/03/2024,PY-00075,6200,Rent and rates,Rent and rates for month 3,"366,666.00",,accountant
+31/03/2024,PY-00075,1400,Bank current account,Rent and rates for month 3,,"366,666.00",accountant
+30/04/2024,PY-00076,6200,Rent and rates,Rent and rates for month 4,"366,666.00",,accountant
+30/04/2024,PY-00076,1400,Bank current account,Rent and rates for month 4,,"366,666.00",accountant
+31/05/2024,PY-00077,6200,Rent and rates,Rent and rates for month 5,"366,666.00",,accountant
+31/05/2024,PY-00077,1400,Bank current account,Rent and rates for month 5,,"366,666.00",accountant
+30/06/2024,PY-00078,6200,Rent and rates,Rent and rates for month 6,"366,666.00",,accountant
+30/06/2024,PY-00078,1400,Bank current account,Rent and rates for month 6,,"366,666.00",accountant
+31/07/2024,PY-00079,6200,Rent and rates,Rent and rates for month 7,"366,666.00",,accountant
+31/07/2024,PY-00079,1400,Bank current account,Rent and rates for month 7,,"366,666.00",accountant
+31/08/2024,PY-00080,6200,Rent and rates,Rent and rates for month 8,"366,666.00",,accountant
+31/08/2024,PY-00080,1400,Bank current account,Rent and rates for month 8,,"366,666.00",accountant
+30/09/2024,PY-00081,6200,Rent and rates,Rent and rates for month 9,"366,666.00",,accountant
+30/09/2024,PY-00081,1400,Bank current account,Rent and rates for month 9,,"366,666.00",accountant
+31/10/2024,PY-00082,6200,Rent and rates,Rent and rates for month 10,"366,666.00",,accountant
+31/10/2024,PY-00082,1400,Bank current account,Rent and rates for month 10,,"366,666.00",accountant
+30/11/2024,PY-00083,6200,Rent and rates,Rent and rates for month 11,"366,666.00",,accountant
+30/11/2024,PY-00083,1400,Bank current account,Rent and rates for month 11,,"366,666.00",accountant
+31/12/2024,PY-00084,6200,Rent and rates,Rent and rates for month 12,"366,674.00",,accountant
+31/12/2024,PY-00084,1400,Bank current account,Rent and rates for month 12,,"366,674.00",accountant
+31/01/2024,PY-00085,6210,Electricity and diesel,Electricity and diesel for month 1,"475,000.00",,accountant
+31/01/2024,PY-00085,1400,Bank current account,Electricity and diesel for month 1,,"475,000.00",accountant
+29/02/2024,PY-00086,6210,Electricity and diesel,Electricity and diesel for month 2,"475,000.00",,accountant
+29/02/2024,PY-00086,1400,Bank current account,Electricity and diesel for month 2,,"475,000.00",accountant
+31/03/2024,PY-00087,6210,Electricity and diesel,Electricity and diesel for month 3,"475,000.00",,accountant
+31/03/2024,PY-00087,1400,Bank current account,Electricity and diesel for month 3,,"475,000.00",accountant
+30/04/2024,PY-00088,6210,Electricity and diesel,Electricity and diesel for month 4,"475,000.00",,accountant
+30/04/2024,PY-00088,1400,Bank current account,Electricity and diesel for month 4,,"475,000.00",accountant
+31/05/2024,PY-00089,6210,Electricity and diesel,Electricity and diesel for month 5,"475,000.00",,accountant
+31/05/2024,PY-00089,1400,Bank current account,Electricity and diesel for month 5,,"475,000.00",accountant
+30/06/2024,PY-00090,6210,Electricity and diesel,Electricity and diesel for month 6,"475,000.00",,accountant
+30/06/2024,PY-00090,1400,Bank current account,Electricity and diesel for month 6,,"475,000.00",accountant
+31/07/2024,PY-00091,6210,Electricity and diesel,Electricity and diesel for month 7,"475,000.00",,accountant
+31/07/2024,PY-00091,1400,Bank current account,Electricity and diesel for month 7,,"475,000.00",accountant
+31/08/2024,PY-00092,6210,Electricity and diesel,Electricity and diesel for month 8,"475,000.00",,accountant
+31/08/2024,PY-00092,1400,Bank current account,Electricity and diesel for month 8,,"475,000.00",accountant
+30/09/2024,PY-00093,6210,Electricity and diesel,Electricity and diesel for month 9,"475,000.00",,accountant
+30/09/2024,PY-00093,1400,Bank current account,Electricity and diesel for month 9,,"475,000.00",accountant
+31/10/2024,PY-00094,6210,Electricity and diesel,Electricity and diesel for month 10,"475,000.00",,accountant
+31/10/2024,PY-00094,1400,Bank current account,Electricity and diesel for month 10,,"475,000.00",accountant
+30/11/2024,PY-00095,6210,Electricity and diesel,Electricity and diesel for month 11,"475,000.00",,accountant
+30/11/2024,PY-00095,1400,Bank current account,Electricity and diesel for month 11,,"475,000.00",accountant
+31/12/2024,PY-00096,6210,Electricity and diesel,Electricity and diesel for month 12,"475,000.00",,accountant
+31/12/2024,PY-00096,1400,Bank current account,Electricity and diesel for month 12,,"475,000.00",accountant
+31/01/2024,PY-00097,6220,Audit and professional fees,Audit and professional fees for month 1,"183,333.00",,accountant
+31/01/2024,PY-00097,1400,Bank current account,Audit and professional fees for month 1,,"183,333.00",accountant
+29/02/2024,PY-00098,6220,Audit and professional fees,Audit and professional fees for month 2,"183,333.00",,accountant
+29/02/2024,PY-00098,1400,Bank current account,Audit and professional fees for month 2,,"183,333.00",accountant
+31/03/2024,PY-00099,6220,Audit and professional fees,Audit and professional fees for month 3,"183,333.00",,accountant
+31/03/2024,PY-00099,1400,Bank current account,Audit and professional fees for month 3,,"183,333.00",accountant
+30/04/2024,PY-00100,6220,Audit and professional fees,Audit and professional fees for month 4,"183,333.00",,accountant
+30/04/2024,PY-00100,1400,Bank current account,Audit and professional fees for month 4,,"183,333.00",accountant
+31/05/2024,PY-00101,6220,Audit and professional fees,Audit and professional fees for month 5,"183,333.00",,accountant
+31/05/2024,PY-00101,1400,Bank current account,Audit and professional fees for month 5,,"183,333.00",accountant
+30/06/2024,PY-00102,6220,Audit and professional fees,Audit and professional fees for month 6,"183,333.00",,accountant
+30/06/2024,PY-00102,1400,Bank current account,Audit and professional fees for month 6,,"183,333.00",accountant
+31/07/2024,PY-00103,6220,Audit and professional fees,Audit and professional fees for month 7,"183,333.00",,accountant
+31/07/2024,PY-00103,1400,Bank current account,Audit and professional fees for month 7,,"183,333.00",accountant
+31/08/2024,PY-00104,6220,Audit and professional fees,Audit and professional fees for month 8,"183,333.00",,accountant
+31/08/2024,PY-00104,1400,Bank current account,Audit and professional fees for month 8,,"183,333.00",accountant
+30/09/2024,PY-00105,6220,Audit and professional fees,Audit and professional fees for month 9,"183,333.00",,accountant
+30/09/2024,PY-00105,1400,Bank current account,Audit and professional fees for month 9,,"183,333.00",accountant
+31/10/2024,PY-00106,6220,Audit and professional fees,Audit and professional fees for month 10,"183,333.00",,accountant
+31/10/2024,PY-00106,1400,Bank current account,Audit and professional fees for month 10,,"183,333.00",accountant
+30/11/2024,PY-00107,6220,Audit and professional fees,Audit and professional fees for month 11,"183,333.00",,accountant
+30/11/2024,PY-00107,1400,Bank current account,Audit and professional fees for month 11,,"183,333.00",accountant
+31/12/2024,PY-00108,6220,Audit and professional fees,Audit and professional fees for month 12,"183,337.00",,accountant
+31/12/2024,PY-00108,1400,Bank current account,Audit and professional fees for month 12,,"183,337.00",accountant
+31/01/2024,PY-00109,6230,Bank charges,Bank charges for month 1,"28,333.00",,accountant
+31/01/2024,PY-00109,1400,Bank current account,Bank charges for month 1,,"28,333.00",accountant
+29/02/2024,PY-00110,6230,Bank charges,Bank charges for month 2,"28,333.00",,accountant
+29/02/2024,PY-00110,1400,Bank current account,Bank charges for month 2,,"28,333.00",accountant
+31/03/2024,PY-00111,6230,Bank charges,Bank charges for month 3,"28,333.00",,accountant
+31/03/2024,PY-00111,1400,Bank current account,Bank charges for month 3,,"28,333.00",accountant
+30/04/2024,PY-00112,6230,Bank charges,Bank charges for month 4,"28,333.00",,accountant
+30/04/2024,PY-00112,1400,Bank current account,Bank charges for month 4,,"28,333.00",accountant
+31/05/2024,PY-00113,6230,Bank charges,Bank charges for month 5,"28,333.00",,accountant
+31/05/2024,PY-00113,1400,Bank current account,Bank charges for month 5,,"28,333.00",accountant
+30/06/2024,PY-00114,6230,Bank charges,Bank charges for month 6,"28,333.00",,accountant
+30/06/2024,PY-00114,1400,Bank current account,Bank charges for month 6,,"28,333.00",accountant
+31/07/2024,PY-00115,6230,Bank charges,Bank charges for month 7,"28,333.00",,accountant
+31/07/2024,PY-00115,1400,Bank current account,Bank charges for month 7,,"28,333.00",accountant
+31/08/2024,PY-00116,6230,Bank charges,Bank charges for month 8,"28,333.00",,accountant
+31/08/2024,PY-00116,1400,Bank current account,Bank charges for month 8,,"28,333.00",accountant
+30/09/2024,PY-00117,6230,Bank charges,Bank charges for month 9,"28,333.00",,accountant
+30/09/2024,PY-00117,1400,Bank current account,Bank charges for month 9,,"28,333.00",accountant
+31/10/2024,PY-00118,6230,Bank charges,Bank charges for month 10,"28,333.00",,accountant
+31/10/2024,PY-00118,1400,Bank current account,Bank charges for month 10,,"28,333.00",accountant
+30/11/2024,PY-00119,6230,Bank charges,Bank charges for month 11,"28,333.00",,accountant
+30/11/2024,PY-00119,1400,Bank current account,Bank charges for month 11,,"28,333.00",accountant
+31/12/2024,PY-00120,6230,Bank charges,Bank charges for month 12,"28,337.00",,accountant
+31/12/2024,PY-00120,1400,Bank current account,Bank charges for month 12,,"28,337.00",accountant
+31/01/2024,PY-00121,6300,Advertising and promotion,Advertising and promotion for month 1,"258,333.00",,accountant
+31/01/2024,PY-00121,1400,Bank current account,Advertising and promotion for month 1,,"258,333.00",accountant
+29/02/2024,PY-00122,6300,Advertising and promotion,Advertising and promotion for month 2,"258,333.00",,accountant
+29/02/2024,PY-00122,1400,Bank current account,Advertising and promotion for month 2,,"258,333.00",accountant
+31/03/2024,PY-00123,6300,Advertising and promotion,Advertising and promotion for month 3,"258,333.00",,accountant
+31/03/2024,PY-00123,1400,Bank current account,Advertising and promotion for month 3,,"258,333.00",accountant
+30/04/2024,PY-00124,6300,Advertising and promotion,Advertising and promotion for month 4,"258,333.00",,accountant
+30/04/2024,PY-00124,1400,Bank current account,Advertising and promotion for month 4,,"258,333.00",accountant
+31/05/2024,PY-00125,6300,Advertising and promotion,Advertising and promotion for month 5,"258,333.00",,accountant
+31/05/2024,PY-00125,1400,Bank current account,Advertising and promotion for month 5,,"258,333.00",accountant
+30/06/2024,PY-00126,6300,Advertising and promotion,Advertising and promotion for month 6,"258,333.00",,accountant
+30/06/2024,PY-00126,1400,Bank current account,Advertising and promotion for month 6,,"258,333.00",accountant
+31/07/2024,PY-00127,6300,Advertising and promotion,Advertising and promotion for month 7,"258,333.00",,accountant
+31/07/2024,PY-00127,1400,Bank current account,Advertising and promotion for month 7,,"258,333.00",accountant
+31/08/2024,PY-00128,6300,Advertising and promotion,Advertising and promotion for month 8,"258,333.00",,accountant
+31/08/2024,PY-00128,1400,Bank current account,Advertising and promotion for month 8,,"258,333.00",accountant
+30/09/2024,PY-00129,6300,Advertising and promotion,Advertising and promotion for month 9,"258,333.00",,accountant
+30/09/2024,PY-00129,1400,Bank current account,Advertising and promotion for month 9,,"258,333.00",accountant
+31/10/2024,PY-00130,6300,Advertising and promotion,Advertising and promotion for month 10,"258,333.00",,accountant
+31/10/2024,PY-00130,1400,Bank current account,Advertising and promotion for month 10,,"258,333.00",accountant
+30/11/2024,PY-00131,6300,Advertising and promotion,Advertising and promotion for month 11,"258,333.00",,accountant
+30/11/2024,PY-00131,1400,Bank current account,Advertising and promotion for month 11,,"258,333.00",accountant
+31/12/2024,PY-00132,6300,Advertising and promotion,Advertising and promotion for month 12,"258,337.00",,accountant
+31/12/2024,PY-00132,1400,Bank current account,Advertising and promotion for month 12,,"258,337.00",accountant
+31/01/2024,PY-00133,6400,Interest expense on loan,Interest expense on loan for month 1,"350,000.00",,accountant
+31/01/2024,PY-00133,1400,Bank current account,Interest expense on loan for month 1,,"350,000.00",accountant
+29/02/2024,PY-00134,6400,Interest expense on loan,Interest expense on loan for month 2,"350,000.00",,accountant
+29/02/2024,PY-00134,1400,Bank current account,Interest expense on loan for month 2,,"350,000.00",accountant
+31/03/2024,PY-00135,6400,Interest expense on loan,Interest expense on loan for month 3,"350,000.00",,accountant
+31/03/2024,PY-00135,1400,Bank current account,Interest expense on loan for month 3,,"350,000.00",accountant
+30/04/2024,PY-00136,6400,Interest expense on loan,Interest expense on loan for month 4,"350,000.00",,accountant
+30/04/2024,PY-00136,1400,Bank current account,Interest expense on loan for month 4,,"350,000.00",accountant
+31/05/2024,PY-00137,6400,Interest expense on loan,Interest expense on loan for month 5,"350,000.00",,accountant
+31/05/2024,PY-00137,1400,Bank current account,Interest expense on loan for month 5,,"350,000.00",accountant
+30/06/2024,PY-00138,6400,Interest expense on loan,Interest expense on loan for month 6,"350,000.00",,accountant
+30/06/2024,PY-00138,1400,Bank current account,Interest expense on loan for month 6,,"350,000.00",accountant
+31/07/2024,PY-00139,6400,Interest expense on loan,Interest expense on loan for month 7,"350,000.00",,accountant
+31/07/2024,PY-00139,1400,Bank current account,Interest expense on loan for month 7,,"350,000.00",accountant
+31/08/2024,PY-00140,6400,Interest expense on loan,Interest expense on loan for month 8,"350,000.00",,accountant
+31/08/2024,PY-00140,1400,Bank current account,Interest expense on loan for month 8,,"350,000.00",accountant
+30/09/2024,PY-00141,6400,Interest expense on loan,Interest expense on loan for month 9,"350,000.00",,accountant
+30/09/2024,PY-00141,1400,Bank current account,Interest expense on loan for month 9,,"350,000.00",accountant
+31/10/2024,PY-00142,6400,Interest expense on loan,Interest expense on loan for month 10,"350,000.00",,accountant
+31/10/2024,PY-00142,1400,Bank current account,Interest expense on loan for month 10,,"350,000.00",accountant
+30/11/2024,PY-00143,6400,Interest expense on loan,Interest expense on loan for month 11,"350,000.00",,accountant
+30/11/2024,PY-00143,1400,Bank current account,Interest expense on loan for month 11,,"350,000.00",accountant
+31/12/2024,PY-00144,6400,Interest expense on loan,Interest expense on loan for month 12,"350,000.00",,accountant
+31/12/2024,PY-00144,1400,Bank current account,Interest expense on loan for month 12,,"350,000.00",accountant
+31/01/2024,PY-00145,7000,Company income tax,Company income tax for month 1,"483,333.00",,accountant
+31/01/2024,PY-00145,1400,Bank current account,Company income tax for month 1,,"483,333.00",accountant
+29/02/2024,PY-00146,7000,Company income tax,Company income tax for month 2,"483,333.00",,accountant
+29/02/2024,PY-00146,1400,Bank current account,Company income tax for month 2,,"483,333.00",accountant
+31/03/2024,PY-00147,7000,Company income tax,Company income tax for month 3,"483,333.00",,accountant
+31/03/2024,PY-00147,1400,Bank current account,Company income tax for month 3,,"483,333.00",accountant
+30/04/2024,PY-00148,7000,Company income tax,Company income tax for month 4,"483,333.00",,accountant
+30/04/2024,PY-00148,1400,Bank current account,Company income tax for month 4,,"483,333.00",accountant
+31/05/2024,PY-00149,7000,Company income tax,Company income tax for month 5,"483,333.00",,accountant
+31/05/2024,PY-00149,1400,Bank current account,Company income tax for month 5,,"483,333.00",accountant
+30/06/2024,PY-00150,7000,Company income tax,Company income tax for month 6,"483,333.00",,accountant
+30/06/2024,PY-00150,1400,Bank current account,Company income tax for month 6,,"483,333.00",accountant
+31/07/2024,PY-00151,7000,Company income tax,Company income tax for month 7,"483,333.00",,accountant
+31/07/2024,PY-00151,1400,Bank current account,Company income tax for month 7,,"483,333.00",accountant
+31/08/2024,PY-00152,7000,Company income tax,Company income tax for month 8,"483,333.00",,accountant
+31/08/2024,PY-00152,1400,Bank current account,Company income tax for month 8,,"483,333.00",accountant
+30/09/2024,PY-00153,7000,Company income tax,Company income tax for month 9,"483,333.00",,accountant
+30/09/2024,PY-00153,1400,Bank current account,Company income tax for month 9,,"483,333.00",accountant
+31/10/2024,PY-00154,7000,Company income tax,Company income tax for month 10,"483,333.00",,accountant
+31/10/2024,PY-00154,1400,Bank current account,Company income tax for month 10,,"483,333.00",accountant
+30/11/2024,PY-00155,7000,Company income tax,Company income tax for month 11,"483,333.00",,accountant
+30/11/2024,PY-00155,1400,Bank current account,Company income tax for month 11,,"483,333.00",accountant
+31/12/2024,PY-00156,7000,Company income tax,Company income tax for month 12,"483,337.00",,accountant
+31/12/2024,PY-00156,1400,Bank current account,Company income tax for month 12,,"483,337.00",accountant

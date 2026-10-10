@@ -86,7 +86,7 @@ These need `supabase/migrations/0003_team_and_evidence.sql`.
 | Evidence files | Any file up to 25 MB, attached to the engagement and linked to a work programme step, a high-risk journal, a bank account, an adjusting journal, or the file in general. Counts show beside the item each file supports. |
 | Evidence security | Files sit in a private storage bucket, readable only by members of the engagement's firm. Once the engagement is signed, files cannot be added or removed. Every upload and removal is in the audit trail. |
 
-Not yet built from phase 2: links from individual figures to a page of a source document, accounting system connections.
+Not yet built from phase 2: accounting system connections.
 
 ### Client requests and upload links
 
@@ -101,11 +101,15 @@ These need `supabase/migrations/0005_client_requests.sql`.
 
 ### From a figure to its source
 
-- Every line on the statement of financial position and the statement of profit or loss opens to show where it comes from: the accounts mapped to it, the trial balance figure, the audit journals posted, and the amount carried in the statements. Both years.
-- Each account opens further: the audit journals by reference, the bank statement and whether it reconciles, the client's ledger entries (by date or largest first), whether the ledger agrees to the trial balance, the test result on any high-risk journal, and the evidence files attached to each of those.
-- Retained earnings shows the accounts brought forward, the profit for the year and dividends.
-- The trail is computed from the same inputs as the statements, so it always equals the figure shown. A test checks every line in both years.
-- Not yet traced: subtotals, the cash flow statement, the statement of changes in equity and the notes. The prior year stops at the trial balance because the prior year ledger is not held.
+The prior year ledger, files against an account and page references need `supabase/migrations/0006_prior_ledger_and_pages.sql`. Everything else works without it.
+
+- Every underlined figure in the financial statements opens to show what it is made of. This covers the statement of financial position, profit or loss, changes in equity for both years, cash flows, value added, the notes, the property, plant and equipment schedule and the tax reconciliation.
+- A figure made of other figures opens to them: a subtotal to its lines, a cash flow movement to the closing and opening balances, profit to revenue and each cost. Each of those opens in turn, down to the accounts.
+- At the accounts: the trial balance figure, the audit journals posted, and the amount carried in the statements. Each account opens to its audit journals, the bank statement and whether it reconciles, the client's ledger entries (by date or largest first), whether the ledger agrees to the trial balance, the test result on any high-risk journal, and the files attached.
+- Last year's ledger can be imported on the Journal testing step. A comparative figure then opens to its entries too. It is held for reference only: it is not risk tested and plays no part in sign-off. Income and expense accounts are agreed to last year's trial balance. Balance sheet accounts cannot be, because their opening balances are not held.
+- A file can be attached to an account in the trial balance, from the figure itself. Any file can carry a page number. A PDF with a page opens in the browser at that page. Other file types keep the page as a reference and download as before.
+- Every part adds up to the figure above it, in both years, because the trail is computed from the same inputs as the statements. Tests check this for every figure that opens.
+- Not traced: the five-year financial summary's earlier years, which are typed in, and the movement columns of the property schedule. Bank statement lines do not carry the page of the PDF they were read from.
 
 ## Rules the software enforces
 
@@ -146,7 +150,7 @@ The work programmes, accounting policy wording and report wording are starter co
 
 | Phase | Scope |
 | --- | --- |
-| 2, remaining | Links from figures to source pages. Accounting system connections. |
+| 2, remaining | Accounting system connections (on hold). |
 | 3 | Full IFRS template. Industry packs. Consolidations. Firm-level quality management. |
 | 4 | AI assistance for risk suggestions, disclosure review and expense testing, inside the file and under partner review. |
 

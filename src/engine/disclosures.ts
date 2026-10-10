@@ -1,4 +1,5 @@
-import { adjustedBalances, type EquityTable, type Figures, type Statements } from './statements';
+import { ITEM } from './chart';
+import { adjustedBalances, groupParts, priorColumn, type EquityTable, type Figures, type Part, type Statements } from './statements';
 import type { Adjustment, Disclosures, EarlierYear, Kobo, TbLine } from './types';
 
 export interface PpeRow {
@@ -113,13 +114,29 @@ export function priorEquity(st: Statements): EquityTable | null {
   if (!p) return null;
   const withTotal = (v: Kobo[]) => [...v, v.reduce((a, b) => a + b, 0)];
   const capital = [p.v.share_capital, p.v.share_premium, p.v.other_reserves];
+  const columns = st.equity.columns;
+  const part = (code: string, amount: Kobo, accountsOnly = false, label = ITEM.get(code)!.label): Part => ({
+    label,
+    cur: amount,
+    prior: null,
+    code,
+    period: 'prior',
+    accountsOnly: accountsOnly || undefined,
+  });
+  const caps = ['share_capital', 'share_premium', 'other_reserves'].map((c, i) => [part(c, capital[i])]);
+  const row = (label: string, values: Kobo[], cells: Part[][], style: 'line' | 'total' = 'line') => ({
+    label,
+    values: withTotal(values),
+    style,
+    sources: [...cells, cells.flatMap((c, i) => (values[i] !== 0 ? [{ ...groupParts(columns[i], c), prior: null }] : []))],
+  });
   return {
-    columns: st.equity.columns,
+    columns,
     rows: [
-      { label: 'At start of year', values: withTotal([...capital, p.v.retained_earnings]), style: 'line' },
-      { label: 'Profit for the year', values: withTotal([0, 0, 0, p.profit]), style: 'line' },
-      { label: 'Dividends', values: withTotal([0, 0, 0, -p.v.dividends]), style: 'line' },
-      { label: 'At end of year', values: withTotal([...capital, p.closingRetained]), style: 'total' },
+      row('At start of year', [...capital, p.v.retained_earnings], [...caps, [part('retained_earnings', p.v.retained_earnings, true, 'Retained earnings brought forward')]]),
+      row('Profit for the year', [0, 0, 0, p.profit], [[], [], [], priorColumn(st.profitParts)]),
+      row('Dividends', [0, 0, 0, -p.v.dividends], [[], [], [], [part('dividends', -p.v.dividends)]]),
+      row('At end of year', [...capital, p.closingRetained], [...caps, [part('retained_earnings', p.closingRetained)]], 'total'),
     ],
   };
 }

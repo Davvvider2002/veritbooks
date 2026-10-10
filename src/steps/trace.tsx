@@ -1,21 +1,27 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { repo } from '../data';
-import type { Evidence } from '../data/repo';
+import { opensAtPage, type Evidence } from '../data/repo';
+import { priorAgreement } from '../engine/ledger';
 import { fmt2 } from '../engine/money';
-import type { Period } from '../engine/statements';
+import type { Part, Period } from '../engine/statements';
 import { traceItem, type TraceAccount } from '../engine/trace';
-import { ErrorNote, useAction } from '../ui';
+import { canOpen, ErrorNote, useAction, type Opened } from '../ui';
 import type { Ctx } from '../workspace';
 
 const PAGE = 100;
 
-/** Where one figure on the statements comes from: accounts, audit journals, the client's ledger and the files on record. */
-export function TracePanel({ ctx, code, period, onClose }: { ctx: Ctx; code: string; period: Period; onClose: () => void }) {
-  const { eng, lines, adjustments, ledger, ledgerTest, recons, evidence } = ctx;
-  const trace = useMemo(() => traceItem(code, period, lines, adjustments, ledger), [code, period, lines, adjustments, ledger]);
-  const [open, setOpen] = useState<string | null>(null);
+/** The name of a file, with the page it points at. */
+export const fileLabel = (f: Evidence) => (f.page ? `${f.fileName}, page ${f.page}` : f.fileName);
+
+/**
+ * Where a figure on the statements comes from. A figure made of other figures opens to them,
+ * and so on down to the accounts, audit journals, the client's ledger and the files on record.
+ */
+export function TracePanel({ ctx, opened, onClose }: { ctx: Ctx; opened: Opened; onClose: () => void }) {
+  const [stack, setStack] = useState<Opened[]>([opened]);
   const { error, run } = useAction();
+  const node = stack[stack.length - 1];
 
   useEffect(() => {
     const key = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -23,112 +29,189 @@ export function TracePanel({ ctx, code, period, onClose }: { ctx: Ctx; code: str
     return () => window.removeEventListener('keydown', key);
   }, [onClose]);
 
-  if (!trace) return null;
-  const year = Number(eng.yearEnd.slice(0, 4)) - (period === 'prior' ? 1 : 0);
-  const base = `/engagements/${eng.id}`;
+  const period: Period = node.source.period ?? node.period;
+  const year = Number(ctx.eng.yearEnd.slice(0, 4)) - (period === 'prior' ? 1 : 0);
   const showFile = (f: Evidence) => void run(async () => void window.open(await repo.evidenceUrl(f), '_blank', 'noopener'));
-  const Files = ({ files }: { files: Evidence[] }) =>
-    files.length === 0 ? null : (
-      <>
-        {files.map((f) => (
-          <button key={f.id} className="link small" style={{ marginLeft: 8 }} onClick={() => showFile(f)}>
-            {f.fileName}
-          </button>
-        ))}
-      </>
-    );
 
-  const detail = (a: TraceAccount) => {
-    const agree = ledgerTest?.agreement.find((g) => g.code === a.line.code);
-    const banks = recons.filter((r) => r.account.accountCode === a.line.code);
-    const risky = new Map((ledgerTest?.highRisk ?? []).map((j) => [j.entryNo, j]));
+  return (
+    <div className="overlay no-print" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="drawer stack" role="dialog" aria-modal="true" aria-label={`Source of ${node.label}`}>
+        <div className="between" style={{ alignItems: 'flex-start' }}>
+          <div>
+            <div className="small muted">Where this figure comes from · {year}</div>
+            <h2 style={{ marginTop: 2 }}>{node.label}</h2>
+            {stack.length > 1 && (
+              <div className="small crumbs">
+                {stack.slice(0, -1).map((s, i) => (
+                  <span key={i}>
+                    <button className="link" onClick={() => setStack(stack.slice(0, i + 1))}>{s.label}</button> ›{' '}
+                  </span>
+                ))}
+                {node.label}
+              </div>
+            )}
+          </div>
+          <div className="row">
+            {stack.length > 1 && <button onClick={() => setStack(stack.slice(0, -1))}>Back</button>}
+            <button onClick={onClose}>Close</button>
+          </div>
+        </div>
+        <ErrorNote error={error} />
+        {node.source.code ? (
+          <AccountsView key={stack.length} ctx={ctx} node={node} period={period} year={year} showFile={showFile} />
+        ) : (
+          <PartsView node={node} open={(x) => setStack([...stack, { label: x.label, period: node.period, source: x }])} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** A figure that is the sum of other figures. */
+function PartsView({ node, open }: { node: Opened; open: (x: Part) => void }) {
+  const amount = (x: Part) => (node.period === 'current' ? x.cur : (x.prior ?? 0));
+  const parts = (node.source.parts ?? []).filter((x) => amount(x) !== 0);
+  return (
+    <>
+      <div className="scroll-x">
+        <table className="data trace">
+          <thead>
+            <tr>
+              <th>Made up of</th>
+              <th className="num">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {parts.map((x, i) => (
+              <tr key={i} className={canOpen(x) ? 'clickable' : ''} onClick={() => canOpen(x) && open(x)}>
+                <td>{canOpen(x) ? <button className="link" onClick={(e) => (e.stopPropagation(), open(x))}>{x.label}</button> : x.label}</td>
+                <td className="num">{fmt2(amount(x))}</td>
+              </tr>
+            ))}
+            <tr className="sum">
+              <td>{node.label}</td>
+              <td className="num">{fmt2(parts.reduce((a, x) => a + amount(x), 0))}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p className="small muted" style={{ margin: 0 }}>
+        Each amount carries the sign it has in the sum, so a deduction shows as a negative. Select a line to open it. The figure is computed from these lines each time, so it always equals their total.
+      </p>
+    </>
+  );
+}
+
+/** A figure that is the sum of accounts on one line of the statements. */
+function AccountsView({ ctx, node, period, year, showFile }: { ctx: Ctx; node: Opened; period: Period; year: number; showFile: (f: Evidence) => void }) {
+  const { eng, lines, adjustments, ledger, priorLedger, ledgerTest, recons, evidence } = ctx;
+  const src = node.source;
+  const book = period === 'current' ? ledger : priorLedger;
+  const trace = useMemo(() => traceItem(src.code!, period, lines, adjustments, book, src), [src, period, lines, adjustments, book]);
+  const lastYear = useMemo(() => (period === 'prior' ? priorAgreement(priorLedger, lines) : []), [period, priorLedger, lines]);
+  const [open, setOpen] = useState<string | null>(() => (trace && trace.accounts.length === 1 ? trace.accounts[0].line.id : null));
+  if (!trace) return null;
+  const base = `/engagements/${eng.id}`;
+  const risky = new Set((ledgerTest?.highRisk ?? []).map((j) => j.entryNo));
+
+  const Files = ({ files }: { files: Evidence[] }) => (
+    <>
+      {files.map((f) => (
+        <button key={f.id} className="link small" style={{ marginLeft: 8 }} title={opensAtPage(f) ? `Opens at page ${f.page}` : undefined} onClick={() => showFile(f)}>
+          {fileLabel(f)}
+        </button>
+      ))}
+    </>
+  );
+
+  const detail = (a: TraceAccount): ReactNode => {
+    const agree = (period === 'current' ? ledgerTest?.agreement : lastYear)?.find((g) => g.code === a.line.code);
     return (
       <AccountDetail
-        key={a.line.id}
         account={a}
-        current={period === 'current'}
-        hasLedger={ledger.length > 0}
-        agreement={agree ? agree.difference : undefined}
+        period={period}
+        year={year}
+        hasLedger={book.length > 0}
+        agreement={agree ? agree.difference : period === 'prior' && book.length ? null : undefined}
         base={base}
-        banks={banks.map((b) => ({
-          id: b.account.id,
-          name: b.account.name,
-          closing: b.account.closing,
-          clean: !!b.result && b.result.difference === 0,
-          files: evidence.filter((e) => e.refType === 'bank' && e.refId === b.account.id),
-        }))}
+        locked={ctx.locked}
+        accountFiles={evidence.filter((e) => e.refType === 'account' && e.refId === a.line.code)}
+        banks={
+          period === 'current'
+            ? recons
+                .filter((r) => r.account.accountCode === a.line.code)
+                .map((b) => ({
+                  id: b.account.id,
+                  name: b.account.name,
+                  closing: b.account.closing,
+                  clean: !!b.result && b.result.difference === 0,
+                  files: evidence.filter((e) => e.refType === 'bank' && e.refId === b.account.id),
+                }))
+            : []
+        }
         journalFiles={(id) => evidence.filter((e) => e.refType === 'adjustment' && e.refId === id)}
-        entryFiles={(no) => evidence.filter((e) => e.refType === 'journal' && e.refId === no)}
-        tested={(no) => (risky.has(no) ? (eng.testing.journals?.[no]?.status ?? 'open') : null)}
+        entryFiles={(no) => (period === 'current' ? evidence.filter((e) => e.refType === 'journal' && e.refId === no) : [])}
+        tested={(no) => (period === 'current' && risky.has(no) ? (eng.testing.journals?.[no]?.status ?? 'open') : null)}
         Files={Files}
       />
     );
   };
 
   return (
-    <div className="overlay no-print" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="drawer stack" role="dialog" aria-modal="true" aria-label={`Source of ${trace.label}`}>
-        <div className="between" style={{ alignItems: 'flex-start' }}>
-          <div>
-            <div className="small muted">Where this figure comes from · {year}</div>
-            <h2 style={{ marginTop: 2 }}>{trace.label}</h2>
-          </div>
-          <button onClick={onClose}>Close</button>
-        </div>
-        <ErrorNote error={error} />
-        {trace.accounts.length === 0 && trace.derived.length === 0 ? (
-          <div className="banner info">No account is mapped to this line for {year}.</div>
-        ) : (
-          <div className="scroll-x">
-            <table className="data trace">
-              <thead>
-                <tr>
-                  <th>Account</th>
-                  <th className="num">Trial balance</th>
-                  <th className="num">Audit journals</th>
-                  <th className="num">In the statements</th>
-                </tr>
-              </thead>
-              <tbody>
-                {trace.accounts.map((a) => (
-                  <FragmentRow key={a.line.id} a={a} open={open === a.line.id} toggle={() => setOpen(open === a.line.id ? null : a.line.id)} detail={detail} />
-                ))}
-                {trace.derived.length > 0 && (
-                  <tr className="sum">
-                    <td>Accounts brought forward</td>
-                    <td></td>
-                    <td></td>
-                    <td className="num">{fmt2(trace.subtotal)}</td>
-                  </tr>
-                )}
-                {trace.derived.map((d) => (
-                  <tr key={d.label}>
-                    <td>{d.label}</td>
-                    <td></td>
-                    <td></td>
-                    <td className="num">{fmt2(d.amount)}</td>
-                  </tr>
-                ))}
+    <>
+      {trace.accounts.length === 0 && trace.derived.length === 0 ? (
+        <div className="banner info">No account is mapped to this line for {year}.</div>
+      ) : (
+        <div className="scroll-x">
+          <table className="data trace">
+            <thead>
+              <tr>
+                <th>Account</th>
+                <th className="num">Trial balance</th>
+                <th className="num">Audit journals</th>
+                <th className="num">In the statements</th>
+              </tr>
+            </thead>
+            <tbody>
+              {trace.accounts.map((a) => (
+                <AccountRow key={a.line.id} a={a} open={open === a.line.id} toggle={() => setOpen(open === a.line.id ? null : a.line.id)} detail={detail} />
+              ))}
+              {trace.derived.length > 0 && (
                 <tr className="sum">
-                  <td>{trace.label}, as reported</td>
+                  <td>Accounts brought forward</td>
                   <td></td>
                   <td></td>
-                  <td className="num">{fmt2(trace.total)}</td>
+                  <td className="num">{fmt2(trace.subtotal)}</td>
                 </tr>
-              </tbody>
-            </table>
-          </div>
-        )}
-        <p className="small muted" style={{ margin: 0 }}>
-          Select an account to see what is behind it. Amounts carry the sign the statement uses. The figure is computed from these accounts each time, so it always equals their total.{' '}
-          <Link to={`${base}/mapping`}>Change the mapping</Link>
-        </p>
-      </div>
-    </div>
+              )}
+              {trace.derived.map((d) => (
+                <tr key={d.label}>
+                  <td>{d.label}</td>
+                  <td></td>
+                  <td></td>
+                  <td className="num">{fmt2(d.amount)}</td>
+                </tr>
+              ))}
+              <tr className="sum">
+                <td>{src.lineId || src.nature || src.accountsOnly ? 'Total' : `${trace.label}, as reported`}</td>
+                <td></td>
+                <td></td>
+                <td className="num">{fmt2(trace.total)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="small muted" style={{ margin: 0 }}>
+        {src.nature && `Only the accounts marked as ${src.nature === 'staff' ? 'staff costs' : 'depreciation'} on this line are shown. `}
+        Select an account to see what is behind it. Amounts here carry the sign of the statement line, whatever sign they had in the sum you came from. The figure is computed from these accounts each time, so it always equals their total.{' '}
+        <Link to={`${base}/mapping`}>Change the mapping</Link>
+      </p>
+    </>
   );
 }
 
-function FragmentRow({ a, open, toggle, detail }: { a: TraceAccount; open: boolean; toggle: () => void; detail: (a: TraceAccount) => React.ReactNode }) {
+function AccountRow({ a, open, toggle, detail }: { a: TraceAccount; open: boolean; toggle: () => void; detail: (a: TraceAccount) => ReactNode }) {
   const j = a.journals.reduce((s, x) => s + x.amount, 0);
   return (
     <>
@@ -155,16 +238,19 @@ function FragmentRow({ a, open, toggle, detail }: { a: TraceAccount; open: boole
 
 function AccountDetail(p: {
   account: TraceAccount;
-  current: boolean;
+  period: Period;
+  year: number;
   hasLedger: boolean;
-  /** Ledger less trial balance. Null when it cannot be compared, undefined when there is no ledger. */
+  /** Ledger less trial balance. Null when it cannot be compared, undefined when there is nothing to compare. */
   agreement: number | null | undefined;
   base: string;
+  locked: boolean;
+  accountFiles: Evidence[];
   banks: { id: string; name: string; closing: number; clean: boolean; files: Evidence[] }[];
   journalFiles: (id: string) => Evidence[];
   entryFiles: (entryNo: string) => Evidence[];
   tested: (entryNo: string) => 'clear' | 'exception' | 'open' | null;
-  Files: (x: { files: Evidence[] }) => React.ReactNode;
+  Files: (x: { files: Evidence[] }) => ReactNode;
 }) {
   const { account: a, Files } = p;
   const [shown, setShown] = useState(PAGE);
@@ -175,11 +261,21 @@ function AccountDetail(p: {
   );
   const net = a.entries.reduce((s, e) => s + e.amount, 0);
 
-  if (!p.current)
-    return <div className="small muted">This is last year’s figure, taken from the prior year trial balance. The prior year ledger is not held in this file.</div>;
-
   return (
     <div className="stack" style={{ gap: 12 }}>
+      <div>
+        <strong className="small">Files for this account</strong>
+        {p.accountFiles.length === 0 ? (
+          <span className="small muted"> None attached.</span>
+        ) : (
+          <Files files={p.accountFiles} />
+        )}
+        {!p.locked && (
+          <Link className="small" style={{ marginLeft: 10 }} to={`${p.base}/evidence?for=${encodeURIComponent(`account:${a.line.code}`)}`}>
+            Attach a file
+          </Link>
+        )}
+      </div>
       {a.journals.length > 0 && (
         <div>
           <strong className="small">Audit journals</strong>
@@ -209,15 +305,18 @@ function AccountDetail(p: {
       )}
       {!p.hasLedger ? (
         <div className="small muted">
-          No general ledger has been imported, so the trail stops at the trial balance. <Link to={`${p.base}/ledger`}>Import the ledger</Link>
+          {p.period === 'current'
+            ? 'No general ledger has been imported, so the trail stops at the trial balance. '
+            : `The ${p.year} ledger has not been imported, so last year’s trail stops at the prior year trial balance. `}
+          <Link to={`${p.base}/ledger`}>Import {p.period === 'current' ? 'the ledger' : `the ${p.year} ledger`}</Link>
         </div>
       ) : a.entries.length === 0 ? (
-        <div className="small muted">The ledger has no entries on this account.</div>
+        <div className="small muted">The {p.year} ledger has no entries on this account.</div>
       ) : (
         <div>
           <div className="between">
             <strong className="small">
-              Client’s ledger: {a.entries.length.toLocaleString('en-GB')} entr{a.entries.length === 1 ? 'y' : 'ies'}, net {net < 0 ? 'credit' : 'debit'} {fmt2(Math.abs(net))}
+              Client’s ledger, {p.year}: {a.entries.length.toLocaleString('en-GB')} entr{a.entries.length === 1 ? 'y' : 'ies'}, net {net < 0 ? 'credit' : 'debit'} {fmt2(Math.abs(net))}
             </strong>
             <label className="small row" style={{ gap: 6 }}>
               <input type="checkbox" checked={largest} onChange={(e) => setLargest(e.target.checked)} /> Largest first
@@ -226,7 +325,11 @@ function AccountDetail(p: {
           {p.agreement !== undefined && (
             <div className="small" style={{ margin: '4px 0 6px' }}>
               {p.agreement === null ? (
-                <span className="muted">Not compared to the trial balance: there is no opening balance for this account.</span>
+                <span className="muted">
+                  {p.period === 'current'
+                    ? 'Not compared to the trial balance: there is no opening balance for this account.'
+                    : 'Not compared to last year’s trial balance: the opening balance of a balance sheet account is not held.'}
+                </span>
               ) : p.agreement === 0 ? (
                 <span className="tag ok">The ledger agrees to the trial balance</span>
               ) : (

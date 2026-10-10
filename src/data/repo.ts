@@ -108,7 +108,12 @@ export interface PendingInvite {
   role: Role;
 }
 
-export type EvidenceRef = 'general' | 'programme' | 'journal' | 'bank' | 'adjustment' | 'request';
+export type LedgerPeriod = 'current' | 'prior';
+
+/** True when the file opens in the browser at its recorded page, rather than downloading. */
+export const opensAtPage = (e: { fileName: string; page: number | null }) => !!e.page && /\.pdf$/i.test(e.fileName);
+
+export type EvidenceRef = 'general' | 'programme' | 'journal' | 'bank' | 'adjustment' | 'request' | 'account';
 
 export interface Evidence {
   id: string;
@@ -122,6 +127,8 @@ export interface Evidence {
   createdAt: string;
   /** True when the client sent the file through an upload link. */
   fromClient: boolean;
+  /** The page of the document that holds the support, when one was recorded. */
+  page: number | null;
 }
 
 export type RequestStatus = 'open' | 'received' | 'accepted' | 'returned';
@@ -213,9 +220,10 @@ export interface Repo {
   addAdjustment(engagementId: string, a: Omit<Adjustment, 'id'>): Promise<void>;
   deleteAdjustment(id: string): Promise<void>;
 
-  listLedger(engagementId: string): Promise<GlEntry[]>;
-  /** Replaces the whole general ledger of an engagement. An empty list removes it. */
-  replaceLedger(engagementId: string, entries: GlEntry[]): Promise<void>;
+  /** The general ledger of the year under audit, or of the year before it. */
+  listLedger(engagementId: string, period?: LedgerPeriod): Promise<GlEntry[]>;
+  /** Replaces the whole general ledger of one year. An empty list removes it. */
+  replaceLedger(engagementId: string, entries: GlEntry[], period?: LedgerPeriod): Promise<void>;
 
   listBankAccounts(engagementId: string): Promise<BankAccount[]>;
   listBankLines(engagementId: string): Promise<StoredBankLine[]>;
@@ -223,9 +231,11 @@ export interface Repo {
   deleteBankAccount(id: string): Promise<void>;
 
   listEvidence(engagementId: string): Promise<Evidence[]>;
-  addEvidence(engagementId: string, file: File, meta: { refType: EvidenceRef; refId: string; note: string; uploadedByName: string }): Promise<void>;
+  addEvidence(engagementId: string, file: File, meta: { refType: EvidenceRef; refId: string; note: string; uploadedByName: string; page?: number | null }): Promise<void>;
+  setEvidencePage(e: Evidence, page: number | null): Promise<void>;
   deleteEvidence(e: Evidence): Promise<void>;
   /** A short-lived link to open the file. */
+  /** A short-lived link to the file. A PDF with a page recorded opens in the browser at that page. */
   evidenceUrl(e: Evidence): Promise<string>;
 
   listRequests(engagementId: string): Promise<ClientRequest[]>;

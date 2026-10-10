@@ -3,6 +3,7 @@ import type { Adjustment, Nature, TbLine } from '../engine/types';
 import {
   LockedError,
   newToken,
+  opensAtPage,
   type BankAccount,
   type ClientRequest,
   type PortalView,
@@ -36,6 +37,7 @@ interface Store {
   maps: Record<string, Record<string, { mapCode: string; nature: Nature | null }>>;
   log: Record<string, LogEntry[]>;
   ledger: Record<string, GlEntry[]>;
+  priorLedger: Record<string, GlEntry[]>;
   bankAccounts: Record<string, BankAccount[]>;
   bankLines: Record<string, StoredBankLine[]>;
   invites: (Invite & { firmId: string })[];
@@ -57,6 +59,7 @@ const empty = (): Store => ({
   maps: {},
   log: {},
   ledger: {},
+  priorLedger: {},
   bankAccounts: {},
   bankLines: {},
   invites: [],
@@ -336,14 +339,15 @@ export function createDemoRepo(): Repo {
       }
     },
 
-    async listLedger(id) {
+    async listLedger(id, period = 'current') {
       eng(id);
-      return s.ledger[id] ?? [];
+      return (period === 'prior' ? s.priorLedger : s.ledger)[id] ?? [];
     },
-    async replaceLedger(id, entries) {
+    async replaceLedger(id, entries, period = 'current') {
       open(id);
-      if (s.ledger[id]?.length) log(id, 'gl_entries', 'remove', { rows: s.ledger[id].length });
-      s.ledger[id] = entries;
+      const store = period === 'prior' ? s.priorLedger : s.ledger;
+      if (store[id]?.length) log(id, 'gl_entries', 'remove', { rows: store[id].length });
+      store[id] = entries;
       if (entries.length) log(id, 'gl_entries', 'import', { rows: entries.length });
       save();
     },
@@ -396,6 +400,7 @@ export function createDemoRepo(): Repo {
         uploadedByName: meta.uploadedByName,
         createdAt: new Date().toISOString(),
         fromClient: false,
+        page: meta.page ?? null,
       });
       log(id, 'evidence', 'insert', { file: file.name, ref_type: meta.refType, ref_id: meta.refId });
       save();
@@ -412,10 +417,21 @@ export function createDemoRepo(): Repo {
         return;
       }
     },
+    async setEvidencePage(e, page) {
+      for (const [engId, list] of Object.entries(s.evidence)) {
+        const x = list.find((y) => y.id === e.id);
+        if (!x) continue;
+        open(engId);
+        x.page = page;
+        log(engId, 'evidence', 'update', { file: x.fileName, page });
+        save();
+        return;
+      }
+    },
     async evidenceUrl(e) {
       const url = blobs.get(e.path);
       if (!url) throw new Error('Demo mode keeps file contents only until the page is reloaded. Upload the file again.');
-      return url;
+      return opensAtPage(e) ? `${url}#page=${e.page}` : url;
     },
 
     async listRequests(id) {
@@ -505,7 +521,7 @@ export function createDemoRepo(): Repo {
       if (!r) throw new Error('That request is not on this list.');
       const path = `${view.folder}/p_${token}_${uid()}`;
       blobs.set(path, URL.createObjectURL(file));
-      (s.evidence[engId] ??= []).push({ id: uid(), path, fileName: file.name, size: file.size, refType: 'request', refId: requestId, note: '', uploadedByName: l.label, createdAt: new Date().toISOString(), fromClient: true });
+      (s.evidence[engId] ??= []).push({ id: uid(), path, fileName: file.name, size: file.size, refType: 'request', refId: requestId, note: '', uploadedByName: l.label, createdAt: new Date().toISOString(), fromClient: true, page: null });
       if (r.status === 'open' || r.status === 'returned') r.status = 'received';
       (s.log[engId] ??= []).push({ id: uid(), at: new Date().toISOString(), table: 'evidence', action: 'insert', userId: null, detail: { file: file.name, from_client: l.label } });
       save();

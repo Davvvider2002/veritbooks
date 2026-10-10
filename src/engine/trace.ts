@@ -1,6 +1,6 @@
 import { ITEM, type Section } from './chart';
 import type { GlEntry } from './ledger';
-import { figures, type Period } from './statements';
+import { figures, type Period, type Source } from './statements';
 import type { Adjustment, Kobo, TbLine } from './types';
 
 const DEBIT_SECTIONS: Section[] = ['nca', 'ca', 'expense', 'distribution'];
@@ -13,7 +13,7 @@ export interface TraceAccount {
   journals: { id: string; ref: string; description: string; amount: Kobo }[];
   /** What the statement carries for this account: trial balance plus posted journals. */
   reported: Kobo;
-  /** The client's ledger entries on this account, oldest first. Empty without a general ledger, and for the prior year. */
+  /** The client's ledger entries on this account for the year, oldest first. Empty when that year's ledger is not held. */
   entries: GlEntry[];
 }
 
@@ -39,23 +39,25 @@ export function traceItem(
   period: Period,
   lines: TbLine[],
   adjustments: Adjustment[],
+  /** The general ledger of the year being traced. */
   ledger: GlEntry[] = [],
+  only: Pick<Source, 'nature' | 'lineId' | 'accountsOnly'> = {},
 ): Trace | null {
   const item = ITEM.get(code);
   if (!item) return null;
   const sign = DEBIT_SECTIONS.includes(item.section) ? 1 : -1;
   const byAccount = new Map<string, GlEntry[]>();
-  if (period === 'current') {
-    for (const e of ledger) {
-      const list = byAccount.get(e.accountCode);
-      if (list) list.push(e);
-      else byAccount.set(e.accountCode, [e]);
-    }
+  for (const e of ledger) {
+    const list = byAccount.get(e.accountCode);
+    if (list) list.push(e);
+    else byAccount.set(e.accountCode, [e]);
   }
 
   const accounts: TraceAccount[] = [];
   for (const line of lines) {
     if (line.mapCode !== code) continue;
+    if (only.nature && line.nature !== only.nature) continue;
+    if (only.lineId && line.id !== only.lineId) continue;
     const raw = period === 'current' ? line.balance : (line.prior ?? 0);
     const journals =
       period === 'current'
@@ -74,7 +76,7 @@ export function traceItem(
   const subtotal = accounts.reduce((s, a) => s + a.reported, 0);
 
   const derived: Trace['derived'] = [];
-  if (code === 'retained_earnings') {
+  if (code === 'retained_earnings' && !only.accountsOnly && !only.lineId) {
     const f = figures(lines, adjustments, period);
     derived.push({ label: 'Profit for the year, per the statement of profit or loss', amount: f.profit });
     if (f.v.dividends !== 0) derived.push({ label: 'Dividends declared', amount: -f.v.dividends });

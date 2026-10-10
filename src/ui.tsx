@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { fmt } from './engine/money';
-import type { Period, Row } from './engine/statements';
+import type { Period, Row, Source } from './engine/statements';
+
+/** A figure the reader has asked to open: what it is, which column it sits in, and where it comes from. */
+export interface Opened {
+  label: string;
+  period: Period;
+  source: Source;
+}
+export type OnTrace = (o: Opened) => void;
+export const canOpen = (s: Source) => !!s.code || (s.parts?.length ?? 0) > 0;
 
 export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
   return (
@@ -72,14 +81,14 @@ export function StatementTable({
   priorLabel?: string | null;
   notes?: boolean;
   /** When given, figures that come straight from accounts can be opened to show their source. */
-  onTrace?: (code: string, period: Period) => void;
+  onTrace?: OnTrace;
 }) {
   const cell = (r: Row, period: Period) => {
     const v = period === 'current' ? r.cur : r.prior;
     if (r.style === 'heading') return '';
-    if (!onTrace || !r.code) return fmt(v);
+    if (!onTrace || !canOpen(r) || v === null || r.style === 'check') return fmt(v);
     return (
-      <button className="trace" title="Show where this figure comes from" aria-label={`${r.label}, ${period} year: ${fmt(v)}. Show source`} onClick={() => onTrace(r.code!, period)}>
+      <button className="trace" title="Show where this figure comes from" aria-label={`${r.label}, ${period} year: ${fmt(v)}. Show source`} onClick={() => onTrace({ label: r.label || 'Total', period, source: r })}>
         {fmt(v)}
       </button>
     );

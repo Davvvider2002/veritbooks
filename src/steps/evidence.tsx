@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { PROGRAMMES } from '../content/programmes';
 import { repo } from '../data';
-import { MAX_EVIDENCE_BYTES, type Evidence, type EvidenceRef } from '../data/repo';
+import { MAX_EVIDENCE_BYTES, opensAtPage, type Evidence, type EvidenceRef } from '../data/repo';
 import { ErrorNote, Field, useAction } from '../ui';
 import type { Ctx } from '../workspace';
 
@@ -13,9 +14,51 @@ export function FileCount({ evidence, type, id }: { evidence: Evidence[]; type: 
   return n ? <span className="tag ok">{n} file{n === 1 ? '' : 's'}</span> : null;
 }
 
+/** The page a file points at, which can be set or changed after the file is attached. */
+function PageRef({ e, locked, reload }: { e: Evidence; locked: boolean; reload: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(String(e.page ?? ''));
+  const { busy, error, run, setError } = useAction();
+  if (!editing)
+    return (
+      <div className="small">
+        {e.page ? (
+          <span title={opensAtPage(e) ? 'Opens at this page' : 'Only a PDF can open at its page. The number is kept as a reference.'}>Page {e.page}</span>
+        ) : (
+          locked && null
+        )}
+        {!locked && (
+          <button className="link small" style={{ marginLeft: e.page ? 8 : 0 }} onClick={() => setEditing(true)} aria-label={`${e.page ? 'Change' : 'Set'} the page for ${e.fileName}`}>
+            {e.page ? 'Change' : 'Set a page'}
+          </button>
+        )}
+      </div>
+    );
+  const save = () => {
+    const n = value.trim() === '' ? null : Number(value);
+    if (n !== null && (!Number.isInteger(n) || n < 1 || n > 100000)) return setError('Use a whole number, 1 or more.');
+    void run(async () => {
+      await repo.setEvidencePage(e, n);
+      setEditing(false);
+      reload();
+    });
+  };
+  return (
+    <div className="row small" style={{ gap: 6, marginTop: 4 }}>
+      <input type="number" min={1} aria-label={`Page for ${e.fileName}`} value={value} onChange={(x) => setValue(x.target.value)} style={{ width: 90, padding: '3px 6px' }} />
+      <button disabled={busy} onClick={save}>Save</button>
+      <button className="link" onClick={() => setEditing(false)}>Cancel</button>
+      {error && <span className="danger">{error}</span>}
+    </div>
+  );
+}
+
 export function EvidenceStep(ctx: Ctx) {
   const { eng, ws, evidence, evidenceReady, locked, reload, ledgerTest, bankAccounts, adjustments, requests } = ctx;
-  const [target, setTarget] = useState('general:');
+  // A link from a figure arrives with the account already chosen.
+  const [params] = useSearchParams();
+  const [target, setTarget] = useState(() => (/^account:/.test(params.get('for') ?? '') && ctx.lines.some((l) => `account:${l.code}` === params.get('for')) ? params.get('for')! : 'general:'));
+  const [page, setPage] = useState('');
   const [note, setNote] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [inputKey, setInputKey] = useState(0);
@@ -32,6 +75,10 @@ export function EvidenceStep(ctx: Ctx) {
         return `Bank: ${bankAccounts.find((b) => b.id === e.refId)?.name ?? 'statement removed'}`;
       case 'adjustment':
         return `Adjusting journal ${adjustments.find((a) => a.id === e.refId)?.ref ?? '(deleted)'}`;
+      case 'account': {
+        const l = ctx.lines.find((x) => x.code === e.refId);
+        return `Account ${e.refId}${l ? ' ' + l.name : ''}`;
+      }
       case 'request':
         return `Client request: ${requests.find((r) => r.id === e.refId)?.title ?? '(removed)'}`;
       default:
@@ -43,6 +90,9 @@ export function EvidenceStep(ctx: Ctx) {
     if (files.length === 0) return setError('Choose at least one file.');
     const big = files.find((f) => f.size > MAX_EVIDENCE_BYTES);
     if (big) return setError(`${big.name} is larger than 25 MB.`);
+    const pageNo = page.trim() === '' ? null : Number(page);
+    if (pageNo !== null && (!Number.isInteger(pageNo) || pageNo < 1 || pageNo > 100000)) return setError('The page must be a whole number, 1 or more.');
+    if (pageNo !== null && files.length > 1) return setError('A page number applies to one file. Attach the files one at a time, or leave the page blank.');
     const [refType, ...rest] = target.split(':');
     void run(async () => {
       for (const f of files) {
@@ -51,10 +101,12 @@ export function EvidenceStep(ctx: Ctx) {
           refId: rest.join(':'),
           note: note.trim(),
           uploadedByName: ws.me.fullName || ws.me.userId,
+          page: pageNo,
         });
       }
       setFiles([]);
       setNote('');
+      setPage('');
       setInputKey((k) => k + 1);
       reload();
     });
@@ -107,6 +159,15 @@ export function EvidenceStep(ctx: Ctx) {
                     ))}
                   </optgroup>
                 )}
+                {ctx.lines.length > 0 && (
+                  <optgroup label="Accounts in the trial balance">
+                    {ctx.lines.map((l) => (
+                      <option key={l.id} value={`account:${l.code}`}>
+                        {l.code} {l.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
                 {adjustments.length > 0 && (
                   <optgroup label="Adjusting journals">
                     {adjustments.map((a) => (
@@ -123,9 +184,17 @@ export function EvidenceStep(ctx: Ctx) {
               <input key={inputKey} type="file" multiple onChange={(e) => setFiles([...(e.target.files ?? [])])} style={{ padding: '6px 0' }} />
             </label>
           </div>
-          <Field label="Note">
-            <input type="text" value={note} placeholder="What the document is and what it shows" onChange={(e) => setNote(e.target.value)} />
-          </Field>
+          <div className="grid2" style={{ gridTemplateColumns: '1fr 160px' }}>
+            <Field label="Note">
+              <input type="text" value={note} placeholder="What the document is and what it shows" onChange={(e) => setNote(e.target.value)} />
+            </Field>
+            <Field label="Page, if it matters">
+              <input type="number" min={1} inputMode="numeric" value={page} onChange={(e) => setPage(e.target.value)} />
+            </Field>
+          </div>
+          <p className="small muted" style={{ margin: 0 }}>
+            Give the page where the support is. A PDF then opens at that page from here and from any figure it supports.
+          </p>
           <ErrorNote error={error} />
           <div>
             <button className="primary" disabled={busy} onClick={upload}>
@@ -167,6 +236,7 @@ export function EvidenceStep(ctx: Ctx) {
                         {size(e.size)}
                         {e.note && ` · ${e.note}`}
                       </div>
+                      <PageRef e={e} locked={locked} reload={reload} />
                     </td>
                     <td className="small">{label(e)}</td>
                     <td className="small" style={{ whiteSpace: 'nowrap' }}>

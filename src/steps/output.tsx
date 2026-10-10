@@ -4,12 +4,12 @@ import { PROGRAMMES } from '../content/programmes';
 import { repo } from '../data';
 import { canSign, signOffChecks } from '../engine/checks';
 import { directorList, disclosureGaps, financialSummary, ppeSchedule, priorEquity, taxReconciliation, type PpeRow } from '../engine/disclosures';
-import type { EquityTable, Period } from '../engine/statements';
+import type { EquityTable, Period, Source } from '../engine/statements';
 import { TracePanel } from './trace';
 import { fmt } from '../engine/money';
 import { draftReport, longDate } from '../engine/report';
 import type { ReportSettings } from '../engine/types';
-import { ErrorNote, Field, StatementTable, useAction, useLoad } from '../ui';
+import { canOpen, ErrorNote, Field, StatementTable, useAction, useLoad, type OnTrace, type Opened } from '../ui';
 import type { Ctx } from '../workspace';
 import { ChecksList } from './input';
 
@@ -28,7 +28,7 @@ function SheetHead({ ctx, title, sub }: { ctx: Ctx; title: string; sub?: string 
   );
 }
 
-function EquityRows({ table }: { table: EquityTable }) {
+function EquityRows({ table, onTrace }: { table: EquityTable; onTrace: OnTrace }) {
   return (
     <div className="scroll-x">
       <table className="fs wide">
@@ -44,9 +44,21 @@ function EquityRows({ table }: { table: EquityTable }) {
           {table.rows.map((row) => (
             <tr key={row.label} className={row.style}>
               <td>{row.label}</td>
-              {row.values.map((v, i) => (
-                <td key={i} className="num">{fmt(v)}</td>
-              ))}
+              {row.values.map((v, i) => {
+                const source = { parts: row.sources?.[i] };
+                const what = `${row.label}, ${table.columns[i].toLowerCase()}`;
+                return (
+                  <td key={i} className="num">
+                    {v !== 0 && canOpen(source) ? (
+                      <button className="trace" title="Show where this figure comes from" aria-label={`${what}: ${fmt(v)}. Show source`} onClick={() => onTrace({ label: what, period: 'current', source })}>
+                        {fmt(v)}
+                      </button>
+                    ) : (
+                      fmt(v)
+                    )}
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>
@@ -70,8 +82,18 @@ export function StatementsStep(ctx: Ctx) {
   const year = eng.yearEnd.slice(0, 4);
   const prior = st.hasPrior ? String(Number(year) - 1) : null;
   const r = eng.report;
-  const [trace, setTrace] = useState<{ code: string; period: Period } | null>(null);
-  const onTrace = (code: string, period: Period) => setTrace({ code, period });
+  const [trace, setTrace] = useState<Opened | null>(null);
+  const onTrace: OnTrace = setTrace;
+  const lineOf = (code: string) => lines.find((l) => l.code === code)?.id;
+  /** A figure in a hand-built table that opens to its source. */
+  const figure = (v: number, label: string, source: Source, period: Period) =>
+    v === 0 || (source.lineId === undefined && 'lineId' in source) || (period === 'prior' && !st.hasPrior) ? (
+      fmt(v)
+    ) : (
+      <button className="trace" title="Show where this figure comes from" aria-label={`${label}: ${fmt(v)}. Show source`} onClick={() => onTrace({ label, period, source })}>
+        {fmt(v)}
+      </button>
+    );
 
   if (lines.length === 0)
     return (
@@ -92,7 +114,7 @@ export function StatementsStep(ctx: Ctx) {
           <button onClick={() => window.print()}>Print or save as PDF</button>
         </div>
         <p className="muted" style={{ margin: 0 }}>
-          Select any figure on the statement of financial position or the statement of profit or loss to see the accounts, journals, ledger entries and files behind it.
+          Select any underlined figure to see what it is made of, down to the accounts, journals, ledger entries and files behind it.
         </p>
         {st.cur.unmappedCount > 0 && (
           <div className="banner bad">
@@ -251,11 +273,11 @@ export function StatementsStep(ctx: Ctx) {
 
       <section className="sheet">
         <SheetHead ctx={ctx} title="Statement of changes in equity" />
-        <EquityRows table={st.equity} />
+        <EquityRows table={st.equity} onTrace={onTrace} />
         {equityPrior && (
           <>
             <h3 style={{ marginTop: 28 }}>For the year ended {longDate(`${prior}${eng.yearEnd.slice(4)}`)}</h3>
-            <EquityRows table={equityPrior} />
+            <EquityRows table={equityPrior} onTrace={onTrace} />
           </>
         )}
       </section>
@@ -263,7 +285,7 @@ export function StatementsStep(ctx: Ctx) {
       {st.cashFlow && (
         <section className="sheet">
           <SheetHead ctx={ctx} title="Statement of cash flows" />
-          <StatementTable rows={st.cashFlow} curLabel={year} />
+          <StatementTable rows={st.cashFlow} curLabel={year} onTrace={onTrace} />
         </section>
       )}
 
@@ -309,10 +331,10 @@ export function StatementsStep(ctx: Ctx) {
                       {rows.map((x) => (
                         <tr key={x.code}>
                           <td>{x.name}</td>
-                          <td className="num">{fmt(x.opening)}</td>
+                          <td className="num">{figure(x.opening, `${x.name} at start of year`, { code: 'ppe', lineId: lineOf(x.code) }, 'prior')}</td>
                           <td className="num">{fmt(x.increase)}</td>
                           <td className="num">{fmt(-x.disposals)}</td>
-                          <td className="num">{fmt(x.closing)}</td>
+                          <td className="num">{figure(x.closing, `${x.name} at end of year`, { code: 'ppe', lineId: lineOf(x.code) }, 'current')}</td>
                         </tr>
                       ))}
                       <tr className="subtotal">
@@ -327,10 +349,10 @@ export function StatementsStep(ctx: Ctx) {
                   <tbody>
                     <tr className="total">
                       <td>Carrying amount</td>
-                      <td className="num">{fmt(ppe.carryingOpening)}</td>
+                      <td className="num">{figure(ppe.carryingOpening, 'Property, plant and equipment at start of year', { code: 'ppe' }, 'prior')}</td>
                       <td></td>
                       <td></td>
-                      <td className="num">{fmt(ppe.carryingClosing)}</td>
+                      <td className="num">{figure(ppe.carryingClosing, 'Property, plant and equipment at end of year', { code: 'ppe' }, 'current')}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -343,24 +365,26 @@ export function StatementsStep(ctx: Ctx) {
             </h3>
             <StatementTable
               rows={[
-                ...n.rows.map((x) => ({ label: x.name, cur: x.cur, prior: x.prior, style: 'line' as const })),
-                { label: '', cur: n.cur, prior: n.prior, style: 'total' as const },
+                ...n.rows.map((x) => ({ label: x.name, cur: x.cur, prior: x.prior, style: 'line' as const, code: n.code, lineId: x.lineId })),
+                { label: '', cur: n.cur, prior: n.prior, style: 'total' as const, code: n.code, accountsOnly: true },
               ]}
               curLabel={year}
               priorLabel={prior}
+              onTrace={(o) => onTrace({ ...o, label: o.source.lineId ? o.label : n.title })}
             />
             {n.code === 'income_tax_expense' && tax && (
               <>
                 <p style={{ marginTop: 14 }}>The tax charge for the year is reconciled to the accounting profit as follows:</p>
                 <StatementTable
                   rows={[
-                    { label: 'Profit before tax', cur: tax.pbt, prior: null, style: 'line' },
+                    { label: 'Profit before tax', cur: tax.pbt, prior: null, style: 'line', parts: st.pbtParts },
                     { label: `Tax at the applicable rate of ${tax.rate}%`, cur: tax.atRate, prior: null, style: 'line' },
                     ...tax.items.map((i) => ({ label: i.label, cur: i.amount, prior: null, style: 'line' as const })),
                     ...(tax.difference ? [{ label: 'Unreconciled difference', cur: tax.difference, prior: null, style: 'check' as const }] : []),
-                    { label: 'Income tax expense', cur: tax.charge, prior: null, style: 'total' },
+                    { label: 'Income tax expense', cur: tax.charge, prior: null, style: 'total', code: 'income_tax_expense' },
                   ]}
                   curLabel={year}
+                  onTrace={onTrace}
                 />
                 {tax.effectiveRate !== null && <p style={{ marginTop: 10 }}>The effective tax rate for the year is {tax.effectiveRate}%.</p>}
               </>
@@ -428,7 +452,7 @@ export function StatementsStep(ctx: Ctx) {
 
       <section className="sheet">
         <SheetHead ctx={ctx} title="Statement of value added" />
-        <StatementTable rows={st.valueAdded} curLabel={year} priorLabel={prior} />
+        <StatementTable rows={st.valueAdded} curLabel={year} priorLabel={prior} onTrace={onTrace} />
         <p className="small" style={{ marginTop: 16 }}>
           This statement is presented as other national disclosure, as directed by the Financial Reporting Council of Nigeria. It is not a required statement under the IFRS for SMEs Accounting Standard.
         </p>
@@ -464,7 +488,7 @@ export function StatementsStep(ctx: Ctx) {
           </p>
         )}
       </section>
-      {trace && <TracePanel ctx={ctx} code={trace.code} period={trace.period} onClose={() => setTrace(null)} />}
+      {trace && <TracePanel key={`${trace.label}|${trace.period}`} ctx={ctx} opened={trace} onClose={() => setTrace(null)} />}
     </div>
   );
 }

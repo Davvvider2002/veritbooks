@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { parseLedger } from './ledger';
 import { suggestMapping } from './mapping';
 import { parseTrialBalance } from './parse';
-import { buildStatements } from './statements';
+import { priorEquity } from './disclosures';
+import { buildStatements, type Part, type Period } from './statements';
 import { traceItem } from './trace';
 import type { Adjustment, TbLine } from './types';
 
@@ -63,9 +64,76 @@ describe('tracing a figure to its source', () => {
     expect(t.total).toBe(st.cur.closingRetained);
   });
 
-  it('has no ledger entries or journals for the prior year, and nothing for an unknown line', () => {
-    const t = traceItem('cash', 'prior', lines, [journal], ledger)!;
+  it('has no journals for the prior year, shows that year’s ledger when given one, and nothing for an unknown line', () => {
+    const t = traceItem('cash', 'prior', lines, [journal], [])!;
     expect(t.accounts.every((a) => a.entries.length === 0 && a.journals.length === 0)).toBe(true);
+    const lastYear = ledger.slice(0, 50).map((e) => ({ ...e, date: e.date.replace('2025', '2024') }));
+    const withLedger = traceItem('cash', 'prior', lines, [journal], lastYear)!;
+    expect(withLedger.accounts.flatMap((a) => a.entries).length).toBe(lastYear.filter((e) => e.accountCode === '1400' || lines.find((l) => l.code === e.accountCode)?.mapCode === 'cash').length);
+    expect(withLedger.total).toBe(t.total);
     expect(traceItem('nonsense', 'current', lines, [])).toBeNull();
+  });
+
+  // Every figure that can be opened must equal what it opens to, all the way down to the accounts.
+  const all = [journal, proposed];
+  let leaves = 0;
+  function check(what: string, amount: number, src: { code?: string; period?: Period; parts?: Part[]; nature?: Part['nature']; lineId?: string; accountsOnly?: boolean }, col: Period) {
+    if (src.code) {
+      const t = traceItem(src.code, src.period ?? col, lines, all, [], src)!;
+      expect(Math.abs(t.total), what).toBe(Math.abs(amount));
+      leaves++;
+      return;
+    }
+    if (!src.parts) return;
+    const amt = (x: Part) => (col === 'current' ? x.cur : (x.prior ?? 0));
+    expect(src.parts.reduce((a, x) => a + amt(x), 0), what).toBe(amount);
+    for (const x of src.parts) check(`${what} > ${x.label}`, amt(x), x, col);
+  }
+
+  it('subtotals, the cash flow statement and the value added statement open to figures that add up to them', () => {
+    const st = buildStatements(lines, all);
+    for (const [name, rows] of Object.entries({ position: st.position, income: st.income, cashFlow: st.cashFlow!, valueAdded: st.valueAdded })) {
+      for (const r of rows) {
+        if (r.style === 'heading' || r.style === 'check') continue;
+        expect(r.code || r.parts, `${name}: ${r.label} can be opened`).toBeTruthy();
+        if (r.code) continue; // covered above
+        check(`${name}: ${r.label}`, r.cur!, r, 'current');
+        if (r.prior !== null) check(`${name}: ${r.label} (prior)`, r.prior, r, 'prior');
+      }
+    }
+    expect(leaves).toBeGreaterThan(150);
+  });
+
+  it('every cell of the statement of changes in equity opens to figures that add up to it, in both years', () => {
+    const st = buildStatements(lines, all);
+    let cells = 0;
+    for (const table of [st.equity, priorEquity(st)!]) {
+      for (const row of table.rows) {
+        row.values.forEach((v, i) => {
+          if (v === 0) return;
+          expect(row.sources?.[i]?.length, `${row.label} ${table.columns[i]}`).toBeGreaterThan(0);
+          check(`${row.label} ${table.columns[i]}`, v, { parts: row.sources![i] }, 'current');
+          cells++;
+        });
+      }
+    }
+    expect(cells).toBeGreaterThanOrEqual(15);
+  });
+
+  it('opens a note line to its one account, and depreciation to the accounts of that nature', () => {
+    const st = buildStatements(lines, all);
+    for (const n of st.noteBreakdowns) {
+      for (const r of n.rows) {
+        const t = traceItem(n.code, 'current', lines, all, [], { lineId: r.lineId })!;
+        expect(t.accounts.length).toBeLessThanOrEqual(1);
+        expect(t.total, `${n.title}: ${r.name}`).toBe(r.cur);
+      }
+    }
+    const dep = st.cashFlow!.find((r) => r.label === 'Depreciation and amortisation')!;
+    expect(dep.parts!.length).toBeGreaterThan(0);
+    for (const x of dep.parts!) {
+      const t = traceItem(x.code!, 'current', lines, all, [], x)!;
+      expect(t.accounts.every((a) => a.line.nature === 'depreciation')).toBe(true);
+    }
   });
 });

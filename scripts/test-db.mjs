@@ -26,6 +26,7 @@ await db.exec(readFileSync('supabase/migrations/0002_ledger_and_bank.sql', 'utf8
 await db.exec(readFileSync('supabase/migrations/0003_team_and_evidence.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0004_disclosures.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0005_client_requests.sql', 'utf8'));
+await db.exec(readFileSync('supabase/migrations/0006_prior_ledger_and_pages.sql', 'utf8'));
 
 const A = '00000000-0000-0000-0000-00000000000a'; // partner, firm 1
 const B = '00000000-0000-0000-0000-00000000000b'; // partner, firm 2
@@ -187,6 +188,21 @@ await denied('a bank line cannot point at another engagement\'s account', () => 
 const bulk = await as(A, `select table_name, action, detail from audit_log where engagement_id = $1 and table_name in ('gl_entries','bank_lines','bank_accounts') order by id`, [e1.id]);
 ok('imports are logged once with a row count', bulk.length === 3 && bulk[0].table_name === 'gl_entries' && bulk[0].action === 'import' && bulk[0].detail.rows === 2 && bulk[2].detail.rows === 1);
 
+// Prior year ledger, account evidence and page references.
+await as(C, `insert into gl_entries (engagement_id, entry_no, entry_date, account_code, amount, row_no, period) values ($1,'PY1','2024-03-01','4000',-900,1,'prior'), ($1,'PY1','2024-03-01','1400',900,2,'prior')`, [e1.id]);
+ok('the prior year ledger is held apart from the current year', (await as(C, `select * from gl_entries where engagement_id = $1 and period = 'current'`, [e1.id])).length === 2 && (await as(C, `select * from gl_entries where engagement_id = $1 and period = 'prior'`, [e1.id])).length === 2);
+await as(C, `delete from gl_entries where engagement_id = $1 and period = 'prior'`, [e1.id]);
+ok('removing the prior year ledger leaves the current year', (await as(C, `select * from gl_entries where engagement_id = $1`, [e1.id])).length === 2);
+await denied('a ledger line must belong to the current or the prior year', () => as(C, `insert into gl_entries (engagement_id, entry_no, entry_date, account_code, amount, row_no, period) values ($1,'X','2023-01-01','1',1,9,'older')`, [e1.id]), /check constraint/);
+ok('firm 2 cannot read firm 1 prior year ledger', (await as(B, `select * from gl_entries where period = 'prior'`)).length === 0);
+await as(C, `insert into storage.objects (bucket_id, name) values ('evidence', $1)`, [path(f1.id, e1.id, 'acct.pdf')]);
+const [evp] = await as(C, `insert into evidence (engagement_id, path, file_name, ref_type, ref_id, page) values ($1, $2, 'Title deed.pdf', 'account', '1000', 4) returning *`, [e1.id, path(f1.id, e1.id, 'acct.pdf')]);
+ok('a file can support an account and point at a page', evp.ref_type === 'account' && evp.page === 4);
+await as(C, `update evidence set page = 7 where id = $1`, [evp.id]);
+ok('the page can be changed', (await as(C, `select page from evidence where id = $1`, [evp.id]))[0].page === 7);
+await denied('a page number must be 1 or more', () => as(C, `update evidence set page = 0 where id = $1`, [evp.id]), /check constraint/);
+await denied('another firm cannot change the page', async () => { const r = await as(B, `update evidence set page = 2 where id = $1 returning id`, [evp.id]); if (r.length === 0) throw new Error('row-level security: no rows'); }, /row-level security/);
+
 const [signed] = await as(A, `select * from sign_engagement($1)`, [e1.id]);
 ok('partner signs and locks', signed.status === 'locked' && signed.signed_by === A && signed.signed_by_frc === 'FRC/P/1' && signed.firm_frc === 'FRC/F/1');
 await denied('locked: engagement cannot be edited', () => as(A, `update engagements set planning = '{"x":1}' where id = $1`, [e1.id]), /signed and locked/);
@@ -203,7 +219,8 @@ await denied('locked: evidence cannot be added', () => as(A, `insert into eviden
 await denied('locked: evidence cannot be removed', () => as(A, `delete from evidence where id = $1`, [ev.id]), /signed and locked/);
 await denied('locked: files cannot be uploaded', () => as(A, `insert into storage.objects (bucket_id, name) values ('evidence', $1)`, [path(f1.id, e1.id, 'late.pdf')]), /row-level security/);
 ok('locked: files cannot be deleted from storage', (await as(A, `delete from storage.objects returning id`)).length === 0);
-ok('locked: files can still be read', (await as(A, `select * from storage.objects`)).length === 2);
+ok('locked: files can still be read', (await as(A, `select * from storage.objects`)).length === 3);
+await denied('locked: a page reference cannot be changed', () => as(A, `update evidence set page = 9 where id = $1`, [evp.id]), /signed and locked/);
 await denied('locked: disclosures cannot be changed', () => as(A, `update engagements set disclosures = '{}' where id = $1`, [e1.id]), /signed and locked/);
 ok('locked: the link still shows the list, marked closed', (await anon(`select portal_view($1) as v`, [TOKEN]))[0].v.closed === true);
 await denied('locked: the client cannot upload', () => anon(`insert into storage.objects (bucket_id, name) values ('evidence', $1)`, [`${view.folder}/p_${TOKEN}_0003.pdf`]), /row-level security/);

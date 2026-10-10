@@ -4,7 +4,7 @@ import { ITEM } from '../engine/chart';
 import { balanceAt, parseBankStatement, type BankParse } from '../engine/bank';
 import { shortDate } from '../engine/dates';
 import type { DateOrder } from '../engine/dates';
-import { FLAG_LABEL, HIGH_RISK_SCORE, parseLedger, resolveAccounts, type Flag, type Journal, type LedgerParse } from '../engine/ledger';
+import { FLAG_LABEL, HIGH_RISK_SCORE, parseLedger, priorAgreement, resolveAccounts, type Flag, type Journal, type LedgerParse } from '../engine/ledger';
 import { fmt2, parseAmount } from '../engine/money';
 import { PdfPasswordError } from '../pdf';
 import { ErrorNote, Field, message, useAction } from '../ui';
@@ -99,6 +99,116 @@ function JournalCard({ ctx, j, defaultOpen }: { ctx: Ctx; j: Journal; defaultOpe
               <button className="primary" disabled={busy} onClick={save}>Save conclusion</button>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Last year's ledger. It is not tested. It is held so a comparative figure can be followed to its entries. */
+function PriorLedgerCard({ eng, lines, priorLedger, priorReady, locked, reload }: Ctx) {
+  const [raw, setRaw] = useState<{ rows: unknown[][]; file: string } | null>(null);
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [key, setKey] = useState(0);
+  const { busy, error, run } = useAction();
+  const year = Number(eng.yearEnd.slice(0, 4)) - 1;
+  const end = `${year}${eng.yearEnd.slice(4)}`;
+  const start = `${year - 1}${eng.yearEnd.slice(4)}`;
+  const parsed = useMemo(() => {
+    if (!raw) return null;
+    try {
+      const p = parseLedger(raw.rows);
+      return { ...p, ...resolveAccounts(p.entries, lines), failed: null as string | null };
+    } catch (e) {
+      return { entries: [], warnings: [], unresolved: [], badDates: 0, failed: message(e) };
+    }
+  }, [raw, lines]);
+  const inYear = parsed?.entries.filter((e) => e.date > start && e.date <= end).length ?? 0;
+  const agreement = useMemo(() => priorAgreement(priorLedger, lines), [priorLedger, lines]);
+  const agreed = agreement.filter((a) => a.difference === 0).length;
+  const replace = (entries: LedgerParse['entries']) =>
+    run(async () => {
+      await repo.replaceLedger(eng.id, entries, 'prior');
+      invalidateAnalytics(eng.id);
+      setRaw(null);
+      setKey((k) => k + 1);
+      reload();
+    });
+
+  if (!priorReady)
+    return (
+      <div className="card stack">
+        <h3>Last year’s ledger, {year}</h3>
+        <div className="banner warn">
+          Holding last year’s ledger needs a database update. Run <code>supabase/migrations/0006_prior_ledger_and_pages.sql</code> in the Supabase SQL editor, then reload this page.
+        </div>
+      </div>
+    );
+
+  return (
+    <div className="card stack">
+      <div className="between">
+        <h3>Last year’s ledger, {year}</h3>
+        {!locked && priorLedger.length > 0 && (
+          <button className="link danger" disabled={busy} onClick={() => void replace([])}>Remove last year’s ledger</button>
+        )}
+      </div>
+      <p className="small muted" style={{ margin: 0 }}>
+        Optional. With it, a {year} figure in the statements opens to its entries, as this year’s figures do. It is not tested for risk and plays no part in sign-off. Try the{' '}
+        <a href="/samples/general-ledger-2024.csv" download>sample</a>.
+      </p>
+      {priorLedger.length > 0 && (
+        <div className={`banner ${agreed === agreement.length ? 'info' : 'warn'}`}>
+          {priorLedger.length.toLocaleString()} lines held for {year}.{' '}
+          {agreement.length === 0
+            ? 'No income or expense account could be compared to last year’s trial balance.'
+            : agreed === agreement.length
+              ? `It agrees to last year’s trial balance on all ${agreement.length} income and expense accounts.`
+              : `It agrees to last year’s trial balance on ${agreed} of ${agreement.length} income and expense accounts. It differs on: ${agreement.filter((a) => a.difference).slice(0, 6).map((a) => `${a.code} ${a.name}`).join(', ')}.`}{' '}
+          Balance sheet accounts cannot be compared, because their opening balances are not held.
+        </div>
+      )}
+      {!locked && (
+        <label className="field">
+          <span>{priorLedger.length ? `Replace the ${year} ledger` : `General ledger for ${year} (CSV or Excel)`}</span>
+          <input
+            key={key}
+            type="file"
+            accept=".csv,.xlsx"
+            aria-label={`General ledger file for ${year}`}
+            style={{ padding: '6px 0' }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              setRaw(null);
+              setParseError(null);
+              if (file) readRows(file).then((rows) => setRaw({ rows, file: file.name }), (x) => setParseError(message(x)));
+            }}
+          />
+        </label>
+      )}
+      <ErrorNote error={parseError ?? parsed?.failed ?? error} />
+      {parsed && !parsed.failed && (
+        <div className="stack">
+          {parsed.badDates > 0 && <div className="banner bad">{parsed.badDates.toLocaleString()} row(s) have a date that cannot be read, and were left out.</div>}
+          {inYear < parsed.entries.length && (
+            <div className="banner bad">
+              Only {inYear.toLocaleString()} of {parsed.entries.length.toLocaleString()} lines are dated in the year ended {shortDate(end)}. This may be the wrong year’s ledger.
+            </div>
+          )}
+          {parsed.unresolved.length > 0 && (
+            <div className="banner warn">
+              {parsed.unresolved.length} ledger account(s) were not found in the trial balance, so their entries will not appear behind any figure: {parsed.unresolved.slice(0, 8).join(', ')}
+              {parsed.unresolved.length > 8 ? ' and more' : ''}.
+            </div>
+          )}
+          <div className="banner info">
+            <strong>{raw!.file}</strong>: {parsed.entries.length.toLocaleString()} lines.
+          </div>
+          <div>
+            <button className="primary" disabled={busy || parsed.entries.length === 0 || inYear === 0} onClick={() => void replace(parsed.entries)}>
+              {busy ? 'Importing…' : `Import as the ${year} ledger`}
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -326,6 +436,7 @@ export function LedgerStep(ctx: Ctx) {
           )}
         </>
       )}
+      {analyticsReady && lines.length > 0 && ctx.statements.hasPrior && <PriorLedgerCard {...ctx} />}
     </div>
   );
 }

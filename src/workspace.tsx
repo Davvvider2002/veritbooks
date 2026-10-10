@@ -34,6 +34,10 @@ export interface Ctx {
   /** False when the database has not had the phase 2 migration applied. */
   analyticsReady: boolean;
   ledger: GlEntry[];
+  /** Last year's general ledger, when the firm has imported it. It is not tested, only held for reference. */
+  priorLedger: GlEntry[];
+  /** False when the database has not had migration 0006 applied. */
+  priorReady: boolean;
   ledgerTest: LedgerTest | null;
   bankAccounts: BankAccount[];
   recons: Recon[];
@@ -60,6 +64,8 @@ export interface Recon {
 interface Heavy {
   ready: boolean;
   ledger: GlEntry[];
+  priorLedger: GlEntry[];
+  priorReady: boolean;
   bankAccounts: BankAccount[];
   bankLines: StoredBankLine[];
 }
@@ -71,11 +77,12 @@ export const invalidateAnalytics = (engagementId: string) => heavyCache.delete(e
 function loadHeavy(id: string): Promise<Heavy> {
   let p = heavyCache.get(id);
   if (!p) {
-    p = Promise.all([repo.listLedger(id), repo.listBankAccounts(id), repo.listBankLines(id)]).then(
-      ([ledger, bankAccounts, bankLines]) => ({ ready: true, ledger, bankAccounts, bankLines }),
+    // The prior year ledger is optional, and needs a later database update than the rest.
+    p = Promise.all([repo.listLedger(id), repo.listBankAccounts(id), repo.listBankLines(id), repo.listLedger(id, 'prior').catch(() => null)]).then(
+      ([ledger, bankAccounts, bankLines, priorLedger]) => ({ ready: true, ledger, priorLedger: priorLedger ?? [], priorReady: priorLedger !== null, bankAccounts, bankLines }),
       () => {
         heavyCache.delete(id);
-        return { ready: false, ledger: [], bankAccounts: [], bankLines: [] };
+        return { ready: false, ledger: [], priorLedger: [], priorReady: false, bankAccounts: [], bankLines: [] };
       },
     );
     heavyCache.set(id, p);
@@ -188,6 +195,8 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
     reload,
     analyticsReady: data.heavy.ready,
     ledger: data.heavy.ledger,
+    priorLedger: data.heavy.priorLedger,
+    priorReady: data.heavy.priorReady,
     ledgerTest: analytics.ledgerTest,
     bankAccounts: data.heavy.bankAccounts,
     recons: analytics.recons,

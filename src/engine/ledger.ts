@@ -342,3 +342,22 @@ export function testLedger(
     flagCounts,
   };
 }
+
+/**
+ * Whether a prior year ledger explains last year's figures. Only income and expense accounts
+ * can be checked: they start the year at nil, so the year's entries should equal the balance.
+ * Balance sheet accounts would need the opening balances of the year before, which are not held.
+ */
+export function priorAgreement(entries: GlEntry[], lines: TbLine[]): Agreement[] {
+  const net = new Map<string, Kobo>();
+  for (const e of entries) net.set(e.accountCode, (net.get(e.accountCode) ?? 0) + e.amount);
+  const out: Agreement[] = [];
+  for (const l of lines) {
+    const section = l.mapCode ? ITEM.get(l.mapCode)?.section : undefined;
+    if (section !== 'income' && section !== 'expense') continue;
+    if (l.prior === null || (l.prior === 0 && !net.has(l.code))) continue;
+    const ledger = net.get(l.code) ?? 0;
+    out.push({ code: l.code, name: l.name, ledger, expected: l.prior, difference: ledger - l.prior });
+  }
+  return out;
+}
