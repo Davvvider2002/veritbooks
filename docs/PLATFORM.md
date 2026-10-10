@@ -99,6 +99,14 @@ These need `supabase/migrations/0005_client_requests.sql`.
 - Sign-off shows an advisory while any request is not accepted. It does not block signing: the partner judges whether the evidence is sufficient.
 - Limits: 25 MB a file, 300 client files per engagement. Files are not scanned for malware. Treat them as you would an email attachment.
 
+### From a figure to its source
+
+- Every line on the statement of financial position and the statement of profit or loss opens to show where it comes from: the accounts mapped to it, the trial balance figure, the audit journals posted, and the amount carried in the statements. Both years.
+- Each account opens further: the audit journals by reference, the bank statement and whether it reconciles, the client's ledger entries (by date or largest first), whether the ledger agrees to the trial balance, the test result on any high-risk journal, and the evidence files attached to each of those.
+- Retained earnings shows the accounts brought forward, the profit for the year and dividends.
+- The trail is computed from the same inputs as the statements, so it always equals the figure shown. A test checks every line in both years.
+- Not yet traced: subtotals, the cash flow statement, the statement of changes in equity and the notes. The prior year stops at the trial balance because the prior year ledger is not held.
+
 ## Rules the software enforces
 
 1. Numbers are computed, never generated. Every figure in a statement is a sum of mapped account balances. No language model produces or alters a figure.

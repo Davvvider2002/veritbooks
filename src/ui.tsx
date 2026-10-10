@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { fmt } from './engine/money';
-import type { Row } from './engine/statements';
+import type { Period, Row } from './engine/statements';
 
 export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
   return (
@@ -65,12 +65,25 @@ export function StatementTable({
   curLabel,
   priorLabel,
   notes = false,
+  onTrace,
 }: {
   rows: Row[];
   curLabel: string;
   priorLabel?: string | null;
   notes?: boolean;
+  /** When given, figures that come straight from accounts can be opened to show their source. */
+  onTrace?: (code: string, period: Period) => void;
 }) {
+  const cell = (r: Row, period: Period) => {
+    const v = period === 'current' ? r.cur : r.prior;
+    if (r.style === 'heading') return '';
+    if (!onTrace || !r.code) return fmt(v);
+    return (
+      <button className="trace" title="Show where this figure comes from" aria-label={`${r.label}, ${period} year: ${fmt(v)}. Show source`} onClick={() => onTrace(r.code!, period)}>
+        {fmt(v)}
+      </button>
+    );
+  };
   return (
     <table className="fs">
       <thead>
@@ -86,8 +99,8 @@ export function StatementTable({
           <tr key={i} className={r.style}>
             <td>{r.label}</td>
             {notes && <td className="note">{r.note ?? ''}</td>}
-            <td className="num">{r.style === 'heading' ? '' : fmt(r.cur)}</td>
-            {priorLabel && <td className="num">{r.style === 'heading' ? '' : fmt(r.prior)}</td>}
+            <td className="num">{cell(r, 'current')}</td>
+            {priorLabel && <td className="num">{cell(r, 'prior')}</td>}
           </tr>
         ))}
       </tbody>

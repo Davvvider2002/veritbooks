@@ -9,6 +9,10 @@ export interface Row {
   prior: Kobo | null;
   style: 'heading' | 'line' | 'subtotal' | 'total' | 'check';
   note?: number;
+  /** The chart line this row reports, when it is one. Lets the figure be traced to its accounts. */
+  code?: string;
+  /** True when the row shows the figure with its sign reversed, as expenses are on the income statement. */
+  negated?: boolean;
 }
 
 /** Figures for one period, in presentation sign: assets, expenses and dividends are debit-positive; liabilities, equity and income are credit-positive. */
@@ -174,6 +178,8 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[]): Sta
     prior: prior ? (negate ? -prior.v[code] : prior.v[code]) : null,
     style: 'line',
     note: notes.get(code),
+    code,
+    negated: negate || undefined,
   });
   const shown = (r: Row) => r.cur !== 0 || (r.prior !== null && r.prior !== 0);
   const section = (s: Section) =>
@@ -194,6 +200,7 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[]): Sta
     prior: p((x) => x.closingRetained),
     style: 'line',
     note: notes.get('retained_earnings'),
+    code: 'retained_earnings',
   };
 
   const position: Row[] = [

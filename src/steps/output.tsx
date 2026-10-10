@@ -4,7 +4,8 @@ import { PROGRAMMES } from '../content/programmes';
 import { repo } from '../data';
 import { canSign, signOffChecks } from '../engine/checks';
 import { directorList, disclosureGaps, financialSummary, ppeSchedule, priorEquity, taxReconciliation, type PpeRow } from '../engine/disclosures';
-import type { EquityTable } from '../engine/statements';
+import type { EquityTable, Period } from '../engine/statements';
+import { TracePanel } from './trace';
 import { fmt } from '../engine/money';
 import { draftReport, longDate } from '../engine/report';
 import type { ReportSettings } from '../engine/types';
@@ -69,6 +70,8 @@ export function StatementsStep(ctx: Ctx) {
   const year = eng.yearEnd.slice(0, 4);
   const prior = st.hasPrior ? String(Number(year) - 1) : null;
   const r = eng.report;
+  const [trace, setTrace] = useState<{ code: string; period: Period } | null>(null);
+  const onTrace = (code: string, period: Period) => setTrace({ code, period });
 
   if (lines.length === 0)
     return (
@@ -88,6 +91,9 @@ export function StatementsStep(ctx: Ctx) {
           <h2>Financial statements</h2>
           <button onClick={() => window.print()}>Print or save as PDF</button>
         </div>
+        <p className="muted" style={{ margin: 0 }}>
+          Select any figure on the statement of financial position or the statement of profit or loss to see the accounts, journals, ledger entries and files behind it.
+        </p>
         {st.cur.unmappedCount > 0 && (
           <div className="banner bad">
             {st.cur.unmappedCount} account(s) are not mapped, so these statements are incomplete. Finish the mapping step.
@@ -213,7 +219,7 @@ export function StatementsStep(ctx: Ctx) {
 
       <section className="sheet">
         <SheetHead ctx={ctx} title="Statement of financial position" sub={`as at ${longDate(eng.yearEnd)}`} />
-        <StatementTable rows={st.position} curLabel={year} priorLabel={prior} notes />
+        <StatementTable rows={st.position} curLabel={year} priorLabel={prior} notes onTrace={onTrace} />
         <div className="approval">
           <p>
             These financial statements were approved by the board of directors on ____________________ and signed on its behalf by:
@@ -239,7 +245,7 @@ export function StatementsStep(ctx: Ctx) {
 
       <section className="sheet">
         <SheetHead ctx={ctx} title="Statement of profit or loss and other comprehensive income" />
-        <StatementTable rows={st.income} curLabel={year} priorLabel={prior} notes />
+        <StatementTable rows={st.income} curLabel={year} priorLabel={prior} notes onTrace={onTrace} />
         <p style={{ marginTop: 16 }}>There were no items of other comprehensive income in the year.</p>
       </section>
 
@@ -458,6 +464,7 @@ export function StatementsStep(ctx: Ctx) {
           </p>
         )}
       </section>
+      {trace && <TracePanel ctx={ctx} code={trace.code} period={trace.period} onClose={() => setTrace(null)} />}
     </div>
   );
 }
