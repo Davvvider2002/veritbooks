@@ -248,3 +248,35 @@ describe('mapping dividends', () => {
     expect(suggestMapping('Investment in subsidiary').mapCode).toBe('investments');
   });
 });
+
+describe('group report wording', () => {
+  const input = { clientName: 'Zuma Holdings Limited', yearEnd: '2025-12-31', hasCashFlow: true, group: true, groupCashFlow: true };
+  const text = (r: ReturnType<typeof draftReport>) => r.sections.flatMap((s) => [s.heading, ...s.paragraphs]).join('\n');
+  it('covers the consolidated and the separate statements in an audit report', () => {
+    const t = text(draftReport({ ...input, type: 'audit', settings: { opinion: 'unmodified' } }));
+    expect(t).toContain('We have audited the consolidated and separate financial statements of Zuma Holdings Limited (the Company) and its subsidiaries (together, the Group)');
+    expect(t).toContain('the consolidated and separate statements of financial position as at 31 December 2025');
+    expect(t).toContain('the consolidated statement of cash flows');
+    expect(t).toContain('give a true and fair view of the consolidated and separate financial position of the Group and the Company as at 31 December 2025, and their consolidated and separate financial performance and cash flows');
+    expect(t).toContain('We are independent of the Group and the Company');
+    expect(t).toContain('the Group’s and the Company’s ability to continue as a going concern');
+    expect(t).toContain('We remain solely responsible for our audit opinion.');
+    expect(t).not.toMatch(/consolidated and separate consolidated/);
+    expect(t).not.toMatch(/(?<!separate |consolidated )financial statements/);
+    expect(t).not.toMatch(/\bthe company\b/);
+  });
+  it('leaves the group audit paragraph out of a disclaimer, and rewords the other report types', () => {
+    expect(text(draftReport({ ...input, type: 'audit', settings: { opinion: 'disclaimer', basis: 'x' } }))).not.toContain('We remain solely responsible');
+    expect(text(draftReport({ ...input, groupCashFlow: false, type: 'audit', settings: {} }))).not.toContain('consolidated statement of cash flows');
+    for (const type of ['review', 'compilation'] as const) {
+      const t = text(draftReport({ ...input, type, settings: {} }));
+      expect(t).toContain('consolidated and separate financial statements of Zuma Holdings Limited (the Company) and its subsidiaries');
+      expect(t).not.toContain('We remain solely responsible');
+    }
+  });
+  it('is unchanged for a company with no subsidiaries', () => {
+    const t = text(draftReport({ ...input, group: false, type: 'audit', settings: {} }));
+    expect(t).not.toContain('consolidated');
+    expect(t).toContain('We have audited the financial statements of Zuma Holdings Limited');
+  });
+});

@@ -154,14 +154,34 @@ Needs `supabase/migrations/0007_quality_management.sql`. Independence confirmati
 No database update is needed. The group is kept with the parent engagement's planning.
 
 - A Consolidation step on the parent's engagement. Each subsidiary has its own engagement in the same firm, with its own trial balance, mapping and audit journals. The parent's file reads the subsidiary's figures live, so a change in the subsidiary flows through.
-- For each subsidiary the preparer enters the percentage held, the cost of the investment, the subsidiary's net assets at acquisition, and goodwill amortised to date and in each year.
+- For each subsidiary the preparer enters the percentage held, the cost of the investment, the subsidiary's net assets at acquisition, and goodwill amortised to date and in each year. A subsidiary can be edited in place.
 - The engine adds the statements line by line, removes the investment, recognises goodwill and its amortisation, measures non-controlling interests at their share of net assets, and takes a bargain purchase to reserves.
 - Intercompany eliminations are entered on statement lines, per year, and must balance.
-- Output: a working that shows each company, the adjustments and the group side by side; the consolidated statement of financial position; and the consolidated statement of profit or loss, with profit split between owners and non-controlling interests. Comparatives appear when every company holds a prior year.
-- Sign-off is blocked if the consolidation does not balance or an elimination is one-sided. A subsidiary whose own file is not yet signed is an advisory.
+- Bought or sold in the year: a subsidiary comes in from the day control was obtained and goes out from the day it was lost. Its income and expenses are included for the days held, as a share of its full year. On a sale, the parent's gain is restated to the group's gain using the net assets on the day of sale.
+- Associates and joint ventures: carried at cost or by the equity method, as the IFRS for SMEs permits. No engagement is needed for them. The equity method replaces dividend income with the group's share of profit and carries the investment at cost plus retained share of profits.
+- Foreign subsidiaries: assets and liabilities at the year-end rate, income and expenses at the average rate. The exchange difference for the year is computed and shown in other comprehensive income, with the group's share held in other reserves and the rest in non-controlling interests.
+- Sub-groups: a subsidiary that is itself a parent comes in already consolidated, with its outside shareholders and goodwill carried up. Up to four levels.
+- Output: a working with each company, the adjustments and the group side by side; the consolidated statement of financial position; profit or loss and other comprehensive income; changes in equity; cash flows; and group notes covering the basis of consolidation, subsidiaries, goodwill, non-controlling interests, associates and exchange rates. Comparatives appear when every company holds a prior year.
+- The changes in equity statement shows any movement the year's results do not explain. This catches an intragroup dividend left in income, and an unrealised profit not brought forward.
+- The draft report is reworded for a group: consolidated and separate financial statements, the Group and the Company, and the group audit responsibilities paragraph.
+- Sign-off is blocked if the consolidation does not balance or an elimination is one-sided. Advisories: an unsigned subsidiary, an unexplained movement in group equity, and a cash flow that must be prepared outside the file.
 - Sample files: `group-parent-2025.csv`, `group-subsidiary-2025.csv` and their 2024 pairs in `public/samples`.
-- Assumptions: every subsidiary is held for the whole of both years at the same percentage, with the same year end. Unrealised profit is borne wholly by the owners of the parent. Subsidiaries' reserves since acquisition are shown within group retained earnings.
-- Not built: consolidated cash flow, changes in equity and notes; group audit report wording; acquisitions and disposals during the year; associates and joint ventures; foreign subsidiaries; sub-groups.
+
+Assumptions, stated on screen:
+
+- A subsidiary held for part of a year earns its results evenly through that year.
+- Unrealised profit is borne wholly by the owners of the parent.
+- A subsidiary's reserves since acquisition are shown within group retained earnings.
+- Goodwill on a foreign subsidiary stays at its naira amount at acquisition. The Standard treats it as an asset of the foreign operation, retranslated each year. This is a known departure.
+
+What the file cannot produce:
+
+- The consolidated cash flow in a year a subsidiary is bought or sold. It needs the subsidiary's balance sheet on that day.
+- The consolidated cash flow where a subsidiary reports in a foreign currency. It needs cash flows at the rates when they happened.
+- The exchange difference in the year a foreign subsidiary is bought, and exchange differences inside a sub-group.
+- A change in the percentage held without losing control, and a step acquisition.
+
+In each case the software says so, leaves the statement out, and raises an advisory at sign-off.
 
 Also fixed: dividends received were mapped as dividends paid. They now map to other income.
 

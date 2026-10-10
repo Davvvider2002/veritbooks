@@ -10,7 +10,8 @@ import { BankStep, LedgerStep } from './steps/analytics';
 import { DisclosuresStep } from './steps/disclosures';
 import { ChecklistStep } from './steps/checklist';
 import { ConsolidationStep } from './steps/consolidation';
-import { consolidate, type Consolidated } from './engine/consolidation';
+import { cashFlowBlocker, consolidate, groupCashFlow, groupEquity, unitOf, unitOfGroup, type Consolidated, type GroupEquity, type GroupSetup, type Unit } from './engine/consolidation';
+import type { Row } from './engine/statements';
 import { figures, hasPrior } from './engine/statements';
 import { Link, useParams } from 'react-router-dom';
 import { packOf, programmeFor } from './content/packs';
@@ -62,6 +63,8 @@ export interface GroupMember {
   name: string | null;
   status: Engagement['status'] | null;
   yearEnd: string | null;
+  /** True when the subsidiary is itself the parent of a group, and comes in already consolidated. */
+  isGroup: boolean;
 }
 export interface Group {
   members: GroupMember[];
@@ -69,6 +72,46 @@ export interface Group {
   cur: Consolidated | null;
   /** Null unless the parent and every subsidiary hold a prior year. */
   prior: Consolidated | null;
+  /** Changes in equity and cash flows need both years. */
+  equity: GroupEquity | null;
+  cashFlow: { rows: Row[]; difference: number } | null;
+  /** Why the cash flow cannot be drawn from the file, when it cannot. */
+  blocker: string | null;
+}
+
+/** A subsidiary's own file, with the files of any subsidiaries it holds in turn. */
+interface Member {
+  eng: Engagement;
+  name: string;
+  lines: TbLine[];
+  adjustments: Adjustment[];
+  subs: (Member | null)[];
+}
+const isParent = (g: GroupSetup | undefined) => !!g && (g.subsidiaries.length > 0 || (g.associates?.length ?? 0) > 0);
+
+async function loadMember(id: string, clients: Client[], seen: Set<string>, depth: number): Promise<Member | null> {
+  // A company cannot sit beneath itself, and groups are not expected to run deeper than this.
+  if (seen.has(id) || depth > 4) return null;
+  const eng = await repo.getEngagement(id).catch(() => null);
+  if (!eng) return null;
+  const [lines, adjustments] = await Promise.all([repo.listLines(id), repo.listAdjustments(id)]);
+  const below = new Set(seen).add(id);
+  const subs = await Promise.all((eng.planning.group?.subsidiaries ?? []).map((s) => loadMember(s.engagementId, clients, below, depth + 1)));
+  return { eng, name: clients.find((c) => c.id === eng.clientId)?.name ?? 'Subsidiary', lines, adjustments, subs };
+}
+
+const memberHasPrior = (m: Member): boolean => hasPrior(m.lines) && m.subs.every((s) => !s || memberHasPrior(s));
+const EMPTY = figures([], [], 'current');
+
+/** A subsidiary for one year: its own figures, or its own group already consolidated. */
+function memberUnit(m: Member, period: 'current' | 'prior', withPrior: boolean): Unit {
+  const own = unitOf(m.name, figures(m.lines, m.adjustments, period));
+  const setup = m.eng.planning.group;
+  if (!isParent(setup)) return own;
+  const units = (p: 'current' | 'prior') =>
+    m.subs.map((s) => (s ? memberUnit(s, p, withPrior) : { ...unitOf('A subsidiary that could not be read', EMPTY), problems: ['its engagement could not be read, so it is left out.'] }));
+  const opening = period === 'current' && withPrior ? consolidate(unitOf(m.name, figures(m.lines, m.adjustments, 'prior')), units('prior'), setup!, 'prior', m.eng.yearEnd) : null;
+  return unitOfGroup(`${m.name} and its subsidiaries`, consolidate(own, units(period), setup!, period, m.eng.yearEnd, opening));
 }
 
 export interface Recon {
@@ -144,14 +187,7 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
       repo.listRequests(id).catch(() => null),
     ]);
     // A parent's file reads each subsidiary's own file, which belongs to the same firm.
-    const subs = await Promise.all(
-      (eng.planning.group?.subsidiaries ?? []).map(async (s) => {
-        const e = await repo.getEngagement(s.engagementId).catch(() => null);
-        if (!e) return null;
-        const [subLines, subAdjustments] = await Promise.all([repo.listLines(e.id), repo.listAdjustments(e.id)]);
-        return { eng: e, name: clients.find((c) => c.id === e.clientId)?.name ?? 'Subsidiary', lines: subLines, adjustments: subAdjustments };
-      }),
-    );
+    const subs = await Promise.all((eng.planning.group?.subsidiaries ?? []).map((x) => loadMember(x.engagementId, clients, new Set([eng.id]), 1)));
     return { eng, client: clients.find((c) => c.id === eng.clientId) ?? null, lines, adjustments, heavy, evidence, requests, subs };
   }, [id]);
 
@@ -162,22 +198,19 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
 
   const group = useMemo((): Group | null => {
     const setup = data?.eng.planning.group;
-    if (!data || !statements || !data.client || !setup || setup.subsidiaries.length === 0) return null;
+    if (!data || !statements || !data.client || !setup || (setup.subsidiaries.length === 0 && !setup.associates?.length)) return null;
     const members: GroupMember[] = setup.subsidiaries.map((s, i) => {
       const x = data.subs[i];
-      return { engagementId: s.engagementId, name: x?.name ?? null, status: x?.eng.status ?? null, yearEnd: x?.eng.yearEnd ?? null };
+      return { engagementId: s.engagementId, name: x?.name ?? null, status: x?.eng.status ?? null, yearEnd: x?.eng.yearEnd ?? null, isGroup: !!x && isParent(x.eng.planning.group) };
     });
-    if (data.subs.some((x) => !x)) return { members, cur: null, prior: null };
+    const none = { members, cur: null, prior: null, equity: null, cashFlow: null, blocker: null };
+    if (data.subs.some((x) => !x)) return none;
     const subs = data.subs.map((x) => x!);
-    const run = (period: 'current' | 'prior') =>
-      consolidate(
-        { name: data.client!.name, figures: period === 'current' ? statements.cur : statements.prior! },
-        subs.map((x) => ({ name: x.name, figures: figures(x.lines, x.adjustments, period) })),
-        setup,
-        period,
-      );
-    const both = statements.hasPrior && subs.every((x) => hasPrior(x.lines));
-    return { members, cur: run('current'), prior: both ? run('prior') : null };
+    const top = (period: 'current' | 'prior') => unitOf(data.client!.name, period === 'current' ? statements.cur : statements.prior!);
+    const both = statements.hasPrior && subs.every(memberHasPrior);
+    const prior = both ? consolidate(top('prior'), subs.map((x) => memberUnit(x, 'prior', true)), setup, 'prior', data.eng.yearEnd) : null;
+    const cur = consolidate(top('current'), subs.map((x) => memberUnit(x, 'current', both)), setup, 'current', data.eng.yearEnd, prior);
+    return { members, cur, prior, equity: prior ? groupEquity(cur, prior) : null, cashFlow: prior ? groupCashFlow(cur, prior) : null, blocker: cashFlowBlocker(cur) };
   }, [data, statements]);
 
   const analytics = useMemo(() => {

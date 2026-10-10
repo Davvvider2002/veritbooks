@@ -510,6 +510,8 @@ export function ReportStep(ctx: Ctx) {
     yearEnd: eng.yearEnd,
     settings: r,
     hasCashFlow: statements.cashFlow !== null,
+    group: !!ctx.group && ctx.group.members.length > 0,
+    groupCashFlow: !!ctx.group?.cashFlow,
   });
 
   return (
@@ -668,6 +670,8 @@ export function SignOffStep({ eng, ws, client, lines, adjustments, statements, l
           difference: group.cur?.difference ?? 0,
           unbalanced: (group.cur?.unbalanced.length ?? 0) + (group.prior?.unbalanced.length ?? 0),
           unsigned: group.members.filter((m) => m.status === 'in_progress').map((m) => m.name ?? 'a subsidiary'),
+          unexplained: group.equity?.unexplained ?? 0,
+          noCashFlow: group.cur && group.prior ? group.blocker : null,
         }
       : undefined,
     // Files signed before confirmations existed are not marked down for lacking them.

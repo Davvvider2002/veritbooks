@@ -213,3 +213,5 @@ table.ledger td, table.ledger th { font-size: 13px; padding: 5px 8px; }
 table.worksheet td, table.worksheet th { font-size: 13px; padding: 5px 8px; }
 table.worksheet tr.section td { font-weight: 700; padding-top: 12px; border-bottom: 1px solid var(--rule-strong); }
 .danger { color: var(--bad); }
+.sheet table.equity7 { min-width: 860px; }
+.sheet table.equity7 th.num, .sheet table.equity7 td.num { width: 96px; }

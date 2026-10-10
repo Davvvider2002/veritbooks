@@ -6,6 +6,10 @@ export interface ReportInput {
   yearEnd: string; // ISO date
   settings: ReportSettings;
   hasCashFlow: boolean;
+  /** True when the client is a parent with subsidiaries, and the report covers the group as well as the company. */
+  group?: boolean;
+  /** True when the consolidated statement of cash flows is among the statements. */
+  groupCashFlow?: boolean;
 }
 
 export interface ReportSection {
@@ -41,6 +45,47 @@ const OPINION_HEADING = {
  * against the current standards and the Companies and Allied Matters Act 2020.
  */
 export function draftReport(i: ReportInput): DraftReport {
+  const company = companyReport(i);
+  return i.group ? groupReport(company, i) : company;
+}
+
+/**
+ * Rewords a company report to cover the consolidated statements as well. In Nigeria a parent
+ * presents consolidated and separate financial statements together, under one report.
+ * Starter wording, like the rest: the partner must check it against ISA 700 and ISA 600 (Revised).
+ */
+function groupReport(r: DraftReport, i: ReportInput): DraftReport {
+  const name = i.clientName;
+  const date = longDate(i.yearEnd);
+  const cash = i.hasCashFlow;
+  const single =
+    `the statement of financial position as at ${date}, the statement of profit or loss, ` +
+    `the statement of changes in equity${cash ? ' and the statement of cash flows' : ''} ` +
+    'for the year then ended, and the notes to the financial statements, including a summary of significant accounting policies';
+  const both =
+    `the consolidated and separate statements of financial position as at ${date}, the consolidated and separate statements of profit or loss` +
+    `${i.groupCashFlow ? ', the consolidated statement of changes in equity and the consolidated statement of cash flows' : ' and the consolidated statement of changes in equity'}, ` +
+    `the separate statement of changes in equity${cash ? ' and the separate statement of cash flows' : ''} ` +
+    'for the year then ended, and the notes to the consolidated and separate financial statements, including a summary of significant accounting policies';
+  const reword = (p: string) =>
+    p
+      .replace(single, both)
+      .replace(`financial statements of ${name}`, `consolidated and separate financial statements of ${name} (the Company) and its subsidiaries (together, the Group)`)
+      .replace(`the financial position of ${name} as at ${date}, and its financial performance${cash ? ' and cash flows' : ''}`, `the consolidated and separate financial position of the Group and the Company as at ${date}, and their consolidated and separate financial performance${cash ? ' and cash flows' : ''}`)
+      .replace(/(?<!separate )financial statements/g, 'consolidated and separate financial statements')
+      .replace(/\bthe company’s\b/g, 'the Group’s and the Company’s')
+      .replace(/\bthe company\b/g, 'the Group and the Company');
+  const sections = r.sections.map((s) => ({ heading: reword(s.heading), paragraphs: s.paragraphs.map(reword) }));
+  const duties = sections.find((s) => s.heading.startsWith('Auditor’s responsibilities'));
+  if (i.type === 'audit' && duties && (i.settings.opinion ?? 'unmodified') !== 'disclaimer') {
+    duties.paragraphs.push(
+      'We plan and perform the group audit to obtain sufficient appropriate audit evidence regarding the financial information of the entities or business units within the Group, as a basis for forming an opinion on the consolidated financial statements. We are responsible for the direction, supervision and review of the audit work performed for the purposes of the group audit. We remain solely responsible for our audit opinion.',
+    );
+  }
+  return { title: r.title, addressee: r.addressee, sections };
+}
+
+function companyReport(i: ReportInput): DraftReport {
   const date = longDate(i.yearEnd);
   const list =
     `the statement of financial position as at ${date}, the statement of profit or loss, ` +

@@ -144,7 +144,7 @@ export interface GateInput {
   /** One entry per bank statement imported. */
   bank?: BankGate[];
   /** The state of the consolidation, when the client is the parent of a group. */
-  group?: { ready: boolean; difference: Kobo; unbalanced: number; unsigned: string[] };
+  group?: { ready: boolean; difference: Kobo; unbalanced: number; unsigned: string[]; unexplained?: Kobo; noCashFlow?: string | null };
   /** Independence confirmations on this engagement. Leave undefined to skip the checks. */
   independence?: { signer: boolean; unconfirmed: string[] };
   /** Items of the disclosure checklist with no answer. Leave undefined to skip the check. */
@@ -323,6 +323,24 @@ export function signOffChecks(g: GateInput): Check[] {
             : undefined,
       blocking: true,
     });
+    if (g.group.unexplained) {
+      checks.push({
+        id: 'group_equity',
+        label: 'The movement in group equity is explained by the year’s results',
+        ok: false,
+        detail: `${fmt2(Math.abs(g.group.unexplained))} is not explained. Look for an intragroup dividend left in income, or a profit eliminated last year and not brought forward.`,
+        blocking: false,
+      });
+    }
+    if (g.group.noCashFlow) {
+      checks.push({
+        id: 'group_cash_flow',
+        label: 'The consolidated statement of cash flows is prepared',
+        ok: false,
+        detail: `It cannot be drawn from this file and must be prepared outside it. ${g.group.noCashFlow}`,
+        blocking: false,
+      });
+    }
     if (g.group.unsigned.length > 0) {
       checks.push({
         id: 'group_unsigned',
