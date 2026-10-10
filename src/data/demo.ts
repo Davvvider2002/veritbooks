@@ -497,6 +497,16 @@ export function createDemoRepo(): Repo {
       };
     },
 
+    async draftPolicy(engagementId, input) {
+      eng(engagementId);
+      if (!s.firms[firmId()].firm.aiEnabled) throw new Error('AI assistance is turned off for your firm. A partner can turn it on in the firm details.');
+      return {
+        model: 'demo sample, not AI',
+        text: `${input.starter} [Sample addition: state the basis used for ${input.accounts[0] ?? 'these accounts'}.]`,
+        toConfirm: ['Sample text. Confirm the rates, methods and useful lives with the client before using this wording.'],
+      };
+    },
+
     async listQuality() {
       return s.quality.filter((q) => q.firmId === firmId()).map(strip);
     },

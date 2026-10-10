@@ -107,6 +107,8 @@ export interface Disclosures {
   contingencies?: string;
   commitments?: string;
   earlierYears?: EarlierYear[];
+  /** Accounting policy wording confirmed for this client, by statement line. A line with no entry prints the starter wording. */
+  policies?: Record<string, { text: string; by: string; at: string }>;
   /** The preparer's answer to each item of the disclosure checklist, by item id. */
   checklist?: Record<string, ChecklistAnswer>;
 }

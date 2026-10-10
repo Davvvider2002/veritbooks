@@ -26,7 +26,8 @@ export type AutoKey =
   | 'subsequent_events'
   | 'contingencies'
   | 'commitments'
-  | 'line_breakdown';
+  | 'line_breakdown'
+  | 'policies_tailored';
 
 export interface ChecklistItem {
   id: string;
@@ -84,7 +85,7 @@ export const CHECKLIST: ChecklistItem[] = [
   { id: 's7-restricted', section: S.s7, text: 'Significant cash balances that are not available for use by the entity are disclosed, with an explanation.', when: ['cash'] },
   { id: 's7-non-cash', section: S.s7, text: 'Investing and financing transactions that did not use cash are excluded from the statement and disclosed elsewhere.' },
 
-  { id: 's8-policies', section: S.s8, text: 'The significant accounting policies are disclosed and have been tailored to this entity: the measurement bases and the other policies needed to understand the statements.' },
+  { id: 's8-policies', section: S.s8, text: 'The significant accounting policies are disclosed and have been tailored to this entity: the measurement bases and the other policies needed to understand the statements.', auto: 'policies_tailored' },
   { id: 's8-judgements', section: S.s8, text: 'The judgements management made in applying the accounting policies that most affect the amounts recognised are disclosed.' },
   { id: 's8-estimates', section: S.s8, text: 'The key assumptions about the future and other main sources of estimation uncertainty are disclosed, with the assets and liabilities affected.' },
 

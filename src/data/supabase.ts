@@ -514,6 +514,11 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       return { ...r.result, model: r.model };
     },
 
+    async draftPolicy(engagementId, input) {
+      const r = await assist({ task: 'draft_policy', engagementId, policy: input });
+      return { ...r.result, model: r.model };
+    },
+
     async listQuality() {
       const { data, error } = await db.from('quality_items').select('*').order('created_at');
       fail(error);

@@ -19,6 +19,8 @@ export interface ChecklistInput {
   adjustments: Adjustment[];
   disclosures: Disclosures;
   principalActivity?: string;
+  /** The statement lines that carry an accounting policy note for this entity. */
+  policyCodes?: string[];
 }
 
 /** What the software can confirm from the file itself. Returns [covered, the basis or what is missing]. */
@@ -62,6 +64,14 @@ function auto(key: AutoKey, g: ChecklistInput): [boolean, string] {
       return d.noRelatedParties || (d.relatedParties ?? []).some((r) => r.name.trim())
         ? [true, d.noRelatedParties ? 'The preparer confirmed there are no transactions to disclose.' : 'Transactions are listed in the related party note.']
         : [false, 'List the transactions in Disclosures, or confirm there are none.'];
+    case 'policies_tailored': {
+      const codes = g.policyCodes ?? [];
+      const open = codes.filter((c) => !d.policies?.[c]?.text.trim());
+      if (codes.length === 0) return [false, 'No accounting policy notes apply yet.'];
+      return open.length === 0
+        ? [true, `All ${codes.length} accounting policies have wording confirmed for this client.`]
+        : [false, `${open.length} of ${codes.length} accounting policies still carry the starter wording. Confirm them in Accounting policies.`];
+    }
     case 'ppe_reconciliation': {
       const s = st.hasPrior ? ppeSchedule(g.lines, g.adjustments, st.cur, d.ppeDisposals) : null;
       if (!s) return [false, 'The movement schedule needs the prior year trial balance.'];

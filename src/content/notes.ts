@@ -47,3 +47,6 @@ export const POLICIES: Record<string, { title: string; text: string }> = {
     text: 'A provision is recognised when the company has a present obligation as a result of a past event, it is probable that an outflow of economic benefits will be required to settle it, and the amount can be estimated reliably.',
   },
 };
+
+/** The statement lines that carry an accounting policy note, given which lines the entity has. */
+export const policyCodes = (st: { notes: Map<string, number> }) => Object.keys(POLICIES).filter((code) => st.notes.has(code));

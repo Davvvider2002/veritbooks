@@ -81,4 +81,15 @@ describe('disclosure checklist', () => {
     expect(gate(open)).toMatchObject({ ok: false, blocking: true });
     expect(gate(0).ok).toBe(true);
   });
+
+  it('covers the accounting policies item only when every policy has wording confirmed for the client', () => {
+    const st = buildStatements(both, []);
+    const check = (disclosures: Disclosures, policyCodes?: string[]) => buildChecklist(CHECKLIST, { statements: st, lines: both, adjustments: [], disclosures, policyCodes }).find((r) => r.item.id === 's8-policies')!;
+    const done = { text: 'Inventories are measured at weighted average cost.', by: 'N. Okafor', at: '2026-01-01T00:00:00Z' };
+    expect(check({}).state).toBe('open'); // nothing to go on: the preparer answers
+    expect(check({}, ['inventories', 'revenue'])).toMatchObject({ state: 'open', basis: expect.stringContaining('2 of 2') });
+    expect(check({ policies: { inventories: done } }, ['inventories', 'revenue'])).toMatchObject({ state: 'open', basis: expect.stringContaining('1 of 2') });
+    expect(check({ policies: { inventories: done, revenue: { ...done, text: '  ' } } }, ['inventories', 'revenue']).state).toBe('open');
+    expect(check({ policies: { inventories: done, revenue: done } }, ['inventories', 'revenue']).state).toBe('covered');
+  });
 });

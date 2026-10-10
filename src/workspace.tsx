@@ -9,6 +9,7 @@ import { EvidenceStep } from './steps/evidence';
 import { BankStep, LedgerStep } from './steps/analytics';
 import { DisclosuresStep } from './steps/disclosures';
 import { ChecklistStep } from './steps/checklist';
+import { PoliciesStep } from './steps/policies';
 import { AnalyticalStep } from './steps/analytical';
 import { ConsolidationStep } from './steps/consolidation';
 import { cashFlowBlocker, consolidate, groupCashFlow, groupEquity, unitOf, unitOfGroup, type Consolidated, type GroupEquity, type GroupSetup, type Unit } from './engine/consolidation';
@@ -167,6 +168,7 @@ const STEPS = [
   { slug: 'journals', label: 'Journals', el: JournalsStep },
   { slug: 'evidence', label: 'Evidence', el: EvidenceStep },
   { slug: 'disclosures', label: 'Disclosures', el: DisclosuresStep },
+  { slug: 'policies', label: 'Accounting policies', el: PoliciesStep },
   { slug: 'checklist', label: 'Disclosure checklist', el: ChecklistStep },
   { slug: 'consolidation', label: 'Consolidation', el: ConsolidationStep },
   { slug: 'statements', label: 'Financial statements', el: StatementsStep },

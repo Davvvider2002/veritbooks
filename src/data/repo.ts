@@ -265,6 +265,9 @@ export interface Repo {
   /** Asks the AI service for causes to consider and questions to ask about one movement. Nothing is saved. */
   explainMovement(engagementId: string, input: MovementForAssist): Promise<MovementPoints & { model: string }>;
 
+  /** Asks the AI service to tailor one accounting policy. Nothing is saved. */
+  draftPolicy(engagementId: string, input: { title: string; starter: string; accounts: string[]; industry: string }): Promise<PolicyDraft & { model: string }>;
+
   /** The firm's system of quality management. Everyone in the firm reads it; partners maintain it. */
   listQuality(): Promise<QualityItem[]>;
   addQuality(items: QualityDraft[]): Promise<void>;
@@ -307,6 +310,12 @@ export interface MovementForAssist {
   lines: { label: string; cur: number; prior: number }[];
   ratios: { label: string; cur: number | null; prior: number | null; unit: string }[];
   industry: string;
+}
+
+/** A draft of one accounting policy for this client, with the facts the accountant must confirm. */
+export interface PolicyDraft {
+  text: string;
+  toConfirm: string[];
 }
 
 export interface JournalForAssist {

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CHECKLIST_VERSION } from '../content/checklist';
 import { checklistFor, packOf } from '../content/packs';
+import { policyCodes } from '../content/notes';
 import { repo } from '../data';
 import { buildChecklist, type ChecklistResult } from '../engine/checklist';
 import type { ChecklistAnswer } from '../engine/types';
@@ -37,7 +38,7 @@ export function ChecklistStep({ eng, ws, lines, adjustments, statements, locked,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft]);
   const results = useMemo(
-    () => buildChecklist(checklistFor(eng.planning), { statements, lines, adjustments, disclosures: { ...eng.disclosures, checklist: answers }, principalActivity: eng.report.principalActivity }),
+    () => buildChecklist(checklistFor(eng.planning), { statements, lines, adjustments, disclosures: { ...eng.disclosures, checklist: answers }, principalActivity: eng.report.principalActivity, policyCodes: policyCodes(statements) }),
     [statements, lines, adjustments, eng.disclosures, eng.report.principalActivity, eng.planning, answers],
   );
   const count = (s: ChecklistResult['state']) => results.filter((r) => r.state === s).length;

@@ -218,7 +218,17 @@ Demo mode has no AI service. It returns clearly labelled sample text so the scre
 
 Confirmed on the live site: a mapping request. Not yet confirmed there: journal explanations and movement questions.
 
-Not built: draft notes and a file review assistant.
+- Policy drafts. On the Accounting policies step, the AI redrafts one policy from the starter wording and the names of the accounts on that line. It is told never to invent a method, rate or useful life: it leaves a square-bracket placeholder and lists the fact to confirm. The draft goes into the box to edit. A policy cannot be confirmed while a placeholder remains.
+
+Not built, by choice: a file review assistant. The sign-off checks already list what is incomplete, from the file itself, and an AI summary of them would add risk without adding information.
+
+### Accounting policies for each client
+
+No database update is needed. It works with AI off.
+
+- A step that shows the policy wording printed in note 2, one policy for each line the company has. Each starts as general wording, is edited to say what this company does, and is confirmed with who and when.
+- A confirmed policy prints in the financial statements. An unconfirmed one prints the starter wording.
+- The disclosure checklist item on accounting policies is covered only when every policy that applies has confirmed wording.
 
 ### Analytical review
 

@@ -211,6 +211,43 @@ function explainMovement(body: any): Task | string {
   };
 }
 
+function draftPolicy(body: any): Task | string {
+  const p = body.policy ?? {};
+  if (!text(p.title, 120) || !text(p.starter, 2000)) return 'Send the policy.';
+  const data = {
+    policy: text(p.title, 120),
+    starting_wording: text(p.starter, 2000),
+    accounts_on_this_line: (Array.isArray(p.accounts) ? p.accounts : []).slice(0, 40).map((a: unknown) => text(a, 120)),
+    kind_of_business: text(p.industry, 80) || 'not stated',
+  };
+  return {
+    system:
+      GROUND_RULES +
+      ' Task: redraft one accounting policy note so that it fits this company, for financial statements under the IFRS for SMEs. ' +
+      'Use the account names to see what the company actually has, and drop wording that does not apply to it. Keep to what the IFRS for SMEs permits. ' +
+      'You do not know this company’s methods, rates, useful lives, cost formula or estimates. Never invent one. Where the policy needs such a fact, put a short placeholder in square brackets, such as [useful life in years], and list it as a fact to confirm. ' +
+      'Write in the plain, formal style of published financial statements, in the third person, as one or two paragraphs with no headings or lists.',
+    user: `<data>\n${JSON.stringify(data)}\n</data>`,
+    tool: {
+      name: 'draft_policy',
+      description: 'Record the draft wording.',
+      input_schema: {
+        type: 'object',
+        required: ['text', 'facts_to_confirm'],
+        properties: {
+          text: { type: 'string', description: 'The policy wording, with square-bracket placeholders for facts not known.' },
+          facts_to_confirm: { type: 'array', items: { type: 'string' }, description: 'Each fact the accountant must obtain from the client before using the wording.' },
+        },
+      },
+    },
+    check: (input) => ({
+      text: String(input?.text ?? '').replace(/[\u0000-\u0009\u000b-\u001f]/g, ' ').slice(0, 3000),
+      toConfirm: (Array.isArray(input?.facts_to_confirm) ? input.facts_to_confirm : []).slice(0, 10).map((x: unknown) => text(x, 300)),
+    }),
+    maxTokens: 1500,
+  };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return refuse('Use POST.', 405);
@@ -240,7 +277,7 @@ Deno.serve(async (req: Request) => {
   if (!eng) return refuse('That engagement was not found.', 404);
 
   const task =
-    body.task === 'map_accounts' ? mapAccounts(body) : body.task === 'explain_journal' ? explainJournal(body) : body.task === 'explain_movement' ? explainMovement(body) : 'Unknown task.';
+    body.task === 'map_accounts' ? mapAccounts(body) : body.task === 'explain_journal' ? explainJournal(body) : body.task === 'explain_movement' ? explainMovement(body) : body.task === 'draft_policy' ? draftPolicy(body) : 'Unknown task.';
   if (typeof task === 'string') return refuse(task);
 
   // The log is written with the service role, because no browser may write to it.

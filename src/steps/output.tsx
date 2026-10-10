@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { POLICIES } from '../content/notes';
+import { POLICIES, policyCodes } from '../content/notes';
 import { checklistFor, programmeFor } from '../content/packs';
 import { repo } from '../data';
 import { buildChecklist, checklistOpen } from '../engine/checklist';
@@ -303,7 +303,7 @@ export function StatementsStep(ctx: Ctx) {
         <p>
           These financial statements have been prepared in accordance with the IFRS for SMEs Accounting Standard issued by the International Accounting Standards Board, as adopted by the Financial Reporting Council of Nigeria, and the requirements of the Companies and Allied Matters Act 2020. They are presented in Nigerian naira, the company’s functional currency, and are prepared under the historical cost convention.
         </p>
-        {policies.map(([code, p]) => (
+        {policies.map(([code, p]) => ({ code, title: p.title, text: d.policies?.[code]?.text || p.text })).map(({ code, ...p }) => (
           <p key={code}>
             <em>{p.title}.</em> {p.text}
           </p>
@@ -686,7 +686,7 @@ export function SignOffStep({ eng, ws, client, lines, adjustments, statements, l
         ? undefined
         : { signer: locked ? confirmedNames.has(eng.signedByName ?? '') : !!mine, unconfirmed: [...workers].filter((n) => !confirmedNames.has(n)) },
     checklistOpen: lines.length
-      ? checklistOpen(buildChecklist(checklistFor(eng.planning), { statements, lines, adjustments, disclosures: eng.disclosures, principalActivity: eng.report.principalActivity })).length
+      ? checklistOpen(buildChecklist(checklistFor(eng.planning), { statements, lines, adjustments, disclosures: eng.disclosures, principalActivity: eng.report.principalActivity, policyCodes: policyCodes(statements) })).length
       : undefined,
     openRequests: requests.length ? requests.filter((r) => r.status !== 'accepted').length : undefined,
     disclosureGaps: disclosureGaps(eng.disclosures, statements, lines, adjustments, eng.yearEnd),
