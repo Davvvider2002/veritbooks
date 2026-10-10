@@ -108,7 +108,7 @@ export interface PendingInvite {
   role: Role;
 }
 
-export type EvidenceRef = 'general' | 'programme' | 'journal' | 'bank' | 'adjustment';
+export type EvidenceRef = 'general' | 'programme' | 'journal' | 'bank' | 'adjustment' | 'request';
 
 export interface Evidence {
   id: string;
@@ -120,6 +120,49 @@ export interface Evidence {
   note: string;
   uploadedByName: string;
   createdAt: string;
+  /** True when the client sent the file through an upload link. */
+  fromClient: boolean;
+}
+
+export type RequestStatus = 'open' | 'received' | 'accepted' | 'returned';
+
+export interface ClientRequest {
+  id: string;
+  title: string;
+  detail: string;
+  dueDate: string | null;
+  status: RequestStatus;
+  /** The firm's message to the client when an item is returned. */
+  note: string;
+}
+
+export interface RequestLink {
+  id: string;
+  label: string;
+  expiresAt: string;
+  revoked: boolean;
+  lastUsedAt: string | null;
+}
+
+/** What a client sees through an upload link. */
+export interface PortalView {
+  firm: string;
+  client: string;
+  yearEnd: string;
+  closed: boolean;
+  folder: string;
+  requests: (ClientRequest & { files: { name: string; at: string }[] })[];
+}
+
+/** A link token: 32 random bytes, written in 43 URL-safe characters. Only its hash is stored. */
+export function newToken(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+export async function hashToken(token: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 export const MAX_EVIDENCE_BYTES = 25 * 1024 * 1024;
@@ -184,6 +227,18 @@ export interface Repo {
   deleteEvidence(e: Evidence): Promise<void>;
   /** A short-lived link to open the file. */
   evidenceUrl(e: Evidence): Promise<string>;
+
+  listRequests(engagementId: string): Promise<ClientRequest[]>;
+  addRequests(engagementId: string, items: { title: string; detail: string; dueDate: string | null }[]): Promise<void>;
+  updateRequest(id: string, patch: Partial<Pick<ClientRequest, 'status' | 'note'>>): Promise<void>;
+  deleteRequest(id: string): Promise<void>;
+  listLinks(engagementId: string): Promise<RequestLink[]>;
+  /** Creates an upload link and returns its token. The token cannot be shown again. */
+  createLink(engagementId: string, label: string, days: number): Promise<string>;
+  revokeLink(id: string): Promise<void>;
+  /** The client's side: no sign-in, only the token. Null when the link is unknown, expired or revoked. */
+  portalView(token: string): Promise<PortalView | null>;
+  portalUpload(token: string, view: PortalView, requestId: string, file: File): Promise<void>;
 
   sign(engagementId: string): Promise<void>;
   listLog(engagementId: string): Promise<LogEntry[]>;

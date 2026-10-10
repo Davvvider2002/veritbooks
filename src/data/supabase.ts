@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { GlEntry } from '../engine/ledger';
 import type { Adjustment, Nature, TbLine } from '../engine/types';
-import { LockedError, type BankAccount, type Client, type Engagement, type Evidence, type Invite, type Member, type Repo, type StoredBankLine } from './repo';
+import { hashToken, LockedError, MAX_EVIDENCE_BYTES, newToken, type BankAccount, type ClientRequest, type RequestLink, type Client, type Engagement, type Evidence, type Invite, type Member, type Repo, type StoredBankLine } from './repo';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const toEngagement = (r: any): Engagement => ({
@@ -27,6 +27,14 @@ const toMember = (r: any): Member => ({
   role: r.role,
   fullName: r.full_name,
   frcNumber: r.frc_number,
+});
+const toRequest = (r: any): ClientRequest => ({
+  id: r.id,
+  title: r.title,
+  detail: r.detail ?? '',
+  dueDate: r.due_date ?? null,
+  status: r.status,
+  note: r.note ?? '',
 });
 const toLine = (r: any): TbLine => ({
   id: r.id,
@@ -413,6 +421,7 @@ export function createSupabaseRepo(url: string, key: string): Repo {
           note: r.note,
           uploadedByName: r.uploaded_by_name,
           createdAt: r.created_at,
+          fromClient: !!r.from_client,
         }),
       );
     },
@@ -448,6 +457,77 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       const { data, error } = await db.storage.from('evidence').createSignedUrl(e.path, 120, { download: e.fileName });
       fail(error);
       return data!.signedUrl;
+    },
+
+    async listRequests(id) {
+      const { data, error } = await db.from('client_requests').select('*').eq('engagement_id', id).order('sort').order('created_at');
+      fail(error);
+      return (data ?? []).map(toRequest);
+    },
+    async addRequests(id, items) {
+      const { count } = await db.from('client_requests').select('id', { count: 'exact', head: true }).eq('engagement_id', id);
+      const { error } = await db.from('client_requests').insert(
+        items.map((i, n) => ({ engagement_id: id, title: i.title.trim(), detail: i.detail.trim(), due_date: i.dueDate, sort: (count ?? 0) + n })),
+      );
+      fail(error);
+    },
+    async updateRequest(requestId, patch) {
+      const { error } = await db.from('client_requests').update(patch).eq('id', requestId);
+      fail(error);
+    },
+    async deleteRequest(requestId) {
+      const { error } = await db.from('client_requests').delete().eq('id', requestId);
+      fail(error);
+    },
+    async listLinks(id) {
+      const { data, error } = await db.from('request_links').select('id, label, expires_at, revoked_at, last_used_at').eq('engagement_id', id).order('created_at');
+      fail(error);
+      return (data ?? []).map((r): RequestLink => ({ id: r.id, label: r.label, expiresAt: r.expires_at, revoked: !!r.revoked_at, lastUsedAt: r.last_used_at }));
+    },
+    async createLink(id, label, days) {
+      const token = newToken();
+      const { error } = await db.from('request_links').insert({
+        engagement_id: id,
+        token_hash: await hashToken(token),
+        label: label.trim(),
+        expires_at: new Date(Date.now() + days * 86400000).toISOString(),
+      });
+      fail(error);
+      return token;
+    },
+    async revokeLink(linkId) {
+      const { error } = await db.from('request_links').update({ revoked_at: new Date().toISOString() }).eq('id', linkId);
+      fail(error);
+    },
+    async portalView(token) {
+      const { data, error } = await db.rpc('portal_view', { p_token: token });
+      fail(error);
+      if (!data) return null;
+      const v = data as any;
+      return {
+        firm: v.firm,
+        client: v.client,
+        yearEnd: v.year_end,
+        closed: v.closed,
+        folder: v.folder,
+        requests: (v.requests as any[]).map((r) => ({ ...toRequest(r), files: r.files })),
+      };
+    },
+    async portalUpload(token, view, requestId, file) {
+      if (file.size > MAX_EVIDENCE_BYTES) throw new Error(`${file.name} is larger than 25 MB.`);
+      const ext = /\.([a-z0-9]{1,8})$/i.exec(file.name)?.[1]?.toLowerCase();
+      const path = `${view.folder}/p_${token}_${crypto.randomUUID()}${ext ? '.' + ext : ''}`;
+      const up = await db.storage.from('evidence').upload(path, file, { contentType: file.type || 'application/octet-stream' });
+      if (up.error) throw new Error('The file could not be uploaded. The link may have expired.');
+      const { error } = await db.rpc('portal_attach', {
+        p_token: token,
+        p_request: requestId,
+        p_path: path,
+        p_file_name: file.name,
+        p_size: file.size,
+        p_mime: file.type,
+      });
+      fail(error);
     },
 
     async sign(id) {

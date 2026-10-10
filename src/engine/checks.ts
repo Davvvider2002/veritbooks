@@ -143,6 +143,8 @@ export interface GateInput {
   testing?: Testing;
   /** One entry per bank statement imported. */
   bank?: BankGate[];
+  /** Client requests not yet accepted. Leave undefined to skip the check. */
+  openRequests?: number;
 }
 
 export interface BankGate {
@@ -302,6 +304,15 @@ export function signOffChecks(g: GateInput): Check[] {
     });
   }
   checks.push(...analyticsChecks(g));
+  if (g.openRequests !== undefined) {
+    checks.push({
+      id: 'requests',
+      label: 'Everything asked of the client has been received and accepted',
+      ok: g.openRequests === 0,
+      detail: g.openRequests ? `${g.openRequests} request(s) are not accepted. Accept them, remove them, or be satisfied the work does not need them.` : undefined,
+      blocking: false,
+    });
+  }
 
   const open = g.programmeItemIds.filter((id) => !g.programme[id]?.done);
   checks.push({

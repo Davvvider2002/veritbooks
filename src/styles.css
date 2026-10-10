@@ -190,3 +190,8 @@ code { font-size: 13px; background: #ebe8dc; padding: 1px 5px; border-radius: 3p
 .guide ol { margin: 6px 0 8px; padding-left: 20px; }
 .guide ul { margin: 0 0 8px; padding-left: 20px; color: var(--muted); }
 .guide li { margin: 2px 0; }
+
+/* Client requests */
+.request .between { gap: 12px; align-items: flex-start; }
+ul.files { margin: 8px 0 0; padding-left: 18px; }
+ul.files li { overflow-wrap: anywhere; }

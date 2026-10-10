@@ -14,7 +14,7 @@ export function FileCount({ evidence, type, id }: { evidence: Evidence[]; type: 
 }
 
 export function EvidenceStep(ctx: Ctx) {
-  const { eng, ws, evidence, evidenceReady, locked, reload, ledgerTest, bankAccounts, adjustments } = ctx;
+  const { eng, ws, evidence, evidenceReady, locked, reload, ledgerTest, bankAccounts, adjustments, requests } = ctx;
   const [target, setTarget] = useState('general:');
   const [note, setNote] = useState('');
   const [files, setFiles] = useState<File[]>([]);
@@ -32,6 +32,8 @@ export function EvidenceStep(ctx: Ctx) {
         return `Bank: ${bankAccounts.find((b) => b.id === e.refId)?.name ?? 'statement removed'}`;
       case 'adjustment':
         return `Adjusting journal ${adjustments.find((a) => a.id === e.refId)?.ref ?? '(deleted)'}`;
+      case 'request':
+        return `Client request: ${requests.find((r) => r.id === e.refId)?.title ?? '(removed)'}`;
       default:
         return 'General file';
     }
@@ -168,7 +170,7 @@ export function EvidenceStep(ctx: Ctx) {
                     </td>
                     <td className="small">{label(e)}</td>
                     <td className="small" style={{ whiteSpace: 'nowrap' }}>
-                      {e.uploadedByName}
+                      {e.fromClient ? `Client: ${e.uploadedByName}` : e.uploadedByName}
                       <br />
                       <span className="muted">{new Date(e.createdAt).toLocaleDateString('en-GB')}</span>
                     </td>

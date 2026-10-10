@@ -15,6 +15,7 @@ await db.exec(`
   alter table storage.objects enable row level security;
   grant usage on schema storage to authenticated, anon;
   grant select, insert, update, delete on storage.objects to authenticated;
+  grant select, insert on storage.objects to anon;
   create function auth.uid() returns uuid language sql stable as
     $$ select nullif(current_setting('request.jwt.sub', true), '')::uuid $$;
   grant usage on schema auth to authenticated, anon;
@@ -24,6 +25,7 @@ await db.exec(readFileSync('supabase/migrations/0001_init.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0002_ledger_and_bank.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0003_team_and_evidence.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0004_disclosures.sql', 'utf8'));
+await db.exec(readFileSync('supabase/migrations/0005_client_requests.sql', 'utf8'));
 
 const A = '00000000-0000-0000-0000-00000000000a'; // partner, firm 1
 const B = '00000000-0000-0000-0000-00000000000b'; // partner, firm 2
@@ -124,6 +126,53 @@ await denied('an evidence row must point inside its own engagement', () => as(C,
 await denied('another firm cannot register evidence on this engagement', () => as(B, `insert into evidence (engagement_id, path, file_name) values ($1, $2, 'x')`, [e1.id, path(f1.id, e1.id, 'y.pdf')]), /row-level security/);
 ok('another firm cannot delete the file', (await as(B, `delete from storage.objects returning id`)).length === 0);
 
+// Client requests and the client's upload link.
+const { createHash } = await import('node:crypto');
+const anon = async (sql, params = []) =>
+  db.transaction(async (tx) => {
+    await tx.exec(`set local role anon; select set_config('request.jwt.sub', '', true);`);
+    return (await tx.query(sql, params)).rows;
+  });
+const TOKEN = 'Abcdefghijklmnopqrstuvwxyz0123456789-_ABCDE';
+const OTHER = 'Zbcdefghijklmnopqrstuvwxyz0123456789-_ABCDE';
+const hash = (t) => createHash('sha256').update(t).digest('hex');
+const [rq] = await as(C, `insert into client_requests (engagement_id, title, detail) values ($1, 'Bank statements', 'All accounts, January to December') returning *`, [e1.id]);
+const [rq2] = await as(C, `insert into client_requests (engagement_id, title) values ($1, 'Fixed asset register') returning *`, [e1.id]);
+const [rqOther] = await as(B, `insert into client_requests (engagement_id, title) values ($1, 'Their request') returning *`, [e3.id]);
+await as(C, `insert into request_links (engagement_id, token_hash, label, expires_at) values ($1, $2, 'Adunni Foods finance team', now() + interval '30 days')`, [e1.id, hash(TOKEN)]);
+ok('firm 2 cannot see firm 1 requests or links', (await as(B, `select * from client_requests where engagement_id = $1`, [e1.id])).length === 0 && (await as(B, `select * from request_links`)).length === 0);
+await denied('anonymous visitors cannot read the request tables directly', () => anon(`select * from client_requests`), /permission denied/);
+await denied('anonymous visitors cannot read links', () => anon(`select * from request_links`), /permission denied/);
+await denied('anonymous visitors cannot read evidence rows', () => anon(`select * from evidence`), /permission denied/);
+const [{ v: view }] = await anon(`select portal_view($1) as v`, [TOKEN]);
+ok('the link shows the request list, and nothing from another engagement', view.client === 'Adunni Foods Limited' && view.firm === 'Firm One' && view.requests.length === 2 && view.requests[0].title === 'Bank statements' && !JSON.stringify(view).includes('Their request'));
+ok('a wrong token shows nothing', (await anon(`select portal_view($1) as v`, [OTHER]))[0].v === null);
+ok('a malformed token shows nothing', (await anon(`select portal_view('x') as v`))[0].v === null && (await anon(`select portal_view(null) as v`))[0].v === null);
+const up = `${view.folder}/p_${TOKEN}_0001.pdf`;
+await anon(`insert into storage.objects (bucket_id, name) values ('evidence', $1)`, [up]);
+await denied('upload is refused with a wrong token', () => anon(`insert into storage.objects (bucket_id, name) values ('evidence', $1)`, [`${view.folder}/p_${OTHER}_0001.pdf`]), /row-level security/);
+await denied('upload is refused into another engagement', () => anon(`insert into storage.objects (bucket_id, name) values ('evidence', $1)`, [`${f2.id}/${e3.id}/p_${TOKEN}_0001.pdf`]), /row-level security/);
+await denied('upload is refused outside the portal naming', () => anon(`insert into storage.objects (bucket_id, name) values ('evidence', $1)`, [`${view.folder}/anything.pdf`]), /row-level security/);
+await denied('upload is refused with path tricks in the name', () => anon(`insert into storage.objects (bucket_id, name) values ('evidence', $1)`, [`${view.folder}/p_${TOKEN}_a/../b.pdf`]), /row-level security/);
+ok('the client cannot read files back', (await anon(`select * from storage.objects`)).length === 0);
+await anon(`select portal_attach($1, $2, $3, 'January statement.pdf', 1200, 'application/pdf')`, [TOKEN, rq.id, up]);
+ok('an upload is recorded against its request and marks it received', (await as(C, `select status from client_requests where id = $1`, [rq.id]))[0].status === 'received' && (await as(C, `select file_name, from_client, uploaded_by_name from evidence where request_id = $1`, [rq.id]))[0].uploaded_by_name === 'Adunni Foods finance team');
+ok('the client then sees the file name on the list', (await anon(`select portal_view($1) as v`, [TOKEN]))[0].v.requests[0].files[0].name === 'January statement.pdf');
+await denied('a file cannot be recorded against another engagement\'s request', () => anon(`select portal_attach($1, $2, $3, 'x.pdf', 1, '')`, [TOKEN, rqOther.id, up]), /not on this list/);
+await denied('a file that was never uploaded cannot be recorded', () => anon(`select portal_attach($1, $2, $3, 'x.pdf', 1, '')`, [TOKEN, rq2.id, `${view.folder}/p_${TOKEN}_9999.pdf`]), /was not received/);
+await denied('a firm file cannot be claimed through the link', () => anon(`select portal_attach($1, $2, $3, 'x.pdf', 1, '')`, [TOKEN, rq2.id, path(f1.id, e1.id)]), /was not received/);
+await denied('recording needs a valid token', () => anon(`select portal_attach($1, $2, $3, 'x.pdf', 1, '')`, [OTHER, rq2.id, up]), /no longer valid/);
+await as(C, `update client_requests set status = 'returned', note = 'Pages 3 to 5 are missing' where id = $1`, [rq.id]);
+ok('a returned item shows the firm\'s note to the client', (await anon(`select portal_view($1) as v`, [TOKEN]))[0].v.requests[0].note === 'Pages 3 to 5 are missing');
+await db.exec(`update request_links set expires_at = now() - interval '1 minute' where token_hash = '${hash(TOKEN)}'`);
+ok('an expired link shows nothing', (await anon(`select portal_view($1) as v`, [TOKEN]))[0].v === null);
+await denied('an expired link cannot upload', () => anon(`insert into storage.objects (bucket_id, name) values ('evidence', $1)`, [`${view.folder}/p_${TOKEN}_0002.pdf`]), /row-level security/);
+await db.exec(`update request_links set expires_at = now() + interval '30 days' where token_hash = '${hash(TOKEN)}'`);
+await as(C, `update request_links set revoked_at = now() where token_hash = $1`, [hash(TOKEN)]);
+ok('a revoked link shows nothing', (await anon(`select portal_view($1) as v`, [TOKEN]))[0].v === null);
+await denied('a revoked link cannot upload or record', () => anon(`select portal_attach($1, $2, $3, 'x.pdf', 1, '')`, [TOKEN, rq2.id, up]), /no longer valid/);
+await as(C, `update request_links set revoked_at = null where token_hash = $1`, [hash(TOKEN)]);
+
 // Phase 2: general ledger and bank statements.
 await as(C, `insert into gl_entries (engagement_id, entry_no, entry_date, account_code, amount, row_no) values ($1,'JV1','2025-03-01','1400',5000,1), ($1,'JV1','2025-03-01','3000',-5000,2)`, [e1.id]);
 const [ba] = await as(C, `insert into bank_accounts (engagement_id, name, account_code, closing) values ($1,'Main account','1400',5000) returning *`, [e1.id]);
@@ -154,8 +203,13 @@ await denied('locked: evidence cannot be added', () => as(A, `insert into eviden
 await denied('locked: evidence cannot be removed', () => as(A, `delete from evidence where id = $1`, [ev.id]), /signed and locked/);
 await denied('locked: files cannot be uploaded', () => as(A, `insert into storage.objects (bucket_id, name) values ('evidence', $1)`, [path(f1.id, e1.id, 'late.pdf')]), /row-level security/);
 ok('locked: files cannot be deleted from storage', (await as(A, `delete from storage.objects returning id`)).length === 0);
-ok('locked: files can still be read', (await as(A, `select * from storage.objects`)).length === 1);
+ok('locked: files can still be read', (await as(A, `select * from storage.objects`)).length === 2);
 await denied('locked: disclosures cannot be changed', () => as(A, `update engagements set disclosures = '{}' where id = $1`, [e1.id]), /signed and locked/);
+ok('locked: the link still shows the list, marked closed', (await anon(`select portal_view($1) as v`, [TOKEN]))[0].v.closed === true);
+await denied('locked: the client cannot upload', () => anon(`insert into storage.objects (bucket_id, name) values ('evidence', $1)`, [`${view.folder}/p_${TOKEN}_0003.pdf`]), /row-level security/);
+await denied('locked: the client cannot record a file', () => anon(`select portal_attach($1, $2, $3, 'x.pdf', 1, '')`, [TOKEN, rq2.id, up]), /signed and locked/);
+await denied('locked: requests cannot be changed', () => as(A, `update client_requests set status = 'accepted' where id = $1`, [rq.id]), /signed and locked/);
+await denied('locked: links cannot be created', () => as(A, `insert into request_links (engagement_id, token_hash, label, expires_at) values ($1, $2, 'x', now() + interval '1 day')`, [e1.id, hash(OTHER)]), /signed and locked/);
 await denied('locked: engagement cannot be deleted', () => as(A, `delete from engagements where id = $1`, [e1.id]), /signed and locked/);
 await denied('locked: cannot be signed twice', () => as(A, `select sign_engagement($1)`, [e1.id]), /signed and locked|already signed/);
 

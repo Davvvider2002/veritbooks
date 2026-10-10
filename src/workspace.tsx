@@ -3,7 +3,8 @@ import { reconcile, type Reconciliation } from './engine/bank';
 import { computeMateriality, type BankGate } from './engine/checks';
 import { testLedger, type GlEntry, type LedgerTest } from './engine/ledger';
 import { adjustedBalances } from './engine/statements';
-import type { BankAccount, Evidence, StoredBankLine } from './data/repo';
+import type { BankAccount, ClientRequest, Evidence, StoredBankLine } from './data/repo';
+import { RequestsStep } from './steps/requests';
 import { EvidenceStep } from './steps/evidence';
 import { BankStep, LedgerStep } from './steps/analytics';
 import { DisclosuresStep } from './steps/disclosures';
@@ -40,6 +41,9 @@ export interface Ctx {
   /** False when the database has not had the evidence migration applied. */
   evidenceReady: boolean;
   evidence: Evidence[];
+  /** False when the database has not had the client requests migration applied. */
+  requestsReady: boolean;
+  requests: ClientRequest[];
 }
 
 export interface Recon {
@@ -83,6 +87,7 @@ const STEPS = [
   { slug: 'import', label: 'Trial balance', el: ImportStep },
   { slug: 'mapping', label: 'Mapping', el: MappingStep },
   { slug: 'planning', label: 'Planning', el: PlanningStep },
+  { slug: 'requests', label: 'Client requests', el: RequestsStep },
   { slug: 'programme', label: 'Work programme', el: ProgrammeStep },
   { slug: 'ledger', label: 'Journal testing', el: LedgerStep },
   { slug: 'bank', label: 'Bank', el: BankStep },
@@ -100,14 +105,15 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
   const { data, error, reload } = useLoad(async () => {
     const eng = await repo.getEngagement(id);
     if (!eng) return null;
-    const [clients, lines, adjustments, heavy, evidence] = await Promise.all([
+    const [clients, lines, adjustments, heavy, evidence, requests] = await Promise.all([
       repo.listClients(),
       repo.listLines(id),
       repo.listAdjustments(id),
       loadHeavy(id),
       repo.listEvidence(id).catch(() => null),
+      repo.listRequests(id).catch(() => null),
     ]);
-    return { eng, client: clients.find((c) => c.id === eng.clientId) ?? null, lines, adjustments, heavy, evidence };
+    return { eng, client: clients.find((c) => c.id === eng.clientId) ?? null, lines, adjustments, heavy, evidence, requests };
   }, [id]);
 
   const statements = useMemo(
@@ -188,6 +194,8 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
     bankGates: analytics.bankGates,
     evidenceReady: data.evidence !== null,
     evidence: data.evidence ?? [],
+    requestsReady: data.requests !== null,
+    requests: data.requests ?? [],
   };
   const tb = validateTrialBalance(data.lines);
   const programmeDone = PROGRAMMES[data.eng.type].filter((i) => data.eng.programme[i.id]?.done).length;

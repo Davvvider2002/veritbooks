@@ -88,6 +88,17 @@ These need `supabase/migrations/0003_team_and_evidence.sql`.
 
 Not yet built from phase 2: links from individual figures to a page of a source document, accounting system connections.
 
+### Client requests and upload links
+
+These need `supabase/migrations/0005_client_requests.sql`.
+
+- A list of what the firm needs from the client, per engagement, with a due date and a status: waiting, received, accepted, returned. A starter list of 14 standard requests can be added in one click and then tailored.
+- An upload link per named person at the client. The client needs no account. The link shows the request list and the names of files already sent, and accepts files against each item. It cannot open, download or remove anything.
+- The link carries a 256-bit random token. Only its SHA-256 hash is stored, so the link is shown once and cannot be recovered. Links expire in 7, 14 or 30 days, can be withdrawn, and stop accepting files when the engagement is signed.
+- Client files land in Evidence against the request, marked as from the client and with the name on the link. The firm accepts each item or returns it with a reason, which the client sees.
+- Sign-off shows an advisory while any request is not accepted. It does not block signing: the partner judges whether the evidence is sufficient.
+- Limits: 25 MB a file, 300 client files per engagement. Files are not scanned for malware. Treat them as you would an email attachment.
+
 ## Rules the software enforces
 
 1. Numbers are computed, never generated. Every figure in a statement is a sum of mapped account balances. No language model produces or alters a figure.
@@ -128,7 +139,7 @@ The work programmes, accounting policy wording and report wording are starter co
 | Phase | Scope |
 | --- | --- |
 | 2, remaining | Links from figures to source pages. Accounting system connections. |
-| 3 | Full IFRS template. Industry packs. Consolidations. Client request portal. Firm-level quality management. |
+| 3 | Full IFRS template. Industry packs. Consolidations. Firm-level quality management. |
 | 4 | AI assistance for risk suggestions, disclosure review and expense testing, inside the file and under partner review. |
 
 ## Architecture

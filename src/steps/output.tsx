@@ -602,7 +602,7 @@ export function ReportStep(ctx: Ctx) {
   );
 }
 
-export function SignOffStep({ eng, ws, lines, adjustments, statements, locked, reload, ledgerTest, bankGates }: Ctx) {
+export function SignOffStep({ eng, ws, lines, adjustments, statements, locked, reload, ledgerTest, bankGates, requests }: Ctx) {
   const [confirm, setConfirm] = useState(false);
   const { busy, error, run } = useAction();
   const checks = signOffChecks({
@@ -619,6 +619,7 @@ export function SignOffStep({ eng, ws, lines, adjustments, statements, locked, r
     ledger: ledgerTest,
     testing: eng.testing,
     bank: bankGates,
+    openRequests: requests.length ? requests.filter((r) => r.status !== 'accepted').length : undefined,
     disclosureGaps: disclosureGaps(eng.disclosures, statements, lines, adjustments, eng.yearEnd),
   });
   const ready = canSign(checks);
@@ -688,11 +689,13 @@ const TABLE_LABEL: Record<string, string> = {
   bank_accounts: 'Bank statement',
   bank_lines: 'Bank transactions',
   evidence: 'Evidence file',
+  client_requests: 'Client request',
+  request_links: 'Upload link',
 };
 
 export function TrailStep({ eng, ws }: Ctx) {
   const { data, error } = useLoad(() => repo.listLog(eng.id), [eng.id]);
-  const who = (id: string | null) => ws.members.find((m) => m.userId === id)?.fullName || 'Unknown user';
+  const who = (id: string | null) => (id === null ? 'Client, by upload link' : ws.members.find((m) => m.userId === id)?.fullName || 'Unknown user');
   return (
     <div className="stack">
       <div>

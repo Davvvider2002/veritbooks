@@ -2,7 +2,11 @@ import type { GlEntry } from '../engine/ledger';
 import type { Adjustment, Nature, TbLine } from '../engine/types';
 import {
   LockedError,
+  newToken,
   type BankAccount,
+  type ClientRequest,
+  type PortalView,
+  type RequestLink,
   type Client,
   type Engagement,
   type Evidence,
@@ -36,6 +40,8 @@ interface Store {
   bankLines: Record<string, StoredBankLine[]>;
   invites: (Invite & { firmId: string })[];
   evidence: Record<string, Evidence[]>;
+  requests: Record<string, ClientRequest[]>;
+  links: Record<string, (RequestLink & { token: string })[]>;
 }
 
 const KEY = 'veritbooks.demo.v1';
@@ -55,6 +61,8 @@ const empty = (): Store => ({
   bankLines: {},
   invites: [],
   evidence: {},
+  requests: {},
+  links: {},
 });
 
 let memory: Store | null = null;
@@ -387,6 +395,7 @@ export function createDemoRepo(): Repo {
         note: meta.note,
         uploadedByName: meta.uploadedByName,
         createdAt: new Date().toISOString(),
+        fromClient: false,
       });
       log(id, 'evidence', 'insert', { file: file.name, ref_type: meta.refType, ref_id: meta.refId });
       save();
@@ -407,6 +416,99 @@ export function createDemoRepo(): Repo {
       const url = blobs.get(e.path);
       if (!url) throw new Error('Demo mode keeps file contents only until the page is reloaded. Upload the file again.');
       return url;
+    },
+
+    async listRequests(id) {
+      eng(id);
+      return (s.requests[id] ?? []).map((r) => ({ ...r }));
+    },
+    async addRequests(id, items) {
+      open(id);
+      (s.requests[id] ??= []).push(...items.map((i) => ({ id: uid(), title: i.title.trim(), detail: i.detail.trim(), dueDate: i.dueDate, status: 'open' as const, note: '' })));
+      log(id, 'client_requests', 'insert', { count: items.length });
+      save();
+    },
+    async updateRequest(requestId, patch) {
+      for (const [engId, list] of Object.entries(s.requests)) {
+        const r = list.find((x) => x.id === requestId);
+        if (!r) continue;
+        open(engId);
+        Object.assign(r, patch);
+        log(engId, 'client_requests', 'update', { title: r.title, status: r.status });
+        save();
+        return;
+      }
+    },
+    async deleteRequest(requestId) {
+      for (const [engId, list] of Object.entries(s.requests)) {
+        const i = list.findIndex((x) => x.id === requestId);
+        if (i < 0) continue;
+        open(engId);
+        const [gone] = list.splice(i, 1);
+        log(engId, 'client_requests', 'delete', { title: gone.title });
+        save();
+        return;
+      }
+    },
+    async listLinks(id) {
+      eng(id);
+      return (s.links[id] ?? []).map(({ token: _t, ...l }) => l);
+    },
+    async createLink(id, label, days) {
+      open(id);
+      const token = newToken();
+      (s.links[id] ??= []).push({ id: uid(), token, label: label.trim(), expiresAt: new Date(Date.now() + days * 86400000).toISOString(), revoked: false, lastUsedAt: null });
+      log(id, 'request_links', 'insert', { label });
+      save();
+      return token;
+    },
+    async revokeLink(linkId) {
+      for (const [engId, list] of Object.entries(s.links)) {
+        const l = list.find((x) => x.id === linkId);
+        if (!l) continue;
+        l.revoked = true;
+        log(engId, 'request_links', 'update', { label: l.label, revoked: true });
+        save();
+        return;
+      }
+    },
+    // The client's side needs no sign-in, so these do not go through eng() or open().
+    async portalView(token) {
+      for (const [engId, list] of Object.entries(s.links)) {
+        const l = list.find((x) => x.token === token && !x.revoked && x.expiresAt > new Date().toISOString());
+        if (!l) continue;
+        const e = s.engagements.find((x) => x.id === engId);
+        if (!e) return null;
+        if (e.status === 'in_progress') l.lastUsedAt = new Date().toISOString();
+        save();
+        return {
+          firm: s.firms[e.firmId]?.firm.name ?? '',
+          client: s.clients.find((c) => c.id === e.clientId)?.name ?? '',
+          yearEnd: e.yearEnd,
+          closed: e.status !== 'in_progress',
+          folder: `${e.firmId}/${e.id}`,
+          requests: (s.requests[engId] ?? []).map((r) => ({
+            ...r,
+            files: (s.evidence[engId] ?? []).filter((x) => x.fromClient && x.refId === r.id).map((x) => ({ name: x.fileName, at: x.createdAt })),
+          })),
+        } satisfies PortalView;
+      }
+      return null;
+    },
+    async portalUpload(token, view, requestId, file) {
+      const engId = view.folder.split('/')[1];
+      const l = (s.links[engId] ?? []).find((x) => x.token === token && !x.revoked && x.expiresAt > new Date().toISOString());
+      const e = s.engagements.find((x) => x.id === engId);
+      if (!l || !e) throw new Error('This link is no longer valid.');
+      if (e.status === 'locked') throw new LockedError();
+      const r = (s.requests[engId] ?? []).find((x) => x.id === requestId);
+      if (!r) throw new Error('That request is not on this list.');
+      const path = `${view.folder}/p_${token}_${uid()}`;
+      blobs.set(path, URL.createObjectURL(file));
+      (s.evidence[engId] ??= []).push({ id: uid(), path, fileName: file.name, size: file.size, refType: 'request', refId: requestId, note: '', uploadedByName: l.label, createdAt: new Date().toISOString(), fromClient: true });
+      if (r.status === 'open' || r.status === 'returned') r.status = 'received';
+      (s.log[engId] ??= []).push({ id: uid(), at: new Date().toISOString(), table: 'evidence', action: 'insert', userId: null, detail: { file: file.name, from_client: l.label } });
+      save();
     },
 
     async sign(id) {

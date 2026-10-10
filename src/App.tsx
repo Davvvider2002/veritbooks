@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Link, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { PortalPage } from './portal';
 import { repo } from './data';
 import type { User, Workspace } from './data/repo';
 import { AuthPage, Dashboard, FirmSettings, FirmSetup } from './pages';
@@ -16,6 +17,8 @@ type Session =
 export function App() {
   const [session, setSession] = useState<Session>({ state: 'loading' });
   const nav = useNavigate();
+  // A client's upload link. It works without a sign-in and shows nothing of the firm's workspace.
+  const portal = /^\/r\/([^/]+)\/?$/.exec(useLocation().pathname)?.[1];
 
   const refresh = async () => {
     try {
@@ -32,6 +35,18 @@ export function App() {
     void refresh();
     return repo.onAuthChange(() => void refresh());
   }, []);
+
+  if (portal)
+    return (
+      <>
+        <header className="topbar">
+          <span className="brand">
+            Verit<span>Books</span>
+          </span>
+        </header>
+        <PortalPage token={portal} />
+      </>
+    );
 
   return (
     <>
