@@ -1,6 +1,6 @@
 # VeritBooks: platform definition
 
-Version 0.8, 10 October 2026.
+Version 0.9, 10 October 2026.
 
 ## What it is
 
@@ -277,9 +277,13 @@ A firm that does not want a yearly plan can pay for one engagement at a time: co
 - **Bigger plan:** a new year starts today. The unused part of what was paid for the old plan is taken off the price. At least ₦1,000 is always payable.
 - **Smaller plan:** available in the last 30 days of the paid year. A year is added to the end. The smaller limits apply from the day of payment.
 
+### VAT
+
+Prices are stated before VAT. VAT is added on top of every payment at checkout, at the rate set in the admin console. It starts at 7.5%. The Billing page shows the VAT and the total before the partner pays. Each payment keeps its own VAT figure, so a later change of rate does not alter old receipts. A bank transfer recorded by an admin is treated as VAT inclusive. The admin overview shows VAT collected.
+
 ### Receipts and reminders
 
-Every payment gets a numbered receipt, printable from the Billing page. It carries the seller details set in the admin console. It is a receipt, not a VAT invoice.
+Every payment gets a numbered receipt, printable from the Billing page. It carries the seller details set in the admin console. It shows the amount before VAT, the VAT and the total.
 
 With an email service connected, the receipt is also emailed to the partner who paid, and partners get reminders: three days before a trial ends, when it ends, and 30 days and 7 days before a plan ends, and when it ends. Each reminder is sent once. A daily job in the database starts the run. Email needs two more secrets on the `billing` function: `RESEND_API_KEY` and `MAIL_FROM`, a sender on a domain verified in Resend. Without them everything else works and no email is sent.
 
@@ -301,7 +305,7 @@ At `/admin`, with its own sign-in. Only accounts listed as platform admins get i
 
 A suspended firm can read its files and change nothing, paid or not. An admin sees no client file: no trial balance, ledger, evidence or report. The first admin is added in the database. After that, admins add each other.
 
-Not built yet: VAT invoices, refunds, pay-per-engagement for firms inside their plan allowance (the allowance is used first), and disabling a single user's sign-in.
+Not built yet: refunds, pay-per-engagement for firms inside their plan allowance (the allowance is used first), and disabling a single user's sign-in.
 
 Setting up: add `FLW_SECRET_KEY` and `FLW_WEBHOOK_HASH` as secrets of the `billing` Edge Function in Supabase. In Flutterwave, set the webhook URL to `https://bdlelkdqlhuhyswofjni.supabase.co/functions/v1/billing` with the same secret hash. For the reminder job, see `supabase/schedule.sql`.
 

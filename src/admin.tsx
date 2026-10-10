@@ -79,7 +79,7 @@ function Overview({ d, open }: { d: AdminData; open: (firm: string) => void }) {
       <div className="grid4">
         <Stat label="Firms" value={d.firms.length} note={`${d.firms.filter((f) => f.created_at >= since(7)).length} new in the last 7 days`} />
         <Stat label="On a paid plan" value={count('active')} note={`${count('trial')} in trial, ${count('expired')} lapsed`} />
-        <Stat label="Received this month" value={naira(d.revenue_month_kobo)} note={`${naira(d.revenue_kobo)} in total`} />
+        <Stat label="Received this month" value={naira(d.revenue_month_kobo)} note={`${naira(d.revenue_kobo)} in total. VAT inside: ${naira(d.vat_month_kobo)} this month, ${naira(d.vat_kobo)} in total`} />
         <Stat label="Founding places" value={`${d.founding_taken} of ${FOUNDING_PLACES}`} note={`${FOUNDING_PLACES - d.founding_taken} left`} />
       </div>
       <section className="card stack" aria-label="Needs attention">
@@ -206,7 +206,7 @@ function FirmDetail({ f, d, act, busy }: { f: AdminFirm; d: AdminData; act: Act;
               Record for {paid.find((p) => p.code === plan)?.name}
             </button>
           </div>
-          <span className="small muted">For a bank transfer. Adds a year of the plan chosen on the left and issues a receipt.</span>
+          <span className="small muted">For a bank transfer. Enter what was received, VAT included. Adds a year of the plan chosen on the left and issues a receipt.</span>
         </fieldset>
         <fieldset className="stack">
           <legend>Engagements and founding offer</legend>
@@ -543,7 +543,7 @@ function Settings({ d, act, busy }: { d: AdminData; act: Act; busy: boolean }) {
   return (
     <div className="stack">
       <section className="card stack" aria-label="Seller details">
-        <h3>Seller details, printed on every receipt</h3>
+        <h3>Seller details and VAT, printed on every receipt</h3>
         <div className="grid2">
           <Field label="Seller name">
             <input type="text" value={s.seller_name} onChange={(e) => setS({ ...s, seller_name: e.target.value })} />
@@ -553,6 +553,9 @@ function Settings({ d, act, busy }: { d: AdminData; act: Act; busy: boolean }) {
           </Field>
           <Field label="Address">
             <input type="text" value={s.seller_address} onChange={(e) => setS({ ...s, seller_address: e.target.value })} />
+          </Field>
+          <Field label="VAT rate, %" hint="Added on top of every price at checkout. Nigerian VAT is 7.5%. Set 0 to charge none.">
+            <input type="number" min={0} max={50} step={0.1} value={s.vat_percent} onChange={(e) => setS({ ...s, vat_percent: Number(e.target.value) })} />
           </Field>
           <Field label="Support email" hint="Shown to firms on receipts and when an account is suspended.">
             <input type="email" value={s.support_email} onChange={(e) => setS({ ...s, support_email: e.target.value })} />

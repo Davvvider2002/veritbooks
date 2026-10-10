@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { ENGAGEMENT_PRICES, PLANS, TRIAL_DAYS, currentPlan, daysLeft, firmState, planOf, planQuote, quote, unusedCredit, type Subscription } from './billing';
+import { ENGAGEMENT_PRICES, PLANS, TRIAL_DAYS, currentPlan, daysLeft, firmState, planOf, planQuote, quote, unusedCredit, vatOn, vatWithin, type Subscription } from './billing';
 
 const now = new Date('2026-10-10T12:00:00Z');
 const sub = (over: Partial<Subscription> = {}): Subscription => ({
@@ -62,5 +62,11 @@ describe('trial and plans', () => {
   it('matches the engagement prices in the database migration', () => {
     const sql = readFileSync('supabase/migrations/0010_admin_and_pay_per.sql', 'utf8');
     for (const p of ENGAGEMENT_PRICES) expect(sql).toMatch(new RegExp(`\\('${p.code}',\\s*'${p.name}',\\s*${p.priceKobo},`));
+  });
+  it('adds VAT on top, and finds it inside an inclusive amount', () => {
+    expect(vatOn(108_000_00, 7.5)).toBe(8_100_00);
+    expect(vatWithin(116_100_00, 7.5)).toBe(8_100_00);
+    expect(vatOn(40_000_00, 0)).toBe(0);
+    expect(readFileSync('supabase/migrations/0011_vat.sql', 'utf8')).toContain('default 7.5');
   });
 });

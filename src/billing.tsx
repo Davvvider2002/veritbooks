@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { repo } from './data';
 import type { Billing, Checkout, PaymentRecord, PlanOffer, Workspace } from './data/repo';
-import { FOUNDING_PLACES, PRICE_HOLD_YEARS, TRIAL_DAYS, daysLeft } from './engine/billing';
+import { FOUNDING_PLACES, PRICE_HOLD_YEARS, TRIAL_DAYS, daysLeft, vatOn } from './engine/billing';
 import { longDate } from './engine/report';
 import type { EngagementType } from './engine/types';
 import { ErrorNote, useAction } from './ui';
@@ -76,6 +76,11 @@ function PlanCard({ p, billing, partner, busy, blocked, onChoose }: { p: PlanOff
           )}
         </div>
       </div>
+      {billing.vatPercent > 0 && (
+        <div className="small">
+          Plus VAT at {billing.vatPercent}%: {naira(vatOn(p.amountKobo, billing.vatPercent))}. You pay <strong>{naira(p.amountKobo + vatOn(p.amountKobo, billing.vatPercent))}</strong>.
+        </div>
+      )}
       <ul className="small" style={{ margin: 0, paddingLeft: 18 }}>
         <li>{p.maxUsers === null ? 'Any number of users' : `Up to ${p.maxUsers} users`}</li>
         <li>{p.maxEngagements} new engagements a year</li>
@@ -139,13 +144,25 @@ function Receipt({ p, ws, onClose }: { p: PaymentRecord; ws: Workspace; onClose:
                 {paidFor(p, planName)}
                 {p.coversUntil ? `, to ${day(p.coversUntil)}` : ''}
               </td>
-              <td className="num">{naira(p.amountKobo + p.creditKobo)}</td>
+              <td className="num">{naira(p.amountKobo - p.vatKobo + p.creditKobo)}</td>
             </tr>
             {p.creditKobo > 0 && (
               <tr>
                 <td>Less credit for the unused part of the previous plan</td>
                 <td className="num">({naira(p.creditKobo).slice(1)})</td>
               </tr>
+            )}
+            {p.vatKobo > 0 && (
+              <>
+                <tr>
+                  <td>Amount before VAT</td>
+                  <td className="num">{naira(p.amountKobo - p.vatKobo)}</td>
+                </tr>
+                <tr>
+                  <td>VAT at {Math.round((p.vatKobo / (p.amountKobo - p.vatKobo)) * 1000) / 10}%</td>
+                  <td className="num">{naira(p.vatKobo)}</td>
+                </tr>
+              </>
             )}
             <tr>
               <td>
@@ -158,7 +175,7 @@ function Receipt({ p, ws, onClose }: { p: PaymentRecord; ws: Workspace; onClose:
           </tbody>
         </table>
         <div className="small muted">
-          Paid {p.source === 'manual' ? 'directly to VeritBooks' : 'through Flutterwave'}. Reference {p.reference}. This is a receipt for payment received. It is not a VAT invoice.
+          Paid {p.source === 'manual' ? 'directly to VeritBooks' : 'through Flutterwave'}. Reference {p.reference}.{p.vatKobo > 0 ? '' : ' No VAT was charged on this payment.'}
         </div>
       </section>
     </div>
@@ -252,6 +269,7 @@ function PerEngagement({ b, partner, busy, pay }: { b: Billing; partner: boolean
         <input type="checkbox" checked={group} onChange={(e) => setGroup(e.target.checked)} />
         <span>With group consolidation, for a parent with subsidiaries (adds {naira(price('group'))})</span>
       </label>
+      {b.vatPercent > 0 && <div className="small muted">These prices are before VAT. VAT at {b.vatPercent}% is added at checkout.</div>}
     </section>
   );
 }
@@ -374,7 +392,7 @@ export function BillingPage({ ws, onChanged }: { ws: Workspace; onChanged: () =>
           {founding && partner && !agreed && <p className="small muted" style={{ margin: 0 }}>Tick the founding firm commitment above to choose a plan at the founding price.</p>}
           <PerEngagement b={b} partner={partner} busy={busy} pay={pay} />
           <p className="small muted" style={{ margin: 0 }}>
-            {partner ? 'Payment is taken in naira by Flutterwave, by card, bank transfer or USSD. VeritBooks never sees or stores your card details.' : 'Only a partner can make a payment.'} A plan runs for one year from the day it is paid. Renewing early adds a year to the end of the current one. Moving to a bigger plan starts a new year today, with credit for what is left of the old one.
+            {partner ? 'Prices are shown before VAT. Payment is taken in naira by Flutterwave, by card, bank transfer or USSD. VeritBooks never sees or stores your card details.' : 'Only a partner can make a payment.'} A plan runs for one year from the day it is paid. Renewing early adds a year to the end of the current one. Moving to a bigger plan starts a new year today, with credit for what is left of the old one.
           </p>
         </>
       )}

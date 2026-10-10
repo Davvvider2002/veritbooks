@@ -1,5 +1,5 @@
 import type { GlEntry } from '../engine/ledger';
-import { ENGAGEMENT_PRICES, FOUNDING_PLACES, PLANS, PRICE_HOLD_YEARS, TRIAL_DAYS, addYears, firmState, planQuote, type Plan, type Subscription } from '../engine/billing';
+import { DEFAULT_VAT_PERCENT, ENGAGEMENT_PRICES, FOUNDING_PLACES, PLANS, PRICE_HOLD_YEARS, TRIAL_DAYS, addYears, firmState, planQuote, vatOn, vatWithin, type Plan, type Subscription } from '../engine/billing';
 import { suggestMapping } from '../engine/mapping';
 import type { Adjustment, Nature, TbLine } from '../engine/types';
 import {
@@ -48,7 +48,7 @@ type DemoSub = Subscription & {
 interface Platform {
   plans: Plan[];
   prices: { code: 'compilation' | 'review' | 'audit' | 'group'; name: string; priceKobo: number }[];
-  settings: { seller_name: string; seller_address: string; tax_id: string; support_email: string };
+  settings: { seller_name: string; seller_address: string; tax_id: string; support_email: string; vat_percent?: number };
   admins: string[];
   log: AdminData['log'];
   receipt: number;
@@ -150,6 +150,7 @@ export function createDemoRepo(): Repo {
       log: [],
       receipt: 1000,
     });
+  const vatRate = () => platform().settings.vat_percent ?? DEFAULT_VAT_PERCENT;
   const planBy = (code: string): Plan => platform().plans.find((p) => p.code === code) ?? platform().plans[0];
   /** The firm's trial and plan. Firms saved before plans existed start their trial now. */
   const subOf = (id: string): DemoSub =>
@@ -174,7 +175,7 @@ export function createDemoRepo(): Repo {
     const since = stateOf(id) === 'active' ? (sub.yearStart ?? '') : '';
     return s.engagements.filter((e) => e.firmId === id && !(e as { payPer?: boolean }).payPer && ((e as { createdAt?: string }).createdAt ?? '9') >= since).length;
   };
-  const planPayments = (sub: DemoSub) => sub.payments.filter((p) => p.kind === 'plan' && p.coversUntil).map((p) => ({ valueKobo: p.amountKobo + p.creditKobo, coversUntil: p.coversUntil! }));
+  const planPayments = (sub: DemoSub) => sub.payments.filter((p) => p.kind === 'plan' && p.coversUntil).map((p) => ({ valueKobo: p.amountKobo - p.vatKobo + p.creditKobo, coversUntil: p.coversUntil! }));
   const billingOf = (id: string): Billing => {
     const sub = subOf(id);
     const now = new Date();
@@ -202,13 +203,17 @@ export function createDemoRepo(): Repo {
       openEngagements: s.engagements
         .filter((e) => e.firmId === id && e.status === 'in_progress')
         .map((e) => ({ id: e.id, client: s.clients.find((c) => c.id === e.clientId)?.name ?? '', type: e.type, yearEnd: e.yearEnd, payPer: !!(e as any).payPer, groupAddon: !!(e as any).groupAddon })),
+      vatPercent: vatRate(),
       seller: { name: pl.settings.seller_name, address: pl.settings.seller_address, taxId: pl.settings.tax_id, supportEmail: pl.settings.support_email },
       payments: [...sub.payments].reverse(),
     };
   };
   const isAdminUser = () => !!s.user && (s.user.email === DEMO_ADMIN || platform().admins.includes(s.user.email));
-  const receipt = (sub: DemoSub, p: Omit<PaymentRecord, 'id' | 'paidAt' | 'reference' | 'receiptNo' | 'source'> & { source?: PaymentRecord['source']; reference?: string }) =>
-    sub.payments.push({ id: uid(), paidAt: new Date().toISOString(), reference: 'demo-' + uid().slice(0, 8), source: 'flutterwave', ...p, receiptNo: ++platform().receipt });
+  /** Records a payment. The amount given is before VAT, unless it was received another way, when it includes VAT. */
+  const receipt = (sub: DemoSub, p: Omit<PaymentRecord, 'id' | 'paidAt' | 'reference' | 'receiptNo' | 'source' | 'vatKobo'> & { source?: PaymentRecord['source']; reference?: string }) => {
+    const vatKobo = p.source === 'manual' ? vatWithin(p.amountKobo, vatRate()) : vatOn(p.amountKobo, vatRate());
+    sub.payments.push({ id: uid(), paidAt: new Date().toISOString(), reference: 'demo-' + uid().slice(0, 8), source: 'flutterwave', ...p, vatKobo, amountKobo: p.source === 'manual' ? p.amountKobo : p.amountKobo + vatKobo, receiptNo: ++platform().receipt });
+  };
   const makeFounding = (sub: DemoSub) => {
     const now = new Date();
     sub.foundingNumber = nextFounding();
@@ -660,10 +665,13 @@ export function createDemoRepo(): Repo {
         subOf(id).payments.map((p) => ({ id: p.id, firm: f.firm.name, firm_id: id, kind: p.kind, plan: p.plan, engagement_type: p.engagementType, with_group: p.withGroup, amount_kobo: p.amountKobo, credit_kobo: p.creditKobo, founding: p.founding, status: 'paid', source: p.source, note: p.source === 'manual' ? p.reference : '', tx_ref: p.reference, provider_id: null, receipt_no: p.receiptNo, created_at: p.paidAt, paid_at: p.paidAt })),
       ).sort((a, b) => b.created_at.localeCompare(a.created_at));
       const month = new Date().toISOString().slice(0, 7);
+      const allPaid = Object.keys(s.firms).flatMap((id) => subOf(id).payments);
       return {
         founding_taken: foundingTaken(),
         revenue_kobo: payments.reduce((t, p) => t + p.amount_kobo, 0),
         revenue_month_kobo: payments.filter((p) => p.created_at.startsWith(month)).reduce((t, p) => t + p.amount_kobo, 0),
+        vat_kobo: allPaid.reduce((t, p) => t + p.vatKobo, 0),
+        vat_month_kobo: allPaid.filter((p) => p.paidAt.startsWith(month)).reduce((t, p) => t + p.vatKobo, 0),
         firms: firms.reverse(),
         users: Object.entries(s.accounts).map(([email, a]) => {
           const fid = s.memberOf[a.id];
@@ -673,7 +681,7 @@ export function createDemoRepo(): Repo {
         payments,
         plans: pl.plans.map((p) => ({ code: p.code, name: p.name, price_kobo: p.priceKobo, max_users: p.maxUsers, max_engagements: p.maxEngagements })),
         engagement_prices: pl.prices.map((p) => ({ code: p.code, name: p.name, price_kobo: p.priceKobo })),
-        settings: pl.settings,
+        settings: { ...pl.settings, vat_percent: vatRate() },
         log: [...pl.log].reverse(),
       };
     },
@@ -734,7 +742,9 @@ export function createDemoRepo(): Repo {
         if (!(price > 0)) throw new Error('Give a price above zero.');
         row.priceKobo = price;
       } else if (action === 'settings') {
-        pl.settings = { seller_name: String(p.seller_name ?? '').trim(), seller_address: String(p.seller_address ?? '').trim(), tax_id: String(p.tax_id ?? '').trim(), support_email: String(p.support_email ?? '').trim() };
+        const rate = p.vat_percent === undefined ? vatRate() : Number(p.vat_percent);
+        if (!(rate >= 0 && rate <= 50)) throw new Error('Give a VAT rate between 0 and 50.');
+        pl.settings = { vat_percent: rate, seller_name: String(p.seller_name ?? '').trim(), seller_address: String(p.seller_address ?? '').trim(), tax_id: String(p.tax_id ?? '').trim(), support_email: String(p.support_email ?? '').trim() };
       } else if (action === 'add_admin') {
         const email = String(p.email ?? '').trim().toLowerCase();
         if (!s.accounts[email]) throw new Error('No confirmed account uses that email address. They need to create an account first.');

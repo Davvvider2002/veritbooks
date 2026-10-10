@@ -85,6 +85,7 @@ async function sendReceipt(txRef: string) {
     `Paid by: ${r.firm}`,
     `For: ${describe(r)}`,
     ...(r.credit_kobo > 0 ? [`Credit for the unused part of your previous plan: ${naira(r.credit_kobo)}`] : []),
+    ...(r.vat_kobo > 0 ? [`Amount before VAT: ${naira(r.amount_kobo - r.vat_kobo)}`, `VAT: ${naira(r.vat_kobo)}`] : []),
     `Amount paid: ${naira(r.amount_kobo)}`,
     ...(r.covers_until ? [`Your plan runs until ${day(r.covers_until)}.`] : []),
     `Payment reference: ${r.tx_ref}`,

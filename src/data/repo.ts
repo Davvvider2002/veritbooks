@@ -111,7 +111,10 @@ export interface PaymentRecord {
   plan: string | null;
   engagementType: string | null;
   withGroup: boolean;
+  /** The total charged, VAT included. */
   amountKobo: number;
+  /** The VAT inside amountKobo. */
+  vatKobo: number;
   creditKobo: number;
   founding: boolean;
   source: 'flutterwave' | 'manual';
@@ -145,6 +148,8 @@ export interface Billing {
   credits: { id: string; type: EngagementType; withGroup: boolean }[];
   openEngagements: { id: string; client: string; type: EngagementType; yearEnd: string; payPer: boolean; groupAddon: boolean }[];
   seller: Seller;
+  /** Prices are stated before VAT. This rate is added when a payment is started. */
+  vatPercent: number;
   payments: PaymentRecord[];
 }
 
@@ -161,12 +166,14 @@ export interface AdminData {
   founding_taken: number;
   revenue_kobo: number;
   revenue_month_kobo: number;
+  vat_kobo: number;
+  vat_month_kobo: number;
   firms: AdminFirm[];
   users: { id: string; email: string; created_at: string; confirmed: boolean; last_sign_in_at: string | null; firm: string | null; role: string | null; name: string | null; admin: boolean }[];
   payments: { id: string; firm: string; firm_id: string; kind: string; plan: string | null; engagement_type: string | null; with_group: boolean; amount_kobo: number; credit_kobo: number; founding: boolean; status: string; source: string; note: string; tx_ref: string; provider_id: string | null; receipt_no: number | null; created_at: string; paid_at: string | null }[];
   plans: { code: string; name: string; price_kobo: number; max_users: number | null; max_engagements: number }[];
   engagement_prices: { code: string; name: string; price_kobo: number }[];
-  settings: { seller_name: string; seller_address: string; tax_id: string; support_email: string };
+  settings: { seller_name: string; seller_address: string; tax_id: string; support_email: string; vat_percent: number };
   log: { at: string; action: string; detail: Record<string, unknown> | null; admin: string | null; firm: string | null }[];
 }
 

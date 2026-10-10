@@ -116,3 +116,10 @@ export function planQuote(
   }
   return { ...q, creditKobo: 0, mode: daysLeft(s.paidUntil, now) > 30 ? 'later' : 'switch' };
 }
+
+/** Nigerian VAT, used until the platform owner sets another rate. */
+export const DEFAULT_VAT_PERCENT = 7.5;
+/** VAT to add to a price that is stated before VAT. */
+export const vatOn = (netKobo: Kobo, percent: number): Kobo => Math.round((netKobo * percent) / 100);
+/** VAT inside an amount that already includes it. */
+export const vatWithin = (grossKobo: Kobo, percent: number): Kobo => grossKobo - Math.round(grossKobo / (1 + percent / 100));

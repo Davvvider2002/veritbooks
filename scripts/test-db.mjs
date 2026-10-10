@@ -31,6 +31,9 @@ await db.exec(readFileSync('supabase/migrations/0007_quality_management.sql', 'u
 await db.exec(readFileSync('supabase/migrations/0008_assist.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0009_billing.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0010_admin_and_pay_per.sql', 'utf8'));
+await db.exec(readFileSync('supabase/migrations/0011_vat.sql', 'utf8'));
+// The checks written before VAT run at a zero rate. VAT has its own checks at the end.
+await db.exec(`update platform_settings set vat_percent = 0`);
 
 const A = '00000000-0000-0000-0000-00000000000a'; // partner, firm 1
 const B = '00000000-0000-0000-0000-00000000000b'; // partner, firm 2
@@ -441,6 +444,24 @@ await denied('reminders cannot be read from the browser', () => as(A, `select bi
 ok('the scheduler token is checked', (await svc(`select cron_ok('nope') as k`))[0].k === false && (await svc(`select cron_ok((select token from private.cron_token)) as k`).catch(() => [{ k: 'x' }]))[0].k !== false);
 ok('a receipt can be built for an email', (await svc(`select payment_receipt($1) as r`, [one.tx_ref]))[0].r.to === 'gbenga@firm3.ng');
 await db.exec(`update firms set plan = 'firm', paid_until = now() + interval '1 year' where id = '${f1.id}'`);
+
+// --- VAT --------------------------------------------------------------------
+await act(Z, 'settings', { seller_name: 'VeritBooks Limited', seller_address: 'Lagos', tax_id: 'TIN 1', support_email: 'help@veritbooks.ng', vat_percent: 7.5 });
+ok('the admin sets the VAT rate', (await bill(A)).vat_percent === 7.5);
+await denied('the VAT rate must be sensible', () => act(Z, 'settings', { vat_percent: 90 }), /between 0 and 50/);
+await denied('a partner cannot set the VAT rate', () => act(A, 'settings', { vat_percent: 0 }), /Not found/);
+await act(Z, 'set_engagement_price', { code: 'audit', price_naira: 40000 });
+const vq = await co(G, { kind: 'engagement', type: 'audit' });
+ok('VAT is added on top of the price', vq.net_kobo === 4000000 && vq.vat_kobo === 300000 && vq.amount_kobo === 4300000);
+await denied('paying the price without the VAT is refused', () => svc(`select apply_payment($1,'90',4000000,'NGN')`, [vq.tx_ref]), /does not match/);
+await svc(`select apply_payment($1,'90',4300000,'NGN')`, [vq.tx_ref]);
+const vp = (await bill()).payments[0];
+ok('the receipt carries the VAT', vp.vat_kobo === 300000 && vp.amount_kobo === 4300000 && (await svc(`select payment_receipt($1) as r`, [vq.tx_ref]))[0].r.vat_kobo === 300000);
+await act(Z, 'record_payment', { firm: f2.id, plan: 'firm', amount_naira: 1290000, reference: 'Transfer incl. VAT' });
+ok('a recorded transfer is treated as VAT inclusive', (await bill(B)).payments[0].vat_kobo === 9000000);
+ov = (await as(Z, `select admin_overview() as o`))[0].o;
+ok('the admin sees VAT collected', ov.vat_kobo === 9300000 && ov.settings.vat_percent === 7.5);
+await denied('the unwrapped functions are closed', () => as(G, `select billing_checkout_net('{"kind":"engagement","type":"audit"}'::jsonb)`), /permission denied/);
 await db.exec(`set role anon`);
 await denied('anonymous visitors cannot read anything', () => db.query(`select * from firms`), /permission denied/);
 await denied('anonymous visitors cannot create a firm', () => db.query(`select create_firm('x','','','','')`), /permission denied/);

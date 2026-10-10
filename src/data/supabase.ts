@@ -151,6 +151,7 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       return {
         billing: {
           state: b.state,
+          vatPercent: Number(b.vat_percent ?? 0),
           suspendedReason: b.suspended_reason ?? '',
           foundingAgreedAt: b.founding_agreed_at ?? null,
           foundingAgreedBy: b.founding_agreed_by ?? null,
@@ -170,7 +171,7 @@ export function createSupabaseRepo(url: string, key: string): Repo {
           users: b.users,
           maxUsers: b.max_users,
           plans: (b.plans ?? []).map((p: any) => ({ code: p.code, name: p.name, maxUsers: p.max_users, maxEngagements: p.max_engagements, listKobo: p.list_kobo, amountKobo: p.amount_kobo, founding: p.founding, creditKobo: p.credit_kobo ?? 0, mode: p.mode ?? 'new' })),
-          payments: (b.payments ?? []).map((p: any) => ({ id: p.id, kind: p.kind ?? 'plan', plan: p.plan, engagementType: p.engagement_type ?? null, withGroup: !!p.with_group, amountKobo: p.amount_kobo, creditKobo: p.credit_kobo ?? 0, founding: p.founding, source: p.source ?? 'flutterwave', paidAt: p.paid_at, coversUntil: p.covers_until, reference: p.tx_ref, receiptNo: p.receipt_no ?? null })),
+          payments: (b.payments ?? []).map((p: any) => ({ id: p.id, kind: p.kind ?? 'plan', plan: p.plan, engagementType: p.engagement_type ?? null, withGroup: !!p.with_group, amountKobo: p.amount_kobo, vatKobo: p.vat_kobo ?? 0, creditKobo: p.credit_kobo ?? 0, founding: p.founding, source: p.source ?? 'flutterwave', paidAt: p.paid_at, coversUntil: p.covers_until, reference: p.tx_ref, receiptNo: p.receipt_no ?? null })),
         },
         firm: { id: firm.id, name: firm.name, frcNumber: firm.frc_number, address: firm.address, aiEnabled: !!firm.ai_enabled },
         me: toMember(mine),
