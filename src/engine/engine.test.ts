@@ -236,3 +236,15 @@ describe('import merge', () => {
     expect(() => mergeImport(first, cur.filter((l) => l.code !== '6230'), 'current', new Map(), adj)).toThrow(/AJ1/);
   });
 });
+
+describe('mapping dividends', () => {
+  it('treats dividends received as income and dividends paid as a distribution', async () => {
+    const { suggestMapping } = await import('./mapping');
+    expect(suggestMapping('Dividend income').mapCode).toBe('other_income');
+    expect(suggestMapping('Dividends received from subsidiary').mapCode).toBe('other_income');
+    expect(suggestMapping('Dividend receivable').mapCode).toBe('other_receivables');
+    expect(suggestMapping('Dividends paid').mapCode).toBe('dividends');
+    expect(suggestMapping('Dividend declared').mapCode).toBe('dividends');
+    expect(suggestMapping('Investment in subsidiary').mapCode).toBe('investments');
+  });
+});

@@ -149,6 +149,22 @@ Needs `supabase/migrations/0007_quality_management.sql`. Independence confirmati
 - This records a firm's system. It does not design one, and it is not evidence that a system operates. The starter risks are examples, version 0.1.
 - Not built: engagement quality reviews by a second partner, annual staff declarations, training and CPD records, client acceptance forms, file inspection programmes.
 
+### Consolidations
+
+No database update is needed. The group is kept with the parent engagement's planning.
+
+- A Consolidation step on the parent's engagement. Each subsidiary has its own engagement in the same firm, with its own trial balance, mapping and audit journals. The parent's file reads the subsidiary's figures live, so a change in the subsidiary flows through.
+- For each subsidiary the preparer enters the percentage held, the cost of the investment, the subsidiary's net assets at acquisition, and goodwill amortised to date and in each year.
+- The engine adds the statements line by line, removes the investment, recognises goodwill and its amortisation, measures non-controlling interests at their share of net assets, and takes a bargain purchase to reserves.
+- Intercompany eliminations are entered on statement lines, per year, and must balance.
+- Output: a working that shows each company, the adjustments and the group side by side; the consolidated statement of financial position; and the consolidated statement of profit or loss, with profit split between owners and non-controlling interests. Comparatives appear when every company holds a prior year.
+- Sign-off is blocked if the consolidation does not balance or an elimination is one-sided. A subsidiary whose own file is not yet signed is an advisory.
+- Sample files: `group-parent-2025.csv`, `group-subsidiary-2025.csv` and their 2024 pairs in `public/samples`.
+- Assumptions: every subsidiary is held for the whole of both years at the same percentage, with the same year end. Unrealised profit is borne wholly by the owners of the parent. Subsidiaries' reserves since acquisition are shown within group retained earnings.
+- Not built: consolidated cash flow, changes in equity and notes; group audit report wording; acquisitions and disposals during the year; associates and joint ventures; foreign subsidiaries; sub-groups.
+
+Also fixed: dividends received were mapped as dividends paid. They now map to other income.
+
 ## Rules the software enforces
 
 1. Numbers are computed, never generated. Every figure in a statement is a sum of mapped account balances. No language model produces or alters a figure.

@@ -1,0 +1,12 @@
+Account code,Account name,Debit,Credit
+1000,Land and buildings,"900.00",
+1100,Investment in subsidiary,"500.00",
+1300,Trade debtors,"250.00",
+1400,Bank current account,"150.00",
+2000,Trade creditors,,"200.00"
+3000,Share capital,,"1,000.00"
+3100,Retained earnings,,"500.00"
+4000,Sales,,"800.00"
+5000,Cost of sales,"450.00",
+6200,Rent and rates,"150.00",
+7000,Company income tax,"100.00",

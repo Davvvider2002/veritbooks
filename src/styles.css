@@ -208,3 +208,8 @@ table.ledger td, table.ledger th { font-size: 13px; padding: 5px 8px; }
 @media (max-width: 640px) { .drawer { padding: 18px 14px; } }
 @media print { button.trace { border-bottom: 0; } }
 .crumbs { margin-top: 4px; color: var(--muted); }
+
+/* Consolidation working */
+table.worksheet td, table.worksheet th { font-size: 13px; padding: 5px 8px; }
+table.worksheet tr.section td { font-weight: 700; padding-top: 12px; border-bottom: 1px solid var(--rule-strong); }
+.danger { color: var(--bad); }

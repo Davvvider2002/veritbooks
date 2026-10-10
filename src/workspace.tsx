@@ -9,6 +9,9 @@ import { EvidenceStep } from './steps/evidence';
 import { BankStep, LedgerStep } from './steps/analytics';
 import { DisclosuresStep } from './steps/disclosures';
 import { ChecklistStep } from './steps/checklist';
+import { ConsolidationStep } from './steps/consolidation';
+import { consolidate, type Consolidated } from './engine/consolidation';
+import { figures, hasPrior } from './engine/statements';
 import { Link, useParams } from 'react-router-dom';
 import { packOf, programmeFor } from './content/packs';
 import { repo } from './data';
@@ -46,9 +49,26 @@ export interface Ctx {
   /** False when the database has not had the evidence migration applied. */
   evidenceReady: boolean;
   evidence: Evidence[];
+  /** The consolidation, when this client is the parent of a group. Null when it has no subsidiaries. */
+  group: Group | null;
   /** False when the database has not had the client requests migration applied. */
   requestsReady: boolean;
   requests: ClientRequest[];
+}
+
+export interface GroupMember {
+  engagementId: string;
+  /** Null when the subsidiary's engagement can no longer be read. */
+  name: string | null;
+  status: Engagement['status'] | null;
+  yearEnd: string | null;
+}
+export interface Group {
+  members: GroupMember[];
+  /** Null when a subsidiary's engagement could not be read. */
+  cur: Consolidated | null;
+  /** Null unless the parent and every subsidiary hold a prior year. */
+  prior: Consolidated | null;
 }
 
 export interface Recon {
@@ -103,6 +123,7 @@ const STEPS = [
   { slug: 'evidence', label: 'Evidence', el: EvidenceStep },
   { slug: 'disclosures', label: 'Disclosures', el: DisclosuresStep },
   { slug: 'checklist', label: 'Disclosure checklist', el: ChecklistStep },
+  { slug: 'consolidation', label: 'Consolidation', el: ConsolidationStep },
   { slug: 'statements', label: 'Financial statements', el: StatementsStep },
   { slug: 'report', label: 'Report', el: ReportStep },
   { slug: 'sign-off', label: 'Sign-off', el: SignOffStep },
@@ -122,13 +143,42 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
       repo.listEvidence(id).catch(() => null),
       repo.listRequests(id).catch(() => null),
     ]);
-    return { eng, client: clients.find((c) => c.id === eng.clientId) ?? null, lines, adjustments, heavy, evidence, requests };
+    // A parent's file reads each subsidiary's own file, which belongs to the same firm.
+    const subs = await Promise.all(
+      (eng.planning.group?.subsidiaries ?? []).map(async (s) => {
+        const e = await repo.getEngagement(s.engagementId).catch(() => null);
+        if (!e) return null;
+        const [subLines, subAdjustments] = await Promise.all([repo.listLines(e.id), repo.listAdjustments(e.id)]);
+        return { eng: e, name: clients.find((c) => c.id === e.clientId)?.name ?? 'Subsidiary', lines: subLines, adjustments: subAdjustments };
+      }),
+    );
+    return { eng, client: clients.find((c) => c.id === eng.clientId) ?? null, lines, adjustments, heavy, evidence, requests, subs };
   }, [id]);
 
   const statements = useMemo(
     () => (data ? buildStatements(data.lines, data.adjustments) : null),
     [data],
   );
+
+  const group = useMemo((): Group | null => {
+    const setup = data?.eng.planning.group;
+    if (!data || !statements || !data.client || !setup || setup.subsidiaries.length === 0) return null;
+    const members: GroupMember[] = setup.subsidiaries.map((s, i) => {
+      const x = data.subs[i];
+      return { engagementId: s.engagementId, name: x?.name ?? null, status: x?.eng.status ?? null, yearEnd: x?.eng.yearEnd ?? null };
+    });
+    if (data.subs.some((x) => !x)) return { members, cur: null, prior: null };
+    const subs = data.subs.map((x) => x!);
+    const run = (period: 'current' | 'prior') =>
+      consolidate(
+        { name: data.client!.name, figures: period === 'current' ? statements.cur : statements.prior! },
+        subs.map((x) => ({ name: x.name, figures: figures(x.lines, x.adjustments, period) })),
+        setup,
+        period,
+      );
+    const both = statements.hasPrior && subs.every((x) => hasPrior(x.lines));
+    return { members, cur: run('current'), prior: both ? run('prior') : null };
+  }, [data, statements]);
 
   const analytics = useMemo(() => {
     if (!data || !statements) return null;
@@ -205,6 +255,7 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
     bankGates: analytics.bankGates,
     evidenceReady: data.evidence !== null,
     evidence: data.evidence ?? [],
+    group,
     requestsReady: data.requests !== null,
     requests: data.requests ?? [],
   };

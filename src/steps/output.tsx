@@ -634,7 +634,7 @@ export function ReportStep(ctx: Ctx) {
   );
 }
 
-export function SignOffStep({ eng, ws, client, lines, adjustments, statements, locked, reload, ledgerTest, bankGates, requests }: Ctx) {
+export function SignOffStep({ eng, ws, client, lines, adjustments, statements, locked, reload, ledgerTest, bankGates, requests, group }: Ctx) {
   const [confirm, setConfirm] = useState(false);
   const { busy, error, run } = useAction();
   const confirmations = eng.planning.independence ?? {};
@@ -662,6 +662,14 @@ export function SignOffStep({ eng, ws, client, lines, adjustments, statements, l
     ledger: ledgerTest,
     testing: eng.testing,
     bank: bankGates,
+    group: group
+      ? {
+          ready: !!group.cur,
+          difference: group.cur?.difference ?? 0,
+          unbalanced: (group.cur?.unbalanced.length ?? 0) + (group.prior?.unbalanced.length ?? 0),
+          unsigned: group.members.filter((m) => m.status === 'in_progress').map((m) => m.name ?? 'a subsidiary'),
+        }
+      : undefined,
     // Files signed before confirmations existed are not marked down for lacking them.
     independence:
       locked && Object.keys(confirmations).length === 0

@@ -1,0 +1,11 @@
+Account code,Account name,Debit,Credit
+1010,Plant and machinery,"550.00",
+1200,Inventories,"150.00",
+1400,Bank current account,"100.00",
+2000,Trade creditors,,"150.00"
+3000,Share capital,,"300.00"
+3100,Retained earnings,,"250.00"
+4000,Sales,,"500.00"
+5000,Cost of sales,"300.00",
+6200,Rent and rates,"70.00",
+7000,Company income tax,"30.00",

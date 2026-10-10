@@ -143,6 +143,8 @@ export interface GateInput {
   testing?: Testing;
   /** One entry per bank statement imported. */
   bank?: BankGate[];
+  /** The state of the consolidation, when the client is the parent of a group. */
+  group?: { ready: boolean; difference: Kobo; unbalanced: number; unsigned: string[] };
   /** Independence confirmations on this engagement. Leave undefined to skip the checks. */
   independence?: { signer: boolean; unconfirmed: string[] };
   /** Items of the disclosure checklist with no answer. Leave undefined to skip the check. */
@@ -306,6 +308,30 @@ export function signOffChecks(g: GateInput): Check[] {
       detail: g.disclosureGaps.length ? `${g.disclosureGaps.length} item(s) open: ${g.disclosureGaps[0]}` : undefined,
       blocking: true,
     });
+  }
+  if (g.group) {
+    checks.push({
+      id: 'group_balances',
+      label: 'The consolidated statement of financial position balances',
+      ok: g.group.ready && g.group.difference === 0 && g.group.unbalanced === 0,
+      detail: !g.group.ready
+        ? 'A subsidiary’s engagement could not be read. Open the Consolidation step.'
+        : g.group.unbalanced
+          ? `${g.group.unbalanced} elimination(s) do not balance.`
+          : g.group.difference !== 0
+            ? `It is out by ${fmt2(Math.abs(g.group.difference))}.`
+            : undefined,
+      blocking: true,
+    });
+    if (g.group.unsigned.length > 0) {
+      checks.push({
+        id: 'group_unsigned',
+        label: 'Every subsidiary’s own file is signed',
+        ok: false,
+        detail: `Still in progress: ${g.group.unsigned.join(', ')}. Their figures can still change.`,
+        blocking: false,
+      });
+    }
   }
   if (g.checklistOpen !== undefined) {
     checks.push({

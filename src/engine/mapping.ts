@@ -25,6 +25,9 @@ const RULES: Rule[] = [
   [/share capital|ordinary share|paid.?up capital|issued capital/, 'share_capital'],
   [/retained|accumulated (profit|loss|surplus|deficit)|revenue reserve|general reserve|profit and loss account/, 'retained_earnings'],
   [/reserve/, 'other_reserves'],
+  // Dividends the company receives are income. Only those it pays are distributions.
+  [/dividends? (income|received)|income from (subsidiar|associate|investment)/, 'other_income'],
+  [/dividends? receivable/, 'other_receivables'],
   [/dividend/, 'dividends'],
   [/cost of (sales|goods)|purchases|carriage in|freight in|direct (cost|labou?r|material|expense)|(opening|closing) (stock|inventor)/, 'cost_of_sales', 'other'],
   [/sales|revenue|turnover|fees (earned|income)|service income|contract income/, 'revenue'],

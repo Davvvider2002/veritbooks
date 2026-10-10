@@ -1,3 +1,5 @@
+import type { GroupSetup } from './consolidation';
+
 /** All amounts are integer kobo. Balances are debit-positive (debit minus credit). */
 export type Kobo = number;
 
@@ -34,6 +36,8 @@ export interface Planning {
   performancePercent?: number;
   trivialPercent?: number;
   rationale?: string;
+  /** Subsidiaries and eliminations, when this engagement's client is the parent of a group. */
+  group?: GroupSetup;
   /** Each team member's confirmation of independence from the client, by user id. */
   independence?: Record<string, { name: string; at: string; note: string }>;
   /** The industry pack that adds to the general programme, checklist and request list. */
