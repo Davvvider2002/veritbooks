@@ -117,7 +117,7 @@ The prior year ledger, files against an account and page references need `supaba
 
 No database update is needed. Answers are kept with the engagement's disclosures.
 
-- A checklist of what the financial statements must disclose under the IFRS for SMEs, grouped by section of the Standard. It holds 50 items in this version.
+- A checklist of what the financial statements must disclose under the IFRS for SMEs, grouped by section of the Standard. It holds 49 items in this version.
 - It is tailored to the entity. An item tied to a statement line appears only when that line has a balance in either year, so a company with no intangible assets is not asked about them.
 - Items the file itself shows are marked as covered, with the basis: comparatives, the fixed asset reconciliation, the tax reconciliation, related parties, going concern and others. The preparer is not asked to tick what the software can see.
 - The preparer answers the rest: disclosed, with where; or does not apply, with a reason. A reason is required. Each answer records who gave it and when.
