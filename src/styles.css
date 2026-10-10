@@ -184,3 +184,9 @@ table.data select { padding: 5px 6px; font-size: 14px; }
 .journal-head:hover:not(:disabled) { color: var(--accent); }
 .stat { font-family: var(--serif); font-size: 26px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
 code { font-size: 13px; background: #ebe8dc; padding: 1px 5px; border-radius: 3px; }
+
+/* Export steps for the chosen accounting package */
+.guide { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 12px 16px; border-radius: 0 6px 6px 0; font-size: 14px; }
+.guide ol { margin: 6px 0 8px; padding-left: 20px; }
+.guide ul { margin: 0 0 8px; padding-left: 20px; color: var(--muted); }
+.guide li { margin: 2px 0; }

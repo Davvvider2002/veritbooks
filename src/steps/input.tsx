@@ -1,5 +1,6 @@
 import Papa from 'papaparse';
 import { useMemo, useState } from 'react';
+import { SOURCES } from '../content/sources';
 import { repo } from '../data';
 import { CHART, ITEM, NATURE_CODES, SECTION_LABEL, type Section } from '../engine/chart';
 import { validateTrialBalance } from '../engine/checks';
@@ -21,6 +22,61 @@ export async function readRows(file: File): Promise<unknown[][]> {
   }
   const text = await file.text();
   return Papa.parse<string[]>(text, { skipEmptyLines: true }).data;
+}
+
+const SOURCE_KEY = 'veritbooks.source';
+
+/** Pick the client's accounting package and see how to export from it. The choice is remembered in this browser. */
+export function SourceGuide({ kind }: { kind: 'tb' | 'gl' }) {
+  const [id, setId] = useState(() => {
+    try {
+      return localStorage.getItem(SOURCE_KEY) ?? '';
+    } catch {
+      return '';
+    }
+  });
+  const source = SOURCES.find((x) => x.id === id);
+  return (
+    <div className="stack" style={{ gap: 10 }}>
+      <label className="field" style={{ maxWidth: 340 }}>
+        <span>Where does the client keep its books?</span>
+        <select
+          value={id}
+          onChange={(e) => {
+            setId(e.target.value);
+            try {
+              localStorage.setItem(SOURCE_KEY, e.target.value);
+            } catch {
+              // The choice simply is not remembered.
+            }
+          }}
+        >
+          <option value="">Choose a system for export steps</option>
+          {SOURCES.map((x) => (
+            <option key={x.id} value={x.id}>{x.name}</option>
+          ))}
+        </select>
+      </label>
+      {source && (
+        <div className="guide">
+          <strong>{kind === 'tb' ? 'To export the trial balance' : 'To export the ledger'} from {source.name}</strong>
+          <ol>
+            {source[kind].map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+          {source.notes.length > 0 && (
+            <ul>
+              {source.notes.map((n) => (
+                <li key={n}>{n}</li>
+              ))}
+            </ul>
+          )}
+          <span className="small muted">Menu names differ between versions. Import the file as it is exported, without tidying it first.</span>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function ChecksList({ checks }: { checks: ReturnType<typeof validateTrialBalance> }) {
@@ -84,6 +140,7 @@ export function ImportStep({ eng, client, lines, adjustments, locked, reload }: 
 
       {!locked && (
         <div className="card stack">
+          <SourceGuide kind="tb" />
           <div className="grid2">
             <label className="field">
               <span>Which year is this file?</span>

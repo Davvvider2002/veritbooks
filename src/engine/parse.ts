@@ -15,26 +15,46 @@ export interface ParseResult {
 
 const txt = (c: unknown) => (c === null || c === undefined ? '' : String(c).trim());
 
+export const slug = (name: string) =>
+  name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 40);
+
+/** Some packages print the account number and name in one cell: "1000 · Bank" or "1000 - Bank". */
+export function splitAccount(cell: string): { code: string; name: string } {
+  const m = /^(\d[\d.\-/]*)\s*[·•:\-–—]\s*(\S.*)$/.exec(cell.trim());
+  return m ? { code: m[1], name: m[2].trim() } : { code: '', name: cell.trim() };
+}
+
 function findHeader(rows: unknown[][]) {
-  for (let r = 0; r < Math.min(rows.length, 20); r++) {
-    const cells = rows[r].map((c) => txt(c).toLowerCase());
-    const debit = cells.findIndex((c) => /\bdebit\b|^dr\.?$/.test(c));
-    const credit = cells.findIndex((c) => /\bcredit\b|^cr\.?$/.test(c));
-    const balance = cells.findIndex(
-      (c, i) => i !== debit && i !== credit && /balance|amount|^net$|closing/.test(c),
-    );
-    if (!((debit >= 0 && credit >= 0) || balance >= 0)) continue;
-    const taken = new Set([debit, credit, balance]);
-    const code = cells.findIndex(
-      (c, i) => !taken.has(i) && /code|number|\bno\.?$|acct|a\/c|\bgl\b|\bid\b/.test(c),
-    );
-    taken.add(code);
-    let name = cells.findIndex(
-      (c, i) => !taken.has(i) && /name|description|particular|detail|title|^account$|ledger/.test(c),
-    );
-    if (name < 0) name = cells.findIndex((c, i) => !taken.has(i) && c !== '');
-    if (name < 0 && code < 0) continue;
-    return { row: r, debit, credit, balance, code, name };
+  // Debit and Credit headings are unmistakable. A lone Balance heading is accepted only when
+  // no such row exists, so a title line reading "Trial Balance" is not taken for the header.
+  for (const needPair of [true, false]) {
+    for (let r = 0; r < Math.min(rows.length, 25); r++) {
+      const cells = rows[r].map((c) => txt(c).toLowerCase());
+      const debit = cells.findIndex((c) => /\bdebit\b|^dr\.?$/.test(c));
+      const credit = cells.findIndex((c) => /\bcredit\b|^cr\.?$/.test(c));
+      const pair = debit >= 0 && credit >= 0;
+      const balance = pair
+        ? -1
+        : cells.findIndex((c, i) => i !== debit && i !== credit && /balance|amount|^net$|closing/.test(c));
+      if (needPair ? !pair : balance < 0) continue;
+      const taken = new Set([debit, credit, balance]);
+      const code = cells.findIndex(
+        (c, i) => !taken.has(i) && /code|number|\bno\.?$|acct|a\/c|\bgl\b|\bid\b/.test(c),
+      );
+      taken.add(code);
+      let name = cells.findIndex(
+        (c, i) => !taken.has(i) && /name|description|particular|detail|title|^account$|ledger/.test(c),
+      );
+      if (name < 0) name = cells.findIndex((c, i) => !taken.has(i) && c !== '');
+      // QuickBooks leaves the heading over the account names blank.
+      if (name < 0 && code < 0 && pair) name = cells.findIndex((_, i) => !taken.has(i));
+      if (name < 0 && code < 0) continue;
+      return { row: r, debit, credit, balance: pair ? -1 : balance, code, name };
+    }
   }
   return null;
 }
@@ -57,8 +77,12 @@ export function parseTrialBalance(rows: unknown[][]): ParseResult {
   for (let r = h.row + 1; r < rows.length; r++) {
     const row = rows[r];
     if (!row) continue;
-    const name = h.name >= 0 ? txt(row[h.name]) : '';
+    let name = h.name >= 0 ? txt(row[h.name]) : '';
     let code = h.code >= 0 ? txt(row[h.code]) : '';
+    if (h.code < 0 && name) {
+      const split = splitAccount(name);
+      if (split.code) ({ code, name } = split);
+    }
     if (!name && !code) continue;
     if (/^(grand\s+|sub\s*)?totals?\b/i.test(name) || /^(grand\s+)?totals?\b/i.test(code)) continue;
 
@@ -79,11 +103,7 @@ export function parseTrialBalance(rows: unknown[][]): ParseResult {
       continue;
     }
     if (!code) {
-      code = name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '')
-        .slice(0, 40);
+      code = slug(name);
     }
     const existing = byCode.get(code);
     if (existing) {

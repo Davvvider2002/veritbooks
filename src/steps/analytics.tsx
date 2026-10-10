@@ -1,15 +1,16 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { repo } from '../data';
 import { ITEM } from '../engine/chart';
 import { balanceAt, parseBankStatement, type BankParse } from '../engine/bank';
 import { shortDate } from '../engine/dates';
-import { FLAG_LABEL, HIGH_RISK_SCORE, parseLedger, type Flag, type Journal, type LedgerParse } from '../engine/ledger';
+import type { DateOrder } from '../engine/dates';
+import { FLAG_LABEL, HIGH_RISK_SCORE, parseLedger, resolveAccounts, type Flag, type Journal, type LedgerParse } from '../engine/ledger';
 import { fmt2, parseAmount } from '../engine/money';
 import { PdfPasswordError } from '../pdf';
 import { ErrorNote, Field, message, useAction } from '../ui';
 import { invalidateAnalytics, type Ctx, type Recon } from '../workspace';
 import { FileCount } from './evidence';
-import { readRows } from './input';
+import { readRows, SourceGuide } from './input';
 
 function NotReady() {
   return (
@@ -106,17 +107,31 @@ function JournalCard({ ctx, j, defaultOpen }: { ctx: Ctx; j: Journal; defaultOpe
 
 export function LedgerStep(ctx: Ctx) {
   const { eng, lines, ledger, ledgerTest: t, locked, reload, analyticsReady } = ctx;
-  const [parsed, setParsed] = useState<(LedgerParse & { file: string }) | null>(null);
+  const [raw, setRaw] = useState<{ rows: unknown[][]; file: string } | null>(null);
+  const [dateOrder, setDateOrder] = useState<DateOrder>('auto');
   const [parseError, setParseError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const { busy, error, run } = useAction();
 
+  // The file is re-read whenever the date order is changed, so the preview always shows what will be imported.
+  const parsed = useMemo(() => {
+    if (!raw) return null;
+    try {
+      const p = parseLedger(raw.rows, { dateOrder });
+      return { ...p, ...resolveAccounts(p.entries, lines), file: raw.file, failed: null as string | null };
+    } catch (e) {
+      return { entries: [], warnings: [], unresolved: [], dateOrder: { monthFirst: false, certain: true }, badDates: 0, file: raw.file, failed: message(e) };
+    }
+  }, [raw, dateOrder, lines]);
+  const setParsed = (_: null) => setRaw(null);
+
   const onFile = async (file: File | undefined) => {
-    setParsed(null);
+    setRaw(null);
     setParseError(null);
+    setDateOrder('auto');
     if (!file) return;
     try {
-      setParsed({ ...parseLedger(await readRows(file)), file: file.name });
+      setRaw({ rows: await readRows(file), file: file.name });
     } catch (e) {
       setParseError(message(e));
     }
@@ -132,6 +147,8 @@ export function LedgerStep(ctx: Ctx) {
       reload();
     });
 
+  const yearStart = `${Number(eng.yearEnd.slice(0, 4)) - 1}${eng.yearEnd.slice(4)}`;
+  const inYear = parsed?.entries.filter((e) => e.date > yearStart && e.date <= eng.yearEnd).length ?? 0;
   const journalCount = parsed ? new Set(parsed.entries.map((e) => e.entryNo)).size : 0;
   const net = parsed?.entries.reduce((a, e) => a + e.amount, 0) ?? 0;
   const dates = parsed?.entries.map((e) => e.date).sort();
@@ -152,6 +169,7 @@ export function LedgerStep(ctx: Ctx) {
 
       {analyticsReady && !locked && lines.length > 0 && (
         <div className="card stack">
+          <SourceGuide kind="gl" />
           <label className="field">
             <span>{ledger.length ? 'Replace the general ledger' : 'General ledger file (CSV or Excel)'}</span>
             <input type="file" accept=".csv,.xlsx" onChange={(e) => void onFile(e.target.files?.[0])} style={{ padding: '6px 0' }} />
@@ -160,9 +178,39 @@ export function LedgerStep(ctx: Ctx) {
             Needs a header row with a date, an account code, and Debit and Credit or one Amount column. Journal number, description and posted-by columns are used when present. Try the{' '}
             <a href="/samples/general-ledger-2025.csv" download>sample ledger</a>.
           </p>
-          <ErrorNote error={parseError ?? error} />
-          {parsed && (
+          <ErrorNote error={parseError ?? parsed?.failed ?? error} />
+          {parsed && !parsed.failed && (
             <div className="stack">
+              <div className="row">
+                <label className="field" style={{ width: 260 }}>
+                  <span>Dates in this file are written</span>
+                  <select value={dateOrder} onChange={(e) => setDateOrder(e.target.value as DateOrder)}>
+                    <option value="auto">Work it out from the file</option>
+                    <option value="day">Day first (31/12/2025)</option>
+                    <option value="month">Month first (12/31/2025)</option>
+                  </select>
+                </label>
+                <span className="small muted" style={{ alignSelf: 'flex-end', paddingBottom: 8 }}>
+                  Read as {parsed.dateOrder.monthFirst ? 'month first' : 'day first'}.
+                  {!parsed.dateOrder.certain && ' The file does not settle it, so check the dates below.'}
+                </span>
+              </div>
+              {parsed.badDates > 0 && (
+                <div className="banner bad">
+                  {parsed.badDates.toLocaleString()} row(s) have a date that cannot be read {parsed.dateOrder.monthFirst ? 'month first' : 'day first'}, and were left out. Try the other date order.
+                </div>
+              )}
+              {inYear < parsed.entries.length / 2 && (
+                <div className="banner bad">
+                  Only {inYear.toLocaleString()} of {parsed.entries.length.toLocaleString()} lines fall inside the year. The dates may be in the other order, or this may be the wrong period.
+                </div>
+              )}
+              {parsed.unresolved.length > 0 && (
+                <div className="banner warn">
+                  {parsed.unresolved.length} ledger account(s) were not found in the trial balance: {parsed.unresolved.slice(0, 8).join(', ')}
+                  {parsed.unresolved.length > 8 ? ' and more' : ''}. Their postings will be flagged, and the ledger will not agree to the trial balance on them.
+                </div>
+              )}
               <div className={`banner ${net === 0 ? 'info' : 'warn'}`}>
                 <strong>{parsed.file}</strong>: {parsed.entries.length.toLocaleString()} lines in {journalCount.toLocaleString()} journals, dated {shortDate(dates![0])} to {shortDate(dates![dates!.length - 1])}.{' '}
                 {net === 0 ? 'Debits equal credits.' : `Debits and credits differ by ${fmt2(Math.abs(net))}.`}
@@ -452,7 +500,18 @@ export function BankStep(ctx: Ctx) {
     const c = l.mapCode ? ITEM.get(l.mapCode)?.code : null;
     return c === 'cash' || c === 'borrowings_c';
   });
-  const [parsed, setParsed] = useState<(BankParse & { file: string; fromPdf: boolean }) | null>(null);
+  const [rawBank, setRawBank] = useState<{ rows: unknown[][]; file: string; fromPdf: boolean } | null>(null);
+  const [bankDates, setBankDates] = useState<DateOrder>('auto');
+  const bankRead = useMemo((): { parsed: (BankParse & { file: string; fromPdf: boolean }) | null; failed: string | null } => {
+    if (!rawBank) return { parsed: null, failed: null };
+    try {
+      return { parsed: { ...parseBankStatement(rawBank.rows, bankDates), file: rawBank.file, fromPdf: rawBank.fromPdf }, failed: null };
+    } catch (e) {
+      return { parsed: null, failed: message(e) };
+    }
+  }, [rawBank, bankDates]);
+  const parsed = bankRead.parsed;
+  const setParsed = (_: null) => setRawBank(null);
   const [pdf, setPdf] = useState<{ file: File; wrong: boolean } | null>(null);
   const [password, setPassword] = useState('');
   const [opening, setOpening] = useState(false);
@@ -468,9 +527,10 @@ export function BankStep(ctx: Ctx) {
     if (!file) return;
     setPdf(null);
     setPassword('');
+    setBankDates('auto');
     if (/\.pdf$/i.test(file.name)) return void openPdf(file);
     try {
-      setParsed({ ...parseBankStatement(await readRows(file)), file: file.name, fromPdf: false });
+      setRawBank({ rows: await readRows(file), file: file.name, fromPdf: false });
     } catch (e) {
       setParseError(message(e));
     }
@@ -481,7 +541,7 @@ export function BankStep(ctx: Ctx) {
     setOpening(true);
     try {
       const { pdfStatementRows } = await import('../pdfBrowser');
-      setParsed({ ...parseBankStatement(await pdfStatementRows(file, pw)), file: file.name, fromPdf: true });
+      setRawBank({ rows: await pdfStatementRows(file, pw), file: file.name, fromPdf: true });
       setPdf(null);
     } catch (e) {
       if (e instanceof PdfPasswordError) {
@@ -572,7 +632,7 @@ export function BankStep(ctx: Ctx) {
               <button disabled={opening || !password}>Open statement</button>
             </form>
           )}
-          <ErrorNote error={parseError ?? error} />
+          <ErrorNote error={parseError ?? bankRead.failed ?? error} />
           {parsed && (
             <div className="stack">
               <div className={`banner ${parsed.breaks ? 'bad' : 'info'}`}>
@@ -585,6 +645,15 @@ export function BankStep(ctx: Ctx) {
                     ? 'The running balance is unbroken.'
                     : ''}
               </div>
+              {(!parsed.dateOrder.certain || bankDates !== 'auto') && (
+                <label className="field" style={{ maxWidth: 420 }}>
+                  <span>Dates could be day first or month first. This file is written</span>
+                  <select value={bankDates} onChange={(e) => setBankDates(e.target.value as DateOrder)}>
+                    <option value="auto">Day first (31/12/2025), the Nigerian convention</option>
+                    <option value="month">Month first (12/31/2025)</option>
+                  </select>
+                </label>
+              )}
               {parsed.fromPdf &&
                 (parsed.breaks === 0 && closing !== null ? (
                   <div className="banner info">

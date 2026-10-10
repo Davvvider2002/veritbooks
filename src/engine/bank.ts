@@ -1,4 +1,4 @@
-import { daysBetween, parseDate } from './dates';
+import { daysBetween, parseDate, resolveDateOrder, type DateOrder } from './dates';
 import type { GlEntry } from './ledger';
 import { parseAmount } from './money';
 import type { Kobo } from './types';
@@ -17,6 +17,7 @@ export interface BankParse {
   breaks: number;
   firstBreak: string | null;
   warnings: string[];
+  dateOrder: { monthFirst: boolean; certain: boolean };
 }
 
 const txt = (c: unknown) => (c === null || c === undefined ? '' : String(c).trim());
@@ -26,7 +27,7 @@ const txt = (c: unknown) => (c === null || c === undefined ? '' : String(c).trim
  * Debit and Credit (or Withdrawal and Deposit) columns or one signed Amount column.
  * On a bank statement, a debit is money out.
  */
-export function parseBankStatement(rows: unknown[][]): BankParse {
+export function parseBankStatement(rows: unknown[][], dateOrder: DateOrder = 'auto'): BankParse {
   let h: { row: number; date: number; desc: number; out: number; in: number; amount: number; balance: number } | null = null;
   for (let r = 0; r < Math.min(rows.length, 40) && !h; r++) {
     const c = rows[r].map((x) => txt(x).toLowerCase());
@@ -52,6 +53,7 @@ export function parseBankStatement(rows: unknown[][]): BankParse {
     );
   }
 
+  const order = resolveDateOrder(dateOrder, rows.slice(h.row + 1).map((r) => r?.[h!.date]));
   const lines: BankLine[] = [];
   const warnings: string[] = [];
   let opening: Kobo | null = null;
@@ -63,7 +65,7 @@ export function parseBankStatement(rows: unknown[][]): BankParse {
   for (let r = h.row + 1; r < rows.length; r++) {
     const row = rows[r];
     if (!row) continue;
-    const date = parseDate(row[h.date]);
+    const date = parseDate(row[h.date], order.monthFirst);
     const balance = h.balance >= 0 ? parseAmount(row[h.balance]) : null;
     let amount: Kobo | null;
     if (h.out >= 0 && h.in >= 0) {
@@ -105,7 +107,7 @@ export function parseBankStatement(rows: unknown[][]): BankParse {
       break;
     }
   }
-  return { lines, opening, breaks, firstBreak, warnings };
+  return { lines, opening, breaks, firstBreak, warnings, dateOrder: order };
 }
 
 /** Balance on the statement at the close of a given day, or null when the statement carries no balances. */

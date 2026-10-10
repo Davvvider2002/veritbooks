@@ -1,6 +1,6 @@
 # VeritBooks: platform definition
 
-Version 0.5, 10 October 2026.
+Version 0.6, 10 October 2026.
 
 ## What it is
 
@@ -66,6 +66,15 @@ Both features apply to audit engagements. They need `supabase/migrations/0002_le
 | Unbooked items | Audit journals posted to the cash account are set against statement items the client had not booked. |
 | Sign-off gates | Blocking: every high-risk journal concluded, and every bank account either reconciled or carrying a written conclusion. Advisory: ledger agrees to the trial balance, journals concluded as exceptions, breaks in a running balance, no ledger or no statement imported. |
 
+### Imports from accounting packages
+
+| Area | Behaviour |
+| --- | --- |
+| Export guides | The import screens ask where the client keeps its books and show the export steps for Sage 50, QuickBooks Desktop, Tally, QuickBooks Online, Zoho Books, Xero, or Excel. |
+| Package layouts | The parsers read the files as exported, without tidying: title rows above the header, an account printed once above its transactions, a transaction whose date and number appear only on its first line, opening and closing balance rows, subtotal and total rows, and accounts printed as "1000 · Bank". |
+| Account matching | Ledger postings are matched to the trial balance by account number, and by name where the package prints no number, including "Parent:Child" sub-accounts. Accounts that cannot be matched are listed before import. |
+| Date order | Numeric dates are read day first or month first, worked out from the file where it allows and chosen by the user where it does not. Rows whose dates cannot be read are counted and reported. |
+
 ### Team and evidence
 
 These need `supabase/migrations/0003_team_and_evidence.sql`.
@@ -108,6 +117,7 @@ The work programmes, accounting policy wording and report wording are starter co
 - Team: invitations are not emailed. Managers and staff have the same data rights; only the partner role is distinct.
 - Sign-off gates: partner role, FRC numbers, a footing and fully mapped trial balance and balanced journals are enforced in the database. Materiality, programme completion, opinion selection, journal conclusions and bank reconciliation are enforced in the application only.
 - Journal testing uses fixed rules. The thresholds are not yet configurable per firm, and Nigerian public holidays are not flagged.
+- Package imports: the Sage 50, QuickBooks Desktop and Tally layouts were tested on files modelled on each package's exports, not on real exports. Tally has had the least testing. No direct connection to any accounting system exists yet.
 - PDF statements: the reader was built and tested on a statement drawn to resemble a Nigerian bank e-statement, and on a second synthetic layout, not on real statements from each bank. Column headings split over two lines, and statements with no balance column, are the likeliest to need work. Scans are not read.
 - Bank matching is on exact amount only. One ledger posting covering several bank lines, or the reverse, is left unmatched for the auditor.
 - Trial balance import is not a single database transaction.
