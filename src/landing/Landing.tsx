@@ -251,12 +251,6 @@ export function Landing() {
         Skip to content
       </a>
       {repo.mode === 'demo' && <div className="lp-demo">Demo mode. Data is kept in this browser only.</div>}
-      <div className="lp-announce">
-        <span>
-          <strong>Try VeritBooks free for 14 days.</strong> Every feature. No card needed.
-        </span>
-        <Go to={CTA.getStarted}>Start your free trial</Go>
-      </div>
       <header className="lp-nav">
         <div className="lp-wrap lp-nav-in">
           <a href="#top" aria-label="Top of page">
