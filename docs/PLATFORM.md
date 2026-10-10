@@ -1,6 +1,6 @@
 # VeritBooks: platform definition
 
-Version 0.3, 10 October 2026.
+Version 0.4, 10 October 2026.
 
 ## What it is
 
@@ -36,6 +36,18 @@ One user belongs to one firm. A firm sees only its own data. Partners invite col
 | Report | Draft auditor's report (unmodified, qualified, adverse, disclaimer), review report or compilation report. |
 | Sign-off | A gate list blocks signing until it is clear. Signing stamps the partner's name and FRC number and the firm's FRC number, and locks the file. |
 | Audit trail | Every change to an engagement, its trial balance and its journals, written by database triggers. |
+
+## Disclosures and directors' pages
+
+These need `supabase/migrations/0004_disclosures.sql`.
+
+| Area | Behaviour |
+| --- | --- |
+| Disclosures step | The preparer enters what the trial balance cannot supply: directors, secretary, registered office, directors' remuneration, employee numbers, fixed asset disposals, the tax rate and reconciling items, related parties, earlier years, and notes on going concern, events after the reporting date, contingent liabilities and commitments. |
+| Fixed asset schedule | One row per ledger account, cost and accumulated depreciation. Opening and closing come from the two trial balances. Additions and the charge are what explains the movement after disposals. The charge must agree to depreciation in profit or loss. |
+| Tax reconciliation | Profit before tax at the rate the preparer enters, plus reconciling items, to the charge. No rate is assumed. The effective rate is shown. |
+| Statements | Report of the directors, statement of directors' responsibilities, prior year statement of changes in equity, the fixed asset schedule, the tax reconciliation, notes on employees and directors, related parties, contingencies and commitments, events after the reporting date and going concern, and a five-year financial summary. |
+| Gate | Sign-off is blocked while any disclosure item is open. Nothing prints as a confirmed "none" unless the preparer has confirmed it. |
 
 ## Scope of phase 2 (built so far)
 
@@ -90,7 +102,7 @@ The work programmes, accounting policy wording and report wording are starter co
 
 ## Known gaps in phase 1
 
-- Disclosures not produced: property, plant and equipment movement schedule, tax reconciliation, related party and directors' disclosures, comparatives for the statement of changes in equity, years three to five of the financial summary.
+- Disclosures not produced: deferred tax workings, a detailed directors' interests table, financial instruments and leases notes, and segment or industry-specific notes. The prior year statement of changes in equity assumes share capital and other reserves did not move in that year. The tax reconciliation and notes carry no prior year comparatives.
 - Cash flow: purchases and disposals of assets are shown net, and interest and tax paid are derived from balance movements.
 - Team: invitations are not emailed. Managers and staff have the same data rights; only the partner role is distinct.
 - Sign-off gates: partner role, FRC numbers, a footing and fully mapped trial balance and balanced journals are enforced in the database. Materiality, programme completion, opinion selection, journal conclusions and bank reconciliation are enforced in the application only.

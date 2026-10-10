@@ -15,6 +15,7 @@ const toEngagement = (r: any): Engagement => ({
   programmeVersion: r.programme_version ?? '',
   report: r.report ?? {},
   testing: r.testing ?? {},
+  disclosures: r.disclosures ?? {},
   signedByName: r.signed_by_name,
   signedByFrc: r.signed_by_frc,
   firmFrc: r.firm_frc,

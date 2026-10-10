@@ -131,6 +131,9 @@ table.data select { padding: 5px 6px; font-size: 14px; }
 .sheet table.fs td:first-child, .sheet table.fs th:first-child { padding-left: 0; }
 .sheet table.fs th { font-family: var(--sans); font-size: 12px; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--rule-strong); }
 .sheet table.fs th.num, .sheet table.fs td.num { width: 132px; }
+.sheet table.fs.wide { min-width: 640px; }
+.sheet table.fs.wide th.num, .sheet table.fs.wide td.num { width: 108px; }
+.sheet table.fs.wide td:first-child { min-width: 170px; }
 .sheet table.fs td.note { width: 48px; text-align: center; color: var(--muted); font-size: 13px; }
 .sheet tr.heading td { font-weight: 700; padding-top: 14px; }
 .sheet tr.subtotal td { font-weight: 600; }

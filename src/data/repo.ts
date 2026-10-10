@@ -2,6 +2,7 @@ import type { BankLine } from '../engine/bank';
 import type { GlEntry } from '../engine/ledger';
 import type {
   Adjustment,
+  Disclosures,
   EngagementType,
   Nature,
   Planning,
@@ -49,6 +50,7 @@ export interface Engagement {
   programmeVersion: string;
   report: ReportSettings;
   testing: Testing;
+  disclosures: Disclosures;
   signedByName: string | null;
   signedByFrc: string | null;
   firmFrc: string | null;
@@ -156,7 +158,7 @@ export interface Repo {
   listEngagements(): Promise<Engagement[]>;
   createEngagement(e: { clientId: string; type: EngagementType; yearEnd: string; programmeVersion: string }): Promise<Engagement>;
   getEngagement(id: string): Promise<Engagement | null>;
-  updateEngagement(id: string, patch: Partial<Pick<Engagement, 'planning' | 'programme' | 'report' | 'testing'>>): Promise<void>;
+  updateEngagement(id: string, patch: Partial<Pick<Engagement, 'planning' | 'programme' | 'report' | 'testing' | 'disclosures'>>): Promise<void>;
 
   listLines(engagementId: string): Promise<TbLine[]>;
   /** Replaces the whole trial balance of an engagement. */

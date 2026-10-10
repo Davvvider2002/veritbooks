@@ -256,6 +256,7 @@ export function createDemoRepo(): Repo {
         programmeVersion: e.programmeVersion,
         report: {},
         testing: {},
+        disclosures: {},
         signedByName: null,
         signedByFrc: null,
         firmFrc: null,
@@ -269,7 +270,7 @@ export function createDemoRepo(): Repo {
     async getEngagement(id) {
       if (!s.user || !s.memberOf[s.user.id]) return null;
       const e = s.engagements.find((x) => x.id === id && x.firmId === firmId());
-      return e ? ({ ...strip(e), testing: e.testing ?? {} } as Engagement) : null;
+      return e ? ({ ...strip(e), testing: e.testing ?? {}, disclosures: e.disclosures ?? {} } as Engagement) : null;
     },
     async updateEngagement(id, patch) {
       const e = open(id);

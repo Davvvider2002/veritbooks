@@ -3,6 +3,8 @@ import { POLICIES } from '../content/notes';
 import { PROGRAMMES } from '../content/programmes';
 import { repo } from '../data';
 import { canSign, signOffChecks } from '../engine/checks';
+import { directorList, disclosureGaps, financialSummary, ppeSchedule, priorEquity, taxReconciliation, type PpeRow } from '../engine/disclosures';
+import type { EquityTable } from '../engine/statements';
 import { fmt } from '../engine/money';
 import { draftReport, longDate } from '../engine/report';
 import type { ReportSettings } from '../engine/types';
@@ -25,8 +27,45 @@ function SheetHead({ ctx, title, sub }: { ctx: Ctx; title: string; sub?: string 
   );
 }
 
+function EquityRows({ table }: { table: EquityTable }) {
+  return (
+    <div className="scroll-x">
+      <table className="fs wide">
+        <thead>
+          <tr>
+            <th></th>
+            {table.columns.map((c) => (
+              <th key={c} className="num">{c}<br />₦</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {table.rows.map((row) => (
+            <tr key={row.label} className={row.style}>
+              <td>{row.label}</td>
+              {row.values.map((v, i) => (
+                <td key={i} className="num">{fmt(v)}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+const TBC = '[To be completed in Disclosures.]';
+
 export function StatementsStep(ctx: Ctx) {
-  const { eng, client, lines, statements: st } = ctx;
+  const { eng, client, ws, lines, adjustments, statements: st } = ctx;
+  const d = eng.disclosures;
+  const gaps = disclosureGaps(d, st, lines, adjustments, eng.yearEnd);
+  const ppe = ppeSchedule(lines, adjustments, st.cur, d.ppeDisposals);
+  const tax = taxReconciliation(st.cur, d);
+  const equityPrior = priorEquity(st);
+  const summary = financialSummary(st, eng.yearEnd, d.earlierYears);
+  const directors = directorList(d);
+  const parties = (d.relatedParties ?? []).filter((x) => x.name.trim());
   const year = eng.yearEnd.slice(0, 4);
   const prior = st.hasPrior ? String(Number(year) - 1) : null;
   const r = eng.report;
@@ -60,10 +99,117 @@ export function StatementsStep(ctx: Ctx) {
         {!st.hasPrior && (
           <div className="banner warn">No prior year has been imported, so there are no comparatives and no statement of cash flows.</div>
         )}
+        {gaps.length > 0 && (
+          <div className="banner warn">
+            <strong>{gaps.length} disclosure item(s) are still open.</strong> Complete them in the Disclosures step before these statements are issued.
+            <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+              {gaps.map((g) => (
+                <li key={g}>{g}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         <div className="banner warn">
-          This draft does not yet produce: the property, plant and equipment movement schedule, the tax reconciliation, related party and directors’ disclosures, comparatives for the statement of changes in equity, and years three to five of the financial summary. Add them before the statements are issued.
+          The wording of the directors’ pages, the accounting policies and the notes is starter text. Have it reviewed against the current standards and tailored to this company before issue.
         </div>
       </div>
+
+      <section className="sheet">
+        <SheetHead ctx={ctx} title="Report of the directors" />
+        <p>
+          The directors present their report and the financial statements of {client.name} for the year ended {longDate(eng.yearEnd)}.
+        </p>
+        <h3>Principal activity</h3>
+        <p>{r.principalActivity ? `The principal activity of the company is ${r.principalActivity}.` : '[Describe the principal activity in the Report step.]'}</p>
+        <h3>Results and dividends</h3>
+        <table className="fs">
+          <thead>
+            <tr>
+              <th></th>
+              <th className="num">{year}<br />₦</th>
+              {prior && <th className="num">{prior}<br />₦</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {(
+              [
+                ['Revenue', st.cur.v.revenue, st.prior?.v.revenue],
+                ['Profit before tax', st.cur.pbt, st.prior?.pbt],
+                ['Income tax expense', -st.cur.v.income_tax_expense, st.prior ? -st.prior.v.income_tax_expense : undefined],
+                ['Profit for the year', st.cur.profit, st.prior?.profit],
+                ['Dividends declared', st.cur.v.dividends, st.prior?.v.dividends],
+              ] as [string, number, number | undefined][]
+            ).map(([label, c, p]) => (
+              <tr key={label}>
+                <td>{label}</td>
+                <td className="num">{fmt(c)}</td>
+                {prior && <td className="num">{fmt(p)}</td>}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <h3>Directors</h3>
+        <p>
+          {directors.length > 0 ? `The directors who served during the year were: ${directors.join(', ')}.` : TBC}
+        </p>
+        <h3>Property, plant and equipment</h3>
+        <p>Movements in property, plant and equipment during the year are shown in the notes to the financial statements.</p>
+        <h3>Employees</h3>
+        <p>
+          {d.employees !== undefined ? `The average number of persons employed by the company during the year was ${d.employees}.` : TBC}
+        </p>
+        <h3>Events after the reporting date</h3>
+        <p>{d.subsequentEvents?.trim() || TBC}</p>
+        <h3>Auditors</h3>
+        <p>
+          {eng.type === 'audit'
+            ? `${ws.firm.name} have indicated their willingness to continue in office as auditors, in accordance with the Companies and Allied Matters Act 2020.`
+            : 'These financial statements have not been audited.'}
+        </p>
+        <div className="sign-grid">
+          <div className="sign-line">
+            By order of the board
+            <br />
+            {d.secretary?.trim() || '[Company secretary]'}
+            <br />
+            Company Secretary
+            <br />
+            {d.registeredOffice?.trim() || '[Registered office]'}
+          </div>
+        </div>
+      </section>
+
+      <section className="sheet">
+        <SheetHead ctx={ctx} title="Statement of directors’ responsibilities" sub={`in relation to the financial statements for the year ended ${longDate(eng.yearEnd)}`} />
+        <p>
+          The Companies and Allied Matters Act 2020 requires the directors to prepare financial statements for each financial year that give a true and fair view of the state of affairs of the company at the end of the year and of its profit or loss for the year.
+        </p>
+        <p>In preparing these financial statements, the directors are responsible for:</p>
+        <p>
+          (a) keeping proper accounting records that disclose, with reasonable accuracy, the financial position of the company and enable the financial statements to comply with the Companies and Allied Matters Act 2020 and the Financial Reporting Council of Nigeria Act 2011;
+        </p>
+        <p>(b) establishing adequate internal controls to safeguard the company’s assets and to prevent and detect fraud and other irregularities;</p>
+        <p>
+          (c) selecting suitable accounting policies, applying them consistently, and making judgments and estimates that are reasonable and prudent, in accordance with the IFRS for SMEs Accounting Standard; and
+        </p>
+        <p>(d) preparing the financial statements on the going concern basis unless it is inappropriate to presume that the company will continue in business.</p>
+        <p>
+          The directors accept responsibility for the financial statements, which have been prepared using appropriate accounting policies supported by reasonable and prudent judgments and estimates, in conformity with the IFRS for SMEs Accounting Standard and the requirements of the Companies and Allied Matters Act 2020.
+        </p>
+        <p>{d.goingConcern?.trim() || TBC}</p>
+        <div className="sign-grid">
+          <div className="sign-line">
+            {r.ceoName || '[Director]'}
+            <br />
+            {r.ceoFrc || '[FRC number]'}
+          </div>
+          <div className="sign-line">
+            {r.cfoName || '[Director]'}
+            <br />
+            {r.cfoFrc || '[FRC number]'}
+          </div>
+        </div>
+      </section>
 
       <section className="sheet">
         <SheetHead ctx={ctx} title="Statement of financial position" sub={`as at ${longDate(eng.yearEnd)}`} />
@@ -99,28 +245,13 @@ export function StatementsStep(ctx: Ctx) {
 
       <section className="sheet">
         <SheetHead ctx={ctx} title="Statement of changes in equity" />
-        <div className="scroll-x">
-          <table className="fs">
-            <thead>
-              <tr>
-                <th></th>
-                {st.equity.columns.map((c) => (
-                  <th key={c} className="num">{c}<br />₦</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {st.equity.rows.map((row) => (
-                <tr key={row.label} className={row.style}>
-                  <td>{row.label}</td>
-                  {row.values.map((v, i) => (
-                    <td key={i} className="num">{fmt(v)}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <EquityRows table={st.equity} />
+        {equityPrior && (
+          <>
+            <h3 style={{ marginTop: 28 }}>For the year ended {longDate(`${prior}${eng.yearEnd.slice(4)}`)}</h3>
+            <EquityRows table={equityPrior} />
+          </>
+        )}
       </section>
 
       {st.cashFlow && (
@@ -147,7 +278,59 @@ export function StatementsStep(ctx: Ctx) {
             <em>{p.title}.</em> {p.text}
           </p>
         ))}
-        {st.noteBreakdowns.map((n) => (
+        {st.noteBreakdowns.map((n) =>
+          n.code === 'ppe' && ppe ? (
+            <div key={n.code}>
+              <h3>
+                {n.number}. {n.title}
+              </h3>
+              <div className="scroll-x">
+                <table className="fs wide">
+                  {(
+                    [
+                      ['Cost', 'Additions', 'Disposals', ppe.cost, ppe.totalCost],
+                      ['Accumulated depreciation', 'Charge for the year', 'On disposals', ppe.depreciation, ppe.totalDepreciation],
+                    ] as [string, string, string, PpeRow[], PpeRow][]
+                  ).map(([title, inc, dis, rows, total]) => (
+                    <tbody key={title}>
+                      <tr className="heading">
+                        <td>{title}</td>
+                        <td className="num">At start of year</td>
+                        <td className="num">{inc}</td>
+                        <td className="num">{dis}</td>
+                        <td className="num">At end of year</td>
+                      </tr>
+                      {rows.map((x) => (
+                        <tr key={x.code}>
+                          <td>{x.name}</td>
+                          <td className="num">{fmt(x.opening)}</td>
+                          <td className="num">{fmt(x.increase)}</td>
+                          <td className="num">{fmt(-x.disposals)}</td>
+                          <td className="num">{fmt(x.closing)}</td>
+                        </tr>
+                      ))}
+                      <tr className="subtotal">
+                        <td></td>
+                        <td className="num">{fmt(total.opening)}</td>
+                        <td className="num">{fmt(total.increase)}</td>
+                        <td className="num">{fmt(-total.disposals)}</td>
+                        <td className="num">{fmt(total.closing)}</td>
+                      </tr>
+                    </tbody>
+                  ))}
+                  <tbody>
+                    <tr className="total">
+                      <td>Carrying amount</td>
+                      <td className="num">{fmt(ppe.carryingOpening)}</td>
+                      <td></td>
+                      <td></td>
+                      <td className="num">{fmt(ppe.carryingClosing)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
           <div key={n.code}>
             <h3>
               {n.number}. {n.title}
@@ -160,8 +343,81 @@ export function StatementsStep(ctx: Ctx) {
               curLabel={year}
               priorLabel={prior}
             />
+            {n.code === 'income_tax_expense' && tax && (
+              <>
+                <p style={{ marginTop: 14 }}>The tax charge for the year is reconciled to the accounting profit as follows:</p>
+                <StatementTable
+                  rows={[
+                    { label: 'Profit before tax', cur: tax.pbt, prior: null, style: 'line' },
+                    { label: `Tax at the applicable rate of ${tax.rate}%`, cur: tax.atRate, prior: null, style: 'line' },
+                    ...tax.items.map((i) => ({ label: i.label, cur: i.amount, prior: null, style: 'line' as const })),
+                    ...(tax.difference ? [{ label: 'Unreconciled difference', cur: tax.difference, prior: null, style: 'check' as const }] : []),
+                    { label: 'Income tax expense', cur: tax.charge, prior: null, style: 'total' },
+                  ]}
+                  curLabel={year}
+                />
+                {tax.effectiveRate !== null && <p style={{ marginTop: 10 }}>The effective tax rate for the year is {tax.effectiveRate}%.</p>}
+              </>
+            )}
           </div>
-        ))}
+          ),
+        )}
+        {(() => {
+          let n = 3 + st.noteBreakdowns.length;
+          return (
+            <>
+              <h3>{n++}. Employees and directors</h3>
+              <p>
+                {d.employees !== undefined
+                  ? `The average number of persons employed by the company during the year was ${d.employees}. Staff costs for the year, including pension contributions, were ₦${fmt(st.cur.staff, { zero: 'nil' })}${st.prior ? ` (${prior}: ₦${fmt(st.prior.staff, { zero: 'nil' })})` : ''}.`
+                  : TBC}
+              </p>
+              <p>
+                {d.directorsRemuneration !== undefined
+                  ? d.directorsRemuneration === 0
+                    ? 'No remuneration was paid to the directors in the year.'
+                    : `Remuneration paid to the directors in the year was ₦${fmt(d.directorsRemuneration)}.`
+                  : TBC}
+              </p>
+              <h3>{n++}. Related party transactions</h3>
+              {parties.length > 0 ? (
+                <div className="scroll-x">
+                  <table className="fs wide">
+                    <thead>
+                      <tr>
+                        <th>Related party</th>
+                        <th>Relationship</th>
+                        <th>Nature</th>
+                        <th className="num">Value in the year<br />₦</th>
+                        <th className="num">Balance at year end<br />₦</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {parties.map((x, i) => (
+                        <tr key={i}>
+                          <td>{x.name}</td>
+                          <td>{x.relationship}</td>
+                          <td>{x.nature}</td>
+                          <td className="num">{fmt(x.amount)}</td>
+                          <td className="num">{fmt(x.balance)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p>{d.noRelatedParties ? 'There were no related party transactions during the year other than the remuneration of the directors disclosed above.' : TBC}</p>
+              )}
+              <h3>{n++}. Contingent liabilities and capital commitments</h3>
+              <p>{d.contingencies?.trim() || TBC}</p>
+              <p>{d.commitments?.trim() || TBC}</p>
+              <h3>{n++}. Events after the reporting date</h3>
+              <p>{d.subsequentEvents?.trim() || TBC}</p>
+              <h3>{n++}. Going concern</h3>
+              <p>{d.goingConcern?.trim() || TBC}</p>
+            </>
+          );
+        })()}
       </section>
 
       <section className="sheet">
@@ -174,7 +430,33 @@ export function StatementsStep(ctx: Ctx) {
 
       <section className="sheet">
         <SheetHead ctx={ctx} title="Financial summary" sub="other national disclosure" />
-        <StatementTable rows={st.summary} curLabel={year} priorLabel={prior} />
+        <div className="scroll-x">
+          <table className="fs wide">
+            <thead>
+              <tr>
+                <th></th>
+                {summary.years.map((y, i) => (
+                  <th key={i} className="num">{y}<br />₦</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {summary.rows.map((row) => (
+                <tr key={row.label} className={row.style}>
+                  <td>{row.label}</td>
+                  {row.values.map((v, i) => (
+                    <td key={i} className="num">{row.style === 'heading' ? '' : fmt(v)}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {summary.years.length < 5 && (
+          <p className="small" style={{ marginTop: 14 }}>
+            Figures for earlier years are not presented because {summary.years.length < 2 ? 'no earlier year is' : 'they are not'} held in this file.
+          </p>
+        )}
       </section>
     </div>
   );
@@ -320,7 +602,7 @@ export function ReportStep(ctx: Ctx) {
   );
 }
 
-export function SignOffStep({ eng, ws, lines, adjustments, locked, reload, ledgerTest, bankGates }: Ctx) {
+export function SignOffStep({ eng, ws, lines, adjustments, statements, locked, reload, ledgerTest, bankGates }: Ctx) {
   const [confirm, setConfirm] = useState(false);
   const { busy, error, run } = useAction();
   const checks = signOffChecks({
@@ -337,6 +619,7 @@ export function SignOffStep({ eng, ws, lines, adjustments, locked, reload, ledge
     ledger: ledgerTest,
     testing: eng.testing,
     bank: bankGates,
+    disclosureGaps: disclosureGaps(eng.disclosures, statements, lines, adjustments, eng.yearEnd),
   });
   const ready = canSign(checks);
   const advisories = checks.filter((c) => !c.ok && !c.blocking);

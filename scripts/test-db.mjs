@@ -23,6 +23,7 @@ await db.exec(`
 await db.exec(readFileSync('supabase/migrations/0001_init.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0002_ledger_and_bank.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0003_team_and_evidence.sql', 'utf8'));
+await db.exec(readFileSync('supabase/migrations/0004_disclosures.sql', 'utf8'));
 
 const A = '00000000-0000-0000-0000-00000000000a'; // partner, firm 1
 const B = '00000000-0000-0000-0000-00000000000b'; // partner, firm 2
@@ -81,6 +82,10 @@ const [c2] = await as(B, `insert into clients (firm_id, name) values ($1, 'Other
 const [e3] = await as(B, `insert into engagements (firm_id, client_id, type, year_end) values ($1, $2, 'audit', '2025-12-31') returning *`, [f2.id, c2.id]);
 await as(B, `insert into tb_lines (engagement_id, code, name, balance, map_code) values ($1,'1','Bank',100,'cash'), ($1,'2','Capital',-100,'share_capital')`, [e3.id]);
 await denied('a partner with no FRC number cannot sign', () => as(B, `select sign_engagement($1)`, [e3.id]), /FRC registration number is missing/);
+
+await as(C, `update engagements set disclosures = '{"directors":"A. Balogun"}' where id = $1`, [e1.id]);
+ok('disclosure changes are in the audit trail', (await as(A, `select detail from audit_log where engagement_id = $1 and table_name = 'engagements' order by id desc limit 1`, [e1.id]))[0].detail.disclosures.directors === 'A. Balogun');
+ok('firm 2 cannot change firm 1 disclosures', (await as(B, `update engagements set disclosures = '{}' where id = $1 returning id`, [e1.id])).length === 0);
 
 // Team invitations.
 await denied('staff cannot invite', () => as(C, `insert into firm_invites (firm_id, email, role) values ($1,'x@y.ng','staff')`, [f1.id]), /row-level security/);
@@ -150,6 +155,7 @@ await denied('locked: evidence cannot be removed', () => as(A, `delete from evid
 await denied('locked: files cannot be uploaded', () => as(A, `insert into storage.objects (bucket_id, name) values ('evidence', $1)`, [path(f1.id, e1.id, 'late.pdf')]), /row-level security/);
 ok('locked: files cannot be deleted from storage', (await as(A, `delete from storage.objects returning id`)).length === 0);
 ok('locked: files can still be read', (await as(A, `select * from storage.objects`)).length === 1);
+await denied('locked: disclosures cannot be changed', () => as(A, `update engagements set disclosures = '{}' where id = $1`, [e1.id]), /signed and locked/);
 await denied('locked: engagement cannot be deleted', () => as(A, `delete from engagements where id = $1`, [e1.id]), /signed and locked/);
 await denied('locked: cannot be signed twice', () => as(A, `select sign_engagement($1)`, [e1.id]), /signed and locked|already signed/);
 

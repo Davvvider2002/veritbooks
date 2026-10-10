@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { balanceAt, parseBankStatement, reconcile } from './bank';
 import { analyticsChecks } from './checks';
 import { parseDate } from './dates';
+import { disclosureGaps, financialSummary, ppeSchedule, priorEquity, STANDARD_NOTES, taxReconciliation } from './disclosures';
+import { buildStatements } from './statements';
 import { parseLedger, testLedger } from './ledger';
 import { suggestMapping } from './mapping';
 import { parseTrialBalance } from './parse';
@@ -180,5 +182,68 @@ describe('phase 2 sign-off gates', () => {
     // Posting a journal for the statement-only items clears the gate without a written conclusion.
     expect(blocked(analyticsChecks({ type: 'audit', ledger: null, bank: [{ ...acct, unbooked: 0 }] }))).toEqual([]);
     expect(blocked(analyticsChecks({ type: 'audit', ledger: null, bank: [{ ...acct, bankOnly: 0, matched: false }] }))).toEqual(['bank_b1']);
+  });
+});
+
+describe('disclosures', () => {
+  const lines = tb();
+  const st = buildStatements(lines, []);
+  it('builds the fixed asset schedule from the two trial balances', () => {
+    const s = ppeSchedule(lines, [], st.cur)!;
+    expect(s.cost.map((r) => [r.name, r.opening / 100, r.increase / 100, r.closing / 100])).toEqual([
+      ['Land and buildings', 45_000_000, 0, 45_000_000],
+      ['Motor vehicles', 12_000_000, 6_500_000, 18_500_000],
+      ['Office equipment', 5_100_000, 1_100_000, 6_200_000],
+    ]);
+    expect(s.depreciation[0]).toMatchObject({ opening: N(9_600_000), increase: N(5_300_000), closing: N(14_900_000) });
+    expect(s.carryingClosing).toBe(st.cur.v.ppe);
+    expect(s.carryingOpening).toBe(st.prior!.v.ppe);
+    expect(s.chargeDifference).toBe(0);
+  });
+  it('grosses up additions and the charge for disposals', () => {
+    const s = ppeSchedule(lines, [], st.cur, { '1010': N(2_000_000), '1090': N(1_500_000) })!;
+    expect(s.cost.find((r) => r.code === '1010')).toMatchObject({ increase: N(8_500_000), disposals: N(2_000_000), closing: N(18_500_000) });
+    expect(s.totalDepreciation).toMatchObject({ increase: N(6_800_000), disposals: N(1_500_000) });
+    expect(s.chargeDifference).toBe(N(1_500_000)); // the charge no longer agrees to the tagged depreciation
+    expect(s.carryingClosing).toBe(st.cur.v.ppe);
+  });
+  it('has no schedule without a prior year', () => {
+    expect(ppeSchedule(lines.map((l) => ({ ...l, prior: null })), [], st.cur)).toBeNull();
+  });
+  it('reconciles the tax charge at the rate entered', () => {
+    expect(taxReconciliation(st.cur, {})).toBeNull();
+    const t = taxReconciliation(st.cur, { taxRate: 30 })!;
+    expect(t.atRate).toBe(N(9_036_000)); // 30% of 30,120,000
+    expect(t.difference).toBe(N(6_900_000 - 9_036_000));
+    const done = taxReconciliation(st.cur, { taxRate: 30, taxItems: [{ label: 'Capital allowances in excess of depreciation', amount: -N(2_136_000) }] })!;
+    expect(done.difference).toBe(0);
+    expect(done.effectiveRate).toBe(22.9);
+  });
+  it('rolls prior year equity forward to the opening balance of this year', () => {
+    const e = priorEquity(st)!;
+    expect(e.rows[0].values[3]).toBe(N(28_500_000));
+    expect(e.rows.at(-1)!.values).toEqual(st.equity.rows[0].values);
+  });
+  it('extends the financial summary with earlier years as entered', () => {
+    const two = financialSummary(st, YE);
+    expect(two.years).toEqual(['2025', '2024']);
+    expect(two.rows.find((r) => r.label === 'Net assets')!.values).toEqual([st.cur.totalEquity, st.prior!.totalEquity]);
+    expect(two.rows.find((r) => r.label === 'Total equity')!.values).toEqual([st.cur.totalEquity, st.prior!.totalEquity]);
+    const e = { year: '2023', revenue: N(180), pbt: N(20), tax: N(6), nca: N(50), ca: N(40), liabilities: N(52), capital: N(10), reserves: N(28) };
+    const three = financialSummary(st, YE, [e]);
+    expect(three.years).toEqual(['2025', '2024', '2023']);
+    expect(three.rows.find((r) => r.label === 'Profit for the year')!.values[2]).toBe(N(14));
+  });
+  it('lists what is missing, and nothing once the disclosures are complete', () => {
+    expect(disclosureGaps({}, st, lines, [], YE).length).toBe(11);
+    const year = (y: string) => ({ year: y, revenue: 1, pbt: 1, tax: 0, nca: 1, ca: 1, liabilities: 1, capital: 1, reserves: 0 });
+    const complete = {
+      directors: 'Adunni Balogun\nEmeka Nwosu', registeredOffice: '14 Allen Avenue, Ikeja', taxRate: 30,
+      taxItems: [{ label: 'Capital allowances', amount: -N(2_136_000) }], noRelatedParties: true, employees: 42,
+      directorsRemuneration: N(9_000_000), ...STANDARD_NOTES, earlierYears: [year('2023'), year('2022'), year('2021')],
+    };
+    expect(disclosureGaps(complete, st, lines, [], YE)).toEqual([]);
+    expect(disclosureGaps({ ...complete, ppeDisposals: { '1090': N(100) } }, st, lines, [], YE)).toHaveLength(1);
+    expect(disclosureGaps({ ...complete, taxItems: [] }, st, lines, [], YE)[0]).toMatch(/unexplained difference/);
   });
 });

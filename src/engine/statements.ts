@@ -138,7 +138,6 @@ export interface Statements {
   /** Closing cash less opening cash less the net movement. Nil when the cash flow reconciles. */
   cashFlowDifference: Kobo | null;
   valueAdded: Row[];
-  summary: Row[];
   noteBreakdowns: NoteBreakdown[];
 }
 
@@ -384,23 +383,6 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[]): Sta
     vrow('Value added', 'added', 'total'),
   ];
 
-  const summary: Row[] = [
-    head('Results'),
-    tot('Revenue', (x) => x.v.revenue, 'line'),
-    tot('Profit before tax', (x) => x.pbt, 'line'),
-    tot('Income tax expense', (x) => -x.v.income_tax_expense, 'line'),
-    tot('Profit for the year', (x) => x.profit, 'line'),
-    head('Financial position'),
-    tot('Non-current assets', (x) => x.totalNca, 'line'),
-    tot('Current assets', (x) => x.totalCa, 'line'),
-    tot('Total liabilities', (x) => -x.totalLiabilities, 'line'),
-    tot('Net assets', (x) => x.totalAssets - x.totalLiabilities, 'total'),
-    head('Funded by'),
-    tot('Share capital and premium', (x) => x.v.share_capital + x.v.share_premium, 'line'),
-    tot('Reserves', (x) => x.v.other_reserves + x.closingRetained, 'line'),
-    tot('Total equity', (x) => x.totalEquity, 'total'),
-  ];
-
   const curBal = adjustedBalances(lines, adjustments, 'current');
   const noteBreakdowns: NoteBreakdown[] = [];
   for (const [code, number] of notes) {
@@ -435,7 +417,6 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[]): Sta
     cashFlow,
     cashFlowDifference,
     valueAdded,
-    summary,
     noteBreakdowns,
   };
 }

@@ -57,3 +57,44 @@ export interface Testing {
   /** Conclusion on each bank reconciliation, keyed by bank account id. */
   bank?: Record<string, { note: string; by: string; at: string }>;
 }
+
+export interface RelatedParty {
+  name: string;
+  relationship: string;
+  nature: string;
+  amount: Kobo;
+  balance: Kobo;
+}
+
+export interface EarlierYear {
+  year: string;
+  revenue: Kobo;
+  pbt: Kobo;
+  tax: Kobo;
+  nca: Kobo;
+  ca: Kobo;
+  liabilities: Kobo;
+  capital: Kobo;
+  reserves: Kobo;
+}
+
+/** Information the trial balance cannot supply, entered by the preparer for the notes and directors' pages. */
+export interface Disclosures {
+  directors?: string; // one name per line
+  secretary?: string;
+  registeredOffice?: string;
+  /** Cost of assets disposed of (cost accounts) or depreciation eliminated on disposal (depreciation accounts), by account code. */
+  ppeDisposals?: Record<string, Kobo>;
+  taxRate?: number; // percent
+  taxItems?: { label: string; amount: Kobo }[];
+  relatedParties?: RelatedParty[];
+  /** Ticked when the preparer confirms there is nothing to disclose beyond directors' remuneration. */
+  noRelatedParties?: boolean;
+  directorsRemuneration?: Kobo;
+  employees?: number;
+  goingConcern?: string;
+  subsequentEvents?: string;
+  contingencies?: string;
+  commitments?: string;
+  earlierYears?: EarlierYear[];
+}

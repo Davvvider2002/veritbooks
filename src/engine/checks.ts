@@ -136,6 +136,8 @@ export interface GateInput {
   firmFrc: string;
   signerRole: string;
   signerFrc: string;
+  /** What is still missing from the disclosures. Leave undefined to skip the check. */
+  disclosureGaps?: string[];
   /** Result of journal testing, or null when no general ledger has been imported. */
   ledger?: LedgerTest | null;
   testing?: Testing;
@@ -290,6 +292,15 @@ export function signOffChecks(g: GateInput): Check[] {
     }
   }
 
+  if (g.disclosureGaps) {
+    checks.push({
+      id: 'disclosures',
+      label: 'Disclosures are complete',
+      ok: g.disclosureGaps.length === 0,
+      detail: g.disclosureGaps.length ? `${g.disclosureGaps.length} item(s) open: ${g.disclosureGaps[0]}` : undefined,
+      blocking: true,
+    });
+  }
   checks.push(...analyticsChecks(g));
 
   const open = g.programmeItemIds.filter((id) => !g.programme[id]?.done);

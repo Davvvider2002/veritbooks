@@ -6,6 +6,7 @@ import { adjustedBalances } from './engine/statements';
 import type { BankAccount, Evidence, StoredBankLine } from './data/repo';
 import { EvidenceStep } from './steps/evidence';
 import { BankStep, LedgerStep } from './steps/analytics';
+import { DisclosuresStep } from './steps/disclosures';
 import { Link, useParams } from 'react-router-dom';
 import { PROGRAMMES } from './content/programmes';
 import { repo } from './data';
@@ -87,6 +88,7 @@ const STEPS = [
   { slug: 'bank', label: 'Bank', el: BankStep },
   { slug: 'journals', label: 'Journals', el: JournalsStep },
   { slug: 'evidence', label: 'Evidence', el: EvidenceStep },
+  { slug: 'disclosures', label: 'Disclosures', el: DisclosuresStep },
   { slug: 'statements', label: 'Financial statements', el: StatementsStep },
   { slug: 'report', label: 'Report', el: ReportStep },
   { slug: 'sign-off', label: 'Sign-off', el: SignOffStep },
