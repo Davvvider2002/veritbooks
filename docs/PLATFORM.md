@@ -240,6 +240,20 @@ No database update is needed. Explanations are kept with the engagement's testin
 - Sign-off: an advisory on an audit, and blocking on a review, because a review rests on enquiry and analytical procedures.
 - Days ratios use year-end balances and are indicators only.
 
+### Report paragraphs and modified review conclusions
+
+No database update is needed.
+
+- An audit report always carries an Other information section, covering the directors' pages, the statement of value added and the financial summary. It says there is nothing to report unless the partner describes a misstatement.
+- The partner can add a material uncertainty related to going concern, an emphasis of matter and an other matter paragraph. The partner writes each one. The software supplies the heading, the order and the closing sentence.
+- None is added to a disclaimer of opinion. A going concern section is left out of an adverse opinion.
+- A review conclusion can be qualified, adverse or a disclaimer, with a basis paragraph that sign-off requires. A review report can carry an emphasis of matter.
+- Not produced: key audit matters.
+
+### Technical review pack
+
+`docs/REVIEW-PACK.md` holds every programme, checklist item, policy, report variant and method for a qualified technical author to review and sign, section by section. It is generated from the product's own content by `src/content/reviewPack.ts`, and a test fails if the two differ. Regenerate with `UPDATE_PACK=1 npx vitest run src/content/reviewPack.test.ts`.
+
 ## Rules the software enforces
 
 1. Numbers are computed, never generated. Every figure in a statement is a sum of mapped account balances. No language model produces or alters a figure.

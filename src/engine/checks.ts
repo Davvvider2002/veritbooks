@@ -405,6 +405,14 @@ export function signOffChecks(g: GateInput): Check[] {
       blocking: true,
     });
   }
+  if (g.type === 'review' && g.report.opinion && g.report.opinion !== 'unmodified') {
+    checks.push({
+      id: 'review_basis',
+      label: 'The modified review conclusion has a basis paragraph',
+      ok: !!g.report.basis?.trim(),
+      blocking: true,
+    });
+  }
   checks.push({
     id: 'directors',
     label: 'Chief executive and chief financial officer are named with FRC numbers',

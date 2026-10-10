@@ -280,3 +280,58 @@ describe('group report wording', () => {
     expect(t).toContain('We have audited the financial statements of Zuma Holdings Limited');
   });
 });
+
+describe('paragraphs the partner adds to a report', () => {
+  const input = { clientName: 'Adunni Foods Limited', yearEnd: '2025-12-31', hasCashFlow: true };
+  const headings = (r: ReturnType<typeof draftReport>) => r.sections.map((s) => s.heading);
+  const added = { goingConcern: 'We draw attention to Note 4.', emphasis: 'We draw attention to Note 9.', otherMatter: 'The prior year was audited by another firm.' };
+
+  it('always carries an Other information section in an audit report, with nothing to report by default', () => {
+    const r = draftReport({ ...input, type: 'audit', settings: { opinion: 'unmodified' } });
+    expect(headings(r)).toEqual(['Opinion', 'Basis for opinion', 'Other information', 'Responsibilities of the directors for the financial statements', 'Auditor’s responsibilities for the audit of the financial statements', 'Report on other legal and regulatory requirements']);
+    const other = r.sections[2].paragraphs;
+    expect(other.at(-1)).toBe('We have nothing to report in this regard.');
+    expect(other.join(' ')).toContain('statement of value added');
+    const found = draftReport({ ...input, type: 'audit', settings: { opinion: 'unmodified', otherInformation: 'The report of the directors states revenue of ₦2bn.' } });
+    expect(found.sections[2].paragraphs.at(-1)).toBe('The report of the directors states revenue of ₦2bn.');
+    expect(found.sections[2].paragraphs.join(' ')).not.toContain('nothing to report');
+  });
+
+  it('places the partner’s paragraphs in order after the basis, each closed as the standards require', () => {
+    const r = draftReport({ ...input, type: 'audit', settings: { opinion: 'qualified', basis: 'x', ...added } });
+    expect(headings(r).slice(0, 6)).toEqual(['Qualified opinion', 'Basis for qualified opinion', 'Material uncertainty related to going concern', 'Emphasis of matter', 'Other matter', 'Other information']);
+    expect(r.sections[2].paragraphs).toEqual(['We draw attention to Note 4.', 'Our opinion is not modified in respect of this matter.']);
+    expect(r.sections[3].paragraphs[1]).toBe('Our opinion is not modified in respect of this matter.');
+    expect(r.sections[4].paragraphs).toEqual(['The prior year was audited by another firm.']);
+  });
+
+  it('adds none of them to a disclaimer, and no going concern section to an adverse opinion', () => {
+    const d = draftReport({ ...input, type: 'audit', settings: { opinion: 'disclaimer', basis: 'x', ...added } });
+    expect(headings(d).some((h) => /going concern|Emphasis|Other matter|Other information/.test(h))).toBe(false);
+    const a = draftReport({ ...input, type: 'audit', settings: { opinion: 'adverse', basis: 'x', ...added } });
+    expect(headings(a)).not.toContain('Material uncertainty related to going concern');
+    expect(headings(a)).toContain('Emphasis of matter');
+  });
+
+  it('modifies a review conclusion, and blocks sign-off without a basis', () => {
+    const u = draftReport({ ...input, type: 'review', settings: {} });
+    expect(headings(u).at(-1)).toBe('Conclusion');
+    const q = draftReport({ ...input, type: 'review', settings: { opinion: 'qualified', basis: 'Inventory was not counted.', emphasis: 'We draw attention to Note 9.' } });
+    expect(headings(q).slice(-3)).toEqual(['Basis for qualified conclusion', 'Qualified conclusion', 'Emphasis of matter']);
+    expect(q.sections.at(-2)!.paragraphs[0]).toContain('except for the effects of the matter described in the Basis for qualified conclusion paragraph, nothing has come to our attention');
+    expect(q.sections.at(-1)!.paragraphs[1]).toBe('Our conclusion is not modified in respect of this matter.');
+    expect(draftReport({ ...input, type: 'review', settings: { opinion: 'adverse', basis: 'x' } }).sections.at(-1)!.paragraphs[0]).toContain('do not present fairly');
+    expect(draftReport({ ...input, type: 'review', settings: { opinion: 'disclaimer', basis: 'x' } }).sections.at(-1)!.paragraphs[0]).toContain('we do not express a conclusion');
+    const gate = (report: object) =>
+      signOffChecks({ type: 'review', lines: [], adjustments: [], planning: {}, programme: {}, programmeItemIds: [], report, firmFrc: 'F', signerRole: 'partner', signerFrc: 'F' }).find((c) => c.id === 'review_basis');
+    expect(gate({})).toBeUndefined();
+    expect(gate({ opinion: 'qualified' })).toMatchObject({ ok: false, blocking: true });
+    expect(gate({ opinion: 'qualified', basis: 'x' })).toMatchObject({ ok: true });
+  });
+
+  it('rewords the added paragraphs for a group', () => {
+    const r = draftReport({ ...input, type: 'audit', group: true, groupCashFlow: true, settings: { opinion: 'unmodified' } });
+    const other = r.sections.find((s) => s.heading === 'Other information')!.paragraphs.join(' ');
+    expect(other).toContain('Our opinion on the consolidated and separate financial statements does not cover the other information');
+  });
+});

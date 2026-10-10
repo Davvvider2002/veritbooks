@@ -18,7 +18,7 @@ The standards assumed throughout: the IFRS for SMEs Accounting Standard, second 
 1. **Edition of the Standard.** The third edition of the IFRS for SMEs was issued in 2025. Has the FRC of Nigeria adopted it, and from which periods? The checklist section numbers, the revenue policy and the goodwill treatment follow the second edition.
 2. **Scope.** The software refuses public interest entities by asking the user to confirm. Is a confirmation enough, and should any other class of entity be excluded, such as regulated financial institutions and not-for-profit entities?
 3. **Audit methodology.** The audit programme is a short generic list. Should the product carry a full ISA methodology, the ISA for Less Complex Entities, or a licensed third-party methodology?
-4. **Report wording.** Section 8 prints every report variant. Does each meet ISA 700, 705 and 706, ISRE 2400 and ISRS 4410, and the auditor’s report requirements of CAMA 2020? Are key audit matters, other information and the FRC registration disclosures handled correctly for these entities?
+4. **Report wording.** Section 8 prints every report variant. Does each meet ISA 700, 705 and 706, ISRE 2400 and ISRS 4410, and the auditor’s report requirements of CAMA 2020? Is the Other information section right for what these entities publish, are key audit matters rightly left out for entities that are not listed, and are the FRC registration disclosures handled correctly?
 5. **Statement of value added and five-year summary.** These are produced because Nigerian practice expects them. Confirm the legal basis and the required layout.
 6. **Materiality.** Defaults are performance materiality at 75% of overall and clearly trivial at 5%. The benchmark and percentage are chosen by the auditor. Are the defaults acceptable, and should the software suggest percentage ranges by benchmark?
 7. **Journal testing.** A journal with three or more risk indicators must be concluded on. Is the indicator list in section 10 adequate, and is three the right threshold?
@@ -307,6 +307,16 @@ We conducted our audit in accordance with International Standards on Auditing. O
 
 We believe that the audit evidence we have obtained is sufficient and appropriate to provide a basis for our opinion.
 
+*Other information*
+
+The directors are responsible for the other information. The other information comprises the report of the directors, the statement of directors’ responsibilities, the statement of value added and the financial summary, which we obtained before the date of this report. It does not include the financial statements and our auditor’s report on them.
+
+Our opinion on the financial statements does not cover the other information and we do not express any form of assurance conclusion on it.
+
+In connection with our audit of the financial statements, our responsibility is to read the other information and, in doing so, consider whether it is materially inconsistent with the financial statements or our knowledge obtained in the audit, or otherwise appears to be materially misstated. If, based on the work we have performed, we conclude that there is a material misstatement of the other information, we are required to report that fact.
+
+We have nothing to report in this regard.
+
 *Responsibilities of the directors for the financial statements*
 
 The directors are responsible for the preparation of financial statements that give a true and fair view in accordance with the IFRS for SMEs Accounting Standard, the Companies and Allied Matters Act 2020 and the Financial Reporting Council of Nigeria Act 2011, and for such internal control as they determine is necessary to enable the preparation of financial statements that are free from material misstatement, whether due to fraud or error.
@@ -397,6 +407,16 @@ We conducted our audit in accordance with International Standards on Auditing. O
 
 We believe that the audit evidence we have obtained is sufficient and appropriate to provide a basis for our opinion.
 
+*Other information*
+
+The directors are responsible for the other information. The other information comprises the report of the directors, the statement of directors’ responsibilities, the statement of value added and the financial summary, which we obtained before the date of this report. It does not include the consolidated and separate financial statements and our auditor’s report on them.
+
+Our opinion on the consolidated and separate financial statements does not cover the other information and we do not express any form of assurance conclusion on it.
+
+In connection with our audit of the consolidated and separate financial statements, our responsibility is to read the other information and, in doing so, consider whether it is materially inconsistent with the consolidated and separate financial statements or our knowledge obtained in the audit, or otherwise appears to be materially misstated. If, based on the work we have performed, we conclude that there is a material misstatement of the other information, we are required to report that fact.
+
+We have nothing to report in this regard.
+
 *Responsibilities of the directors for the consolidated and separate financial statements*
 
 The directors are responsible for the preparation of consolidated and separate financial statements that give a true and fair view in accordance with the IFRS for SMEs Accounting Standard, the Companies and Allied Matters Act 2020 and the Financial Reporting Council of Nigeria Act 2011, and for such internal control as they determine is necessary to enable the preparation of consolidated and separate financial statements that are free from material misstatement, whether due to fraud or error.
@@ -423,6 +443,72 @@ In accordance with the requirements of the Companies and Allied Matters Act 2020
 
 (iii) the Group’s and the Company’s statement of financial position and statement of profit or loss are in agreement with the books of account.
 
+### Audit, unmodified opinion, with every paragraph the partner can add
+**Independent auditor’s report**
+To the members of Example Limited
+
+*Opinion*
+
+We have audited the financial statements of Example Limited, which comprise the statement of financial position as at 31 December 2025, the statement of profit or loss, the statement of changes in equity and the statement of cash flows for the year then ended, and the notes to the financial statements, including a summary of significant accounting policies.
+
+In our opinion, the accompanying financial statements give a true and fair view of the financial position of Example Limited as at 31 December 2025, and its financial performance and cash flows for the year then ended in accordance with the IFRS for SMEs Accounting Standard, the Companies and Allied Matters Act 2020 and the Financial Reporting Council of Nigeria Act 2011.
+
+*Basis for opinion*
+
+We conducted our audit in accordance with International Standards on Auditing. Our responsibilities under those standards are described in the Auditor’s responsibilities section of our report. We are independent of the company in accordance with the ethical requirements relevant to our audit of the financial statements in Nigeria, and we have fulfilled our other ethical responsibilities in accordance with those requirements.
+
+We believe that the audit evidence we have obtained is sufficient and appropriate to provide a basis for our opinion.
+
+*Material uncertainty related to going concern*
+
+[The partner’s paragraph on the material uncertainty.]
+
+Our opinion is not modified in respect of this matter.
+
+*Emphasis of matter*
+
+[The partner’s emphasis of matter.]
+
+Our opinion is not modified in respect of this matter.
+
+*Other matter*
+
+[The partner’s other matter.]
+
+*Other information*
+
+The directors are responsible for the other information. The other information comprises the report of the directors, the statement of directors’ responsibilities, the statement of value added and the financial summary, which we obtained before the date of this report. It does not include the financial statements and our auditor’s report on them.
+
+Our opinion on the financial statements does not cover the other information and we do not express any form of assurance conclusion on it.
+
+In connection with our audit of the financial statements, our responsibility is to read the other information and, in doing so, consider whether it is materially inconsistent with the financial statements or our knowledge obtained in the audit, or otherwise appears to be materially misstated. If, based on the work we have performed, we conclude that there is a material misstatement of the other information, we are required to report that fact.
+
+[The partner’s description of a material misstatement of the other information.]
+
+*Responsibilities of the directors for the financial statements*
+
+The directors are responsible for the preparation of financial statements that give a true and fair view in accordance with the IFRS for SMEs Accounting Standard, the Companies and Allied Matters Act 2020 and the Financial Reporting Council of Nigeria Act 2011, and for such internal control as they determine is necessary to enable the preparation of financial statements that are free from material misstatement, whether due to fraud or error.
+
+In preparing the financial statements, the directors are responsible for assessing the company’s ability to continue as a going concern, disclosing matters related to going concern where applicable, and using the going concern basis of accounting unless they intend to liquidate the company or to cease operations, or have no realistic alternative but to do so.
+
+*Auditor’s responsibilities for the audit of the financial statements*
+
+Our objectives are to obtain reasonable assurance about whether the financial statements as a whole are free from material misstatement, whether due to fraud or error, and to issue an auditor’s report that includes our opinion. Reasonable assurance is a high level of assurance, but it is not a guarantee that an audit conducted in accordance with International Standards on Auditing will always detect a material misstatement when it exists.
+
+Misstatements can arise from fraud or error. They are considered material if, individually or in aggregate, they could reasonably be expected to influence the economic decisions of users taken on the basis of these financial statements.
+
+As part of an audit we exercise professional judgment and maintain professional scepticism throughout. We identify and assess the risks of material misstatement, design and perform procedures responsive to those risks, obtain an understanding of internal control relevant to the audit, evaluate the accounting policies used and the estimates made by the directors, conclude on the appropriateness of the going concern basis, and evaluate the overall presentation of the financial statements. We communicate with the directors regarding the planned scope and timing of the audit and significant audit findings.
+
+*Report on other legal and regulatory requirements*
+
+In accordance with the requirements of the Companies and Allied Matters Act 2020, we confirm that:
+
+(i) we have obtained all the information and explanations which, to the best of our knowledge and belief, were necessary for the purpose of our audit;
+
+(ii) in our opinion, proper books of account have been kept by the company, so far as appears from our examination of those books; and
+
+(iii) the company’s statement of financial position and statement of profit or loss are in agreement with the books of account.
+
 ### Review
 **Independent practitioner’s review report**
 To the members of Example Limited
@@ -443,6 +529,36 @@ A review is a limited assurance engagement. It consists mainly of enquiries of m
 
 Based on our review, nothing has come to our attention that causes us to believe that these financial statements do not present fairly, in all material respects, the financial position of Example Limited as at 31 December 2025, and its financial performance and cash flows for the year then ended, in accordance with the IFRS for SMEs Accounting Standard, the Companies and Allied Matters Act 2020 and the Financial Reporting Council of Nigeria Act 2011.
 
+### Review, qualified conclusion: the sections that differ
+
+*Basis for qualified conclusion*
+
+[The practitioner’s description of the matter.]
+
+*Qualified conclusion*
+
+Based on our review, except for the effects of the matter described in the Basis for qualified conclusion paragraph, nothing has come to our attention that causes us to believe that these financial statements do not present fairly, in all material respects, the financial position of Example Limited as at 31 December 2025, and its financial performance and cash flows for the year then ended, in accordance with the IFRS for SMEs Accounting Standard, the Companies and Allied Matters Act 2020 and the Financial Reporting Council of Nigeria Act 2011.
+
+### Review, adverse conclusion: the sections that differ
+
+*Basis for adverse conclusion*
+
+[The practitioner’s description of the matter.]
+
+*Adverse conclusion*
+
+Based on our review, due to the significance of the matter described in the Basis for adverse conclusion paragraph, these financial statements do not present fairly, in all material respects, the financial position of Example Limited as at 31 December 2025, and its financial performance and cash flows for the year then ended, in accordance with the IFRS for SMEs Accounting Standard, the Companies and Allied Matters Act 2020 and the Financial Reporting Council of Nigeria Act 2011.
+
+### Review, disclaimer of conclusion: the sections that differ
+
+*Basis for disclaimer of conclusion*
+
+[The practitioner’s description of the matter.]
+
+*Disclaimer of conclusion*
+
+Due to the significance of the matter described in the Basis for disclaimer of conclusion paragraph, we were unable to obtain sufficient appropriate evidence to form a conclusion on the accompanying financial statements. Accordingly, we do not express a conclusion on these financial statements.
+
 ### Compilation
 **Practitioner’s compilation report**
 To the directors of Example Limited
@@ -455,7 +571,9 @@ These financial statements and the accuracy and completeness of the information 
 
 A compilation is not an assurance engagement. We are not required to verify the accuracy or completeness of the information provided to us. Accordingly, we do not express an audit opinion or a review conclusion on whether these financial statements are prepared in accordance with the IFRS for SMEs Accounting Standard, the Companies and Allied Matters Act 2020 and the Financial Reporting Council of Nigeria Act 2011.
 
-Not produced by the software: emphasis of matter and other matter paragraphs, a material uncertainty related to going concern section, key audit matters, an other information section, and modified review conclusions. The partner must add these by hand where they apply. Decide whether that is acceptable for release.
+The partner writes the going concern, emphasis of matter and other matter paragraphs. The software supplies the heading and the closing sentence. The Other information section is always included in an audit report, except in a disclaimer of opinion. A material uncertainty section is left out of an adverse opinion.
+
+Not produced by the software: key audit matters, and a qualified or adverse opinion on the grounds that a going concern uncertainty is not adequately disclosed, which the partner words in the basis paragraph. Decide whether that is acceptable for release.
 
 Reviewer: ______________________  Date: ____________  Accepted / Accepted with changes / Rejected
 

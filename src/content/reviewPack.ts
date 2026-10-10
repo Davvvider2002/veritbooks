@@ -42,7 +42,7 @@ export function buildReviewPack(): string {
     '1. **Edition of the Standard.** The third edition of the IFRS for SMEs was issued in 2025. Has the FRC of Nigeria adopted it, and from which periods? The checklist section numbers, the revenue policy and the goodwill treatment follow the second edition.',
     '2. **Scope.** The software refuses public interest entities by asking the user to confirm. Is a confirmation enough, and should any other class of entity be excluded, such as regulated financial institutions and not-for-profit entities?',
     '3. **Audit methodology.** The audit programme is a short generic list. Should the product carry a full ISA methodology, the ISA for Less Complex Entities, or a licensed third-party methodology?',
-    '4. **Report wording.** Section 8 prints every report variant. Does each meet ISA 700, 705 and 706, ISRE 2400 and ISRS 4410, and the auditor’s report requirements of CAMA 2020? Are key audit matters, other information and the FRC registration disclosures handled correctly for these entities?',
+    '4. **Report wording.** Section 8 prints every report variant. Does each meet ISA 700, 705 and 706, ISRE 2400 and ISRS 4410, and the auditor’s report requirements of CAMA 2020? Is the Other information section right for what these entities publish, are key audit matters rightly left out for entities that are not listed, and are the FRC registration disclosures handled correctly?',
     '5. **Statement of value added and five-year summary.** These are produced because Nigerian practice expects them. Confirm the legal basis and the required layout.',
     '6. **Materiality.** Defaults are performance materiality at 75% of overall and clearly trivial at 5%. The benchmark and percentage are chosen by the auditor. Are the defaults acceptable, and should the software suggest percentage ranges by benchmark?',
     '7. **Journal testing.** A journal with three or more risk indicators must be concluded on. Is the indicator list in section 10 adequate, and is three the right threshold?',
@@ -155,9 +155,29 @@ export function buildReviewPack(): string {
     }
   }
   print('Audit of a group, unmodified opinion', { ...base, type: 'audit', settings: { opinion: 'unmodified' }, group: true, groupCashFlow: true });
+  print('Audit, unmodified opinion, with every paragraph the partner can add', {
+    ...base,
+    type: 'audit',
+    settings: {
+      opinion: 'unmodified',
+      goingConcern: '[The partner’s paragraph on the material uncertainty.]',
+      emphasis: '[The partner’s emphasis of matter.]',
+      otherMatter: '[The partner’s other matter.]',
+      otherInformation: '[The partner’s description of a material misstatement of the other information.]',
+    },
+  });
   print('Review', { ...base, type: 'review', settings: {} });
+  for (const opinion of ['qualified', 'adverse', 'disclaimer'] as const) {
+    const r = draftReport({ ...base, type: 'review', settings: { opinion, basis: '[The practitioner’s description of the matter.]' } });
+    p(`### Review, ${opinion === 'disclaimer' ? 'disclaimer of conclusion' : `${opinion} conclusion`}: the sections that differ`);
+    for (const s of r.sections.slice(-2)) {
+      p(`*${s.heading}*`);
+      for (const para of s.paragraphs) p(para);
+    }
+  }
   print('Compilation', { ...base, type: 'compilation', settings: {} });
-  p('Not produced by the software: emphasis of matter and other matter paragraphs, a material uncertainty related to going concern section, key audit matters, an other information section, and modified review conclusions. The partner must add these by hand where they apply. Decide whether that is acceptable for release.');
+  p('The partner writes the going concern, emphasis of matter and other matter paragraphs. The software supplies the heading and the closing sentence. The Other information section is always included in an audit report, except in a disclaimer of opinion. A material uncertainty section is left out of an adverse opinion.');
+  p('Not produced by the software: key audit matters, and a qualified or adverse opinion on the grounds that a going concern uncertainty is not adequately disclosed, which the partner words in the basis paragraph. Decide whether that is acceptable for release.');
   signOff();
 
   // ---------------------------------------------------------------------

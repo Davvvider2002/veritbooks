@@ -558,6 +558,59 @@ export function ReportStep(ctx: Ctx) {
               )}
             </>
           )}
+          {eng.type === 'review' && (
+            <>
+              <Field label="Conclusion" hint={partner ? 'Leave as unmodified unless the review found a matter that changes the conclusion.' : 'Only the engagement partner can change the conclusion.'}>
+                <select
+                  disabled={locked || !partner}
+                  value={r.opinion ?? 'unmodified'}
+                  onChange={(e) => set({ opinion: (e.target.value === 'unmodified' ? undefined : e.target.value) as ReportSettings['opinion'] })}
+                >
+                  <option value="unmodified">Unmodified</option>
+                  <option value="qualified">Qualified</option>
+                  <option value="adverse">Adverse</option>
+                  <option value="disclaimer">Disclaimer of conclusion</option>
+                </select>
+              </Field>
+              {r.opinion && r.opinion !== 'unmodified' && (
+                <Field label="Basis for the modification">
+                  <textarea disabled={locked || !partner} value={r.basis ?? ''} onChange={(e) => set({ basis: e.target.value })} />
+                </Field>
+              )}
+            </>
+          )}
+          {eng.type !== 'compilation' && (
+            <details className="stack" open={!!(r.goingConcern || r.emphasis || r.otherMatter || r.otherInformation)}>
+              <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Paragraphs the partner adds</summary>
+              <p className="small muted" style={{ margin: '8px 0 0' }}>
+                Leave each blank unless it applies. You write the paragraph. The software adds the heading and the sentence the standards require after it. None of these changes the {eng.type === 'audit' ? 'opinion' : 'conclusion'}, and none is a substitute for modifying it.
+              </p>
+              {eng.type === 'audit' && (
+                <Field
+                  label="Material uncertainty related to going concern"
+                  hint="Only where the uncertainty is adequately disclosed. Refer to the note, say what it shows, and state that a material uncertainty exists that may cast significant doubt on the company’s ability to continue as a going concern."
+                >
+                  <textarea disabled={locked || !partner} value={r.goingConcern ?? ''} onChange={(e) => set({ goingConcern: e.target.value })} />
+                </Field>
+              )}
+              <Field label="Emphasis of matter" hint="A matter properly presented or disclosed that is fundamental to a reader’s understanding. Begin: We draw attention to Note …">
+                <textarea disabled={locked || !partner} value={r.emphasis ?? ''} onChange={(e) => set({ emphasis: e.target.value })} />
+              </Field>
+              {eng.type === 'audit' && (
+                <>
+                  <Field label="Other matter" hint="Something not in the financial statements that helps a reader understand the audit or this report, such as the prior year having been audited by another firm.">
+                    <textarea disabled={locked || !partner} value={r.otherMatter ?? ''} onChange={(e) => set({ otherMatter: e.target.value })} />
+                  </Field>
+                  <Field
+                    label="Misstatement of the other information"
+                    hint="The report always carries an Other information section covering the directors’ pages, the statement of value added and the financial summary. Leave this blank and it says there is nothing to report. Describe an uncorrected material misstatement here if you found one."
+                  >
+                    <textarea disabled={locked || !partner} value={r.otherInformation ?? ''} onChange={(e) => set({ otherInformation: e.target.value })} />
+                  </Field>
+                </>
+              )}
+            </details>
+          )}
           <Field label="Principal activity of the company" hint="Completes the sentence: Its principal activity is …">
             <input type="text" disabled={locked} value={r.principalActivity ?? ''} onChange={(e) => set({ principalActivity: e.target.value })} />
           </Field>

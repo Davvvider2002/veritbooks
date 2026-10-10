@@ -57,6 +57,14 @@ export interface ReportSettings {
   cfoName?: string;
   cfoFrc?: string;
   principalActivity?: string;
+  /** The partner's description of a material uncertainty about going concern that is adequately disclosed. */
+  goingConcern?: string;
+  /** The partner's emphasis of matter: a matter properly disclosed that is fundamental to understanding the statements. */
+  emphasis?: string;
+  /** The partner's other matter: something not in the statements that helps a reader understand the audit or the report. */
+  otherMatter?: string;
+  /** A material misstatement the auditor found in the other information. Blank when there is nothing to report. */
+  otherInformation?: string;
 }
 
 export interface Testing {

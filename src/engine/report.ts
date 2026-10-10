@@ -85,6 +85,24 @@ function groupReport(r: DraftReport, i: ReportInput): DraftReport {
   return { title: r.title, addressee: r.addressee, sections };
 }
 
+/** The conclusion of a review report, which the practitioner may modify as an auditor modifies an opinion. */
+function reviewConclusion(i: ReportInput, fair: string): ReportSection[] {
+  const kind = i.settings.opinion ?? 'unmodified';
+  const basis = i.settings.basis?.trim() || '[The practitioner must describe the matter giving rise to the modification.]';
+  if (kind === 'unmodified')
+    return [{ heading: 'Conclusion', paragraphs: [`Based on our review, nothing has come to our attention that causes us to believe that these financial statements do not present fairly, in all material respects, ${fair}.`] }];
+  const name = { qualified: 'qualified conclusion', adverse: 'adverse conclusion', disclaimer: 'disclaimer of conclusion' }[kind];
+  const text = {
+    qualified: `Based on our review, except for the effects of the matter described in the Basis for qualified conclusion paragraph, nothing has come to our attention that causes us to believe that these financial statements do not present fairly, in all material respects, ${fair}.`,
+    adverse: `Based on our review, due to the significance of the matter described in the Basis for adverse conclusion paragraph, these financial statements do not present fairly, in all material respects, ${fair}.`,
+    disclaimer: 'Due to the significance of the matter described in the Basis for disclaimer of conclusion paragraph, we were unable to obtain sufficient appropriate evidence to form a conclusion on the accompanying financial statements. Accordingly, we do not express a conclusion on these financial statements.',
+  }[kind];
+  return [
+    { heading: `Basis for ${name}`, paragraphs: [basis] },
+    { heading: `${name[0].toUpperCase()}${name.slice(1)}`, paragraphs: [text] },
+  ];
+}
+
 function companyReport(i: ReportInput): DraftReport {
   const date = longDate(i.yearEnd);
   const list =
@@ -134,12 +152,10 @@ function companyReport(i: ReportInput): DraftReport {
             'A review is a limited assurance engagement. It consists mainly of enquiries of management and others, and analytical procedures. The procedures are substantially less than those performed in an audit, and we do not express an audit opinion.',
           ],
         },
-        {
-          heading: 'Conclusion',
-          paragraphs: [
-            `Based on our review, nothing has come to our attention that causes us to believe that these financial statements do not present fairly, in all material respects, the financial position of ${i.clientName} as at ${date}, and its financial performance${i.hasCashFlow ? ' and cash flows' : ''} for the year then ended, in accordance with ${framework}.`,
-          ],
-        },
+        ...reviewConclusion(i, `the financial position of ${i.clientName} as at ${date}, and its financial performance${i.hasCashFlow ? ' and cash flows' : ''} for the year then ended, in accordance with ${framework}`),
+        ...(i.settings.emphasis?.trim()
+          ? [{ heading: 'Emphasis of matter', paragraphs: [i.settings.emphasis.trim(), 'Our conclusion is not modified in respect of this matter.'] }]
+          : []),
       ],
     };
   }
@@ -170,9 +186,30 @@ function companyReport(i: ReportInput): DraftReport {
     disclaimer: [basis],
   }[opinion];
 
+  // Paragraphs the partner adds. Each is written by the partner: the software supplies the heading
+  // and the sentence the standards require after it. None appears in a disclaimer of opinion.
+  const s = i.settings;
+  const added: ReportSection[] = [];
+  if (opinion !== 'disclaimer') {
+    if (s.goingConcern?.trim() && opinion !== 'adverse')
+      added.push({ heading: 'Material uncertainty related to going concern', paragraphs: [s.goingConcern.trim(), 'Our opinion is not modified in respect of this matter.'] });
+    if (s.emphasis?.trim()) added.push({ heading: 'Emphasis of matter', paragraphs: [s.emphasis.trim(), 'Our opinion is not modified in respect of this matter.'] });
+    if (s.otherMatter?.trim()) added.push({ heading: 'Other matter', paragraphs: [s.otherMatter.trim()] });
+    added.push({
+      heading: 'Other information',
+      paragraphs: [
+        'The directors are responsible for the other information. The other information comprises the report of the directors, the statement of directors’ responsibilities, the statement of value added and the financial summary, which we obtained before the date of this report. It does not include the financial statements and our auditor’s report on them.',
+        'Our opinion on the financial statements does not cover the other information and we do not express any form of assurance conclusion on it.',
+        'In connection with our audit of the financial statements, our responsibility is to read the other information and, in doing so, consider whether it is materially inconsistent with the financial statements or our knowledge obtained in the audit, or otherwise appears to be materially misstated. If, based on the work we have performed, we conclude that there is a material misstatement of the other information, we are required to report that fact.',
+        s.otherInformation?.trim() ? s.otherInformation.trim() : 'We have nothing to report in this regard.',
+      ],
+    });
+  }
+
   const sections: ReportSection[] = [
     { heading: OPINION_HEADING[opinion], paragraphs: [intro, opinionText] },
     { heading: `Basis for ${OPINION_HEADING[opinion].toLowerCase()}`, paragraphs: basisParagraphs },
+    ...added,
     {
       heading: 'Responsibilities of the directors for the financial statements',
       paragraphs: [
