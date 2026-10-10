@@ -143,6 +143,8 @@ export interface GateInput {
   testing?: Testing;
   /** One entry per bank statement imported. */
   bank?: BankGate[];
+  /** Items of the disclosure checklist with no answer. Leave undefined to skip the check. */
+  checklistOpen?: number;
   /** Client requests not yet accepted. Leave undefined to skip the check. */
   openRequests?: number;
 }
@@ -300,6 +302,15 @@ export function signOffChecks(g: GateInput): Check[] {
       label: 'Disclosures are complete',
       ok: g.disclosureGaps.length === 0,
       detail: g.disclosureGaps.length ? `${g.disclosureGaps.length} item(s) open: ${g.disclosureGaps[0]}` : undefined,
+      blocking: true,
+    });
+  }
+  if (g.checklistOpen !== undefined) {
+    checks.push({
+      id: 'checklist',
+      label: 'The disclosure checklist is complete',
+      ok: g.checklistOpen === 0,
+      detail: g.checklistOpen ? `${g.checklistOpen} item(s) have no answer.` : undefined,
       blocking: true,
     });
   }

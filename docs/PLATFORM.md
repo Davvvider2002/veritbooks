@@ -111,6 +111,19 @@ The prior year ledger, files against an account and page references need `supaba
 - Every part adds up to the figure above it, in both years, because the trail is computed from the same inputs as the statements. Tests check this for every figure that opens.
 - Not traced: the five-year financial summary's earlier years, which are typed in, and the movement columns of the property schedule. Bank statement lines do not carry the page of the PDF they were read from.
 
+## Phase 3 (in progress)
+
+### Disclosure checklist
+
+No database update is needed. Answers are kept with the engagement's disclosures.
+
+- A checklist of what the financial statements must disclose under the IFRS for SMEs, grouped by section of the Standard. It holds 50 items in this version.
+- It is tailored to the entity. An item tied to a statement line appears only when that line has a balance in either year, so a company with no intangible assets is not asked about them.
+- Items the file itself shows are marked as covered, with the basis: comparatives, the fixed asset reconciliation, the tax reconciliation, related parties, going concern and others. The preparer is not asked to tick what the software can see.
+- The preparer answers the rest: disclosed, with where; or does not apply, with a reason. A reason is required. Each answer records who gave it and when.
+- Sign-off is blocked while any item has no answer.
+- The checklist is starter content, version 0.1. It summarises disclosure areas in plain language. It is not the text of the Standard and is not complete. Section numbers follow the second edition (2015). It needs review against the edition in force, FRC Nigeria rules and CAMA 2020 by a qualified technical author.
+
 ## Rules the software enforces
 
 1. Numbers are computed, never generated. Every figure in a statement is a sum of mapped account balances. No language model produces or alters a figure.

@@ -97,4 +97,14 @@ export interface Disclosures {
   contingencies?: string;
   commitments?: string;
   earlierYears?: EarlierYear[];
+  /** The preparer's answer to each item of the disclosure checklist, by item id. */
+  checklist?: Record<string, ChecklistAnswer>;
+}
+
+export interface ChecklistAnswer {
+  status: 'disclosed' | 'na';
+  /** Where it is disclosed, or why it does not apply. A reason is required when it does not apply. */
+  note: string;
+  by: string;
+  at: string;
 }

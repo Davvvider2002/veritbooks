@@ -356,7 +356,8 @@ export function DisclosuresStep({ eng, lines, adjustments, statements: st, locke
             disabled={busy}
             onClick={() =>
               void run(async () => {
-                await repo.updateEngagement(eng.id, { disclosures: d });
+                // The checklist is kept in the same record and is edited on its own step.
+                await repo.updateEngagement(eng.id, { disclosures: { ...d, checklist: eng.disclosures.checklist } });
                 setSaved(true);
                 reload();
               })

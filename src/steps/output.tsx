@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { POLICIES } from '../content/notes';
 import { PROGRAMMES } from '../content/programmes';
 import { repo } from '../data';
+import { CHECKLIST } from '../content/checklist';
+import { buildChecklist, checklistOpen } from '../engine/checklist';
 import { canSign, signOffChecks } from '../engine/checks';
 import { directorList, disclosureGaps, financialSummary, ppeSchedule, priorEquity, taxReconciliation, type PpeRow } from '../engine/disclosures';
 import type { EquityTable, Period, Source } from '../engine/statements';
@@ -650,6 +652,9 @@ export function SignOffStep({ eng, ws, lines, adjustments, statements, locked, r
     ledger: ledgerTest,
     testing: eng.testing,
     bank: bankGates,
+    checklistOpen: lines.length
+      ? checklistOpen(buildChecklist(CHECKLIST, { statements, lines, adjustments, disclosures: eng.disclosures, principalActivity: eng.report.principalActivity })).length
+      : undefined,
     openRequests: requests.length ? requests.filter((r) => r.status !== 'accepted').length : undefined,
     disclosureGaps: disclosureGaps(eng.disclosures, statements, lines, adjustments, eng.yearEnd),
   });

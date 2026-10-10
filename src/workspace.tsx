@@ -8,6 +8,7 @@ import { RequestsStep } from './steps/requests';
 import { EvidenceStep } from './steps/evidence';
 import { BankStep, LedgerStep } from './steps/analytics';
 import { DisclosuresStep } from './steps/disclosures';
+import { ChecklistStep } from './steps/checklist';
 import { Link, useParams } from 'react-router-dom';
 import { PROGRAMMES } from './content/programmes';
 import { repo } from './data';
@@ -101,6 +102,7 @@ const STEPS = [
   { slug: 'journals', label: 'Journals', el: JournalsStep },
   { slug: 'evidence', label: 'Evidence', el: EvidenceStep },
   { slug: 'disclosures', label: 'Disclosures', el: DisclosuresStep },
+  { slug: 'checklist', label: 'Disclosure checklist', el: ChecklistStep },
   { slug: 'statements', label: 'Financial statements', el: StatementsStep },
   { slug: 'report', label: 'Report', el: ReportStep },
   { slug: 'sign-off', label: 'Sign-off', el: SignOffStep },
