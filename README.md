@@ -1,6 +1,6 @@
-# Attest
+# VeritBooks
 
-Engagement files for Nigerian audit, review and compilation work. Working name.
+Engagement files for Nigerian audit, review and compilation work.
 See [docs/PLATFORM.md](docs/PLATFORM.md) for what the platform does and does not do.
 
 ## Run it

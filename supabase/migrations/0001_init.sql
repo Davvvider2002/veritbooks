@@ -1,4 +1,4 @@
--- Attest: phase 1 schema.
+-- VeritBooks: phase 1 schema.
 -- Every table is scoped to a firm and protected by row level security.
 -- Amounts are bigint kobo, debit-positive.
 

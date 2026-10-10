@@ -41,7 +41,7 @@ export function App() {
       )}
       <header className="topbar">
         <Link to="/" className="brand">
-          At<span>test</span>
+          Verit<span>Books</span>
         </Link>
         <div className="spacer" />
         {session.state === 'ready' && (

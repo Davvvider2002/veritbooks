@@ -28,7 +28,7 @@ interface Store {
   log: Record<string, LogEntry[]>;
 }
 
-const KEY = 'attest.demo.v1';
+const KEY = 'veritbooks.demo.v1';
 const empty = (): Store => ({
   user: null,
   accounts: {},
