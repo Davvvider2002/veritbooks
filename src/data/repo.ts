@@ -262,6 +262,9 @@ export interface Repo {
   /** Asks the AI service to explain one flagged journal. Nothing is saved. */
   explainJournal(engagementId: string, journal: JournalForAssist, context: { yearEnd: string; performanceMateriality: number | null }): Promise<JournalExplanation & { model: string }>;
 
+  /** Asks the AI service for causes to consider and questions to ask about one movement. Nothing is saved. */
+  explainMovement(engagementId: string, input: MovementForAssist): Promise<MovementPoints & { model: string }>;
+
   /** The firm's system of quality management. Everyone in the firm reads it; partners maintain it. */
   listQuality(): Promise<QualityItem[]>;
   addQuality(items: QualityDraft[]): Promise<void>;
@@ -288,6 +291,22 @@ export interface JournalExplanation {
   whyFlagged: string[];
   tests: string[];
   questions: string[];
+}
+
+/** Points to help plan enquiries about a line that moved against last year. It does not say which cause is true. */
+export interface MovementPoints {
+  consistency: string;
+  causes: string[];
+  questions: string[];
+  corroboration: string[];
+}
+
+export interface MovementForAssist {
+  /** Amounts in naira. */
+  movement: { label: string; section: string; cur: number; prior: number; change: number; percent: number | null };
+  lines: { label: string; cur: number; prior: number }[];
+  ratios: { label: string; cur: number | null; prior: number | null; unit: string }[];
+  industry: string;
 }
 
 export interface JournalForAssist {

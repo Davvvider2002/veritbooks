@@ -62,6 +62,8 @@ export interface ReportSettings {
 export interface Testing {
   /** Conclusion on each journal selected for testing, keyed by journal number. */
   journals?: Record<string, { status: 'clear' | 'exception'; note: string; by: string; at: string }>;
+  /** The explanation obtained for each significant movement against last year, keyed by statement line. */
+  movements?: Record<string, { note: string; by: string; at: string }>;
   /** Conclusion on each bank reconciliation, keyed by bank account id. */
   bank?: Record<string, { note: string; by: string; at: string }>;
 }

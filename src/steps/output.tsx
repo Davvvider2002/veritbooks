@@ -3,7 +3,8 @@ import { POLICIES } from '../content/notes';
 import { checklistFor, programmeFor } from '../content/packs';
 import { repo } from '../data';
 import { buildChecklist, checklistOpen } from '../engine/checklist';
-import { canSign, signOffChecks } from '../engine/checks';
+import { analyticalReview, unexplainedMovements } from '../engine/analytical';
+import { canSign, computeMateriality, signOffChecks } from '../engine/checks';
 import { directorList, disclosureGaps, financialSummary, ppeSchedule, priorEquity, taxReconciliation, type PpeRow } from '../engine/disclosures';
 import type { EquityTable, Period, Source } from '../engine/statements';
 import { TracePanel } from './trace';
@@ -664,6 +665,11 @@ export function SignOffStep({ eng, ws, client, lines, adjustments, statements, l
     ledger: ledgerTest,
     testing: eng.testing,
     bank: bankGates,
+    movements:
+      // Files signed before this step existed are not marked down for lacking it.
+      eng.type !== 'compilation' && statements.hasPrior && !(locked && !eng.testing.movements)
+        ? { unexplained: unexplainedMovements(analyticalReview(statements, eng.type === 'audit' ? (computeMateriality(statements.cur, eng.planning)?.performance ?? null) : null), eng.testing.movements).map((m) => m.label) }
+        : undefined,
     group: group
       ? {
           ready: !!group.cur,

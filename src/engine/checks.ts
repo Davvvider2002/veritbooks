@@ -143,6 +143,8 @@ export interface GateInput {
   testing?: Testing;
   /** One entry per bank statement imported. */
   bank?: BankGate[];
+  /** Significant movements against last year that have no explanation. Leave undefined to skip the check. */
+  movements?: { unexplained: string[] };
   /** The state of the consolidation, when the client is the parent of a group. */
   group?: { ready: boolean; difference: Kobo; unbalanced: number; unsigned: string[]; unexplained?: Kobo; noCashFlow?: string | null };
   /** Independence confirmations on this engagement. Leave undefined to skip the checks. */
@@ -307,6 +309,17 @@ export function signOffChecks(g: GateInput): Check[] {
       ok: g.disclosureGaps.length === 0,
       detail: g.disclosureGaps.length ? `${g.disclosureGaps.length} item(s) open: ${g.disclosureGaps[0]}` : undefined,
       blocking: true,
+    });
+  }
+  if (g.movements) {
+    const open = g.movements.unexplained;
+    checks.push({
+      id: 'movements',
+      label: 'Significant movements against last year are explained',
+      ok: open.length === 0,
+      detail: open.length ? `No explanation for: ${open.slice(0, 5).join(', ')}${open.length > 5 ? ` and ${open.length - 5} more` : ''}.` : undefined,
+      // A review rests on enquiry and analytical procedures, so there it must be done.
+      blocking: g.type === 'review',
     });
   }
   if (g.group) {

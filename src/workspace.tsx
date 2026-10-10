@@ -9,6 +9,7 @@ import { EvidenceStep } from './steps/evidence';
 import { BankStep, LedgerStep } from './steps/analytics';
 import { DisclosuresStep } from './steps/disclosures';
 import { ChecklistStep } from './steps/checklist';
+import { AnalyticalStep } from './steps/analytical';
 import { ConsolidationStep } from './steps/consolidation';
 import { cashFlowBlocker, consolidate, groupCashFlow, groupEquity, unitOf, unitOfGroup, type Consolidated, type GroupEquity, type GroupSetup, type Unit } from './engine/consolidation';
 import type { Row } from './engine/statements';
@@ -158,6 +159,7 @@ const STEPS = [
   { slug: 'import', label: 'Trial balance', el: ImportStep },
   { slug: 'mapping', label: 'Mapping', el: MappingStep },
   { slug: 'planning', label: 'Planning', el: PlanningStep },
+  { slug: 'analytical', label: 'Analytical review', el: AnalyticalStep },
   { slug: 'requests', label: 'Client requests', el: RequestsStep },
   { slug: 'programme', label: 'Work programme', el: ProgrammeStep },
   { slug: 'ledger', label: 'Journal testing', el: LedgerStep },
@@ -263,7 +265,7 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
 
   // Review and compilation engagements have no materiality step in this version.
   const steps = STEPS.filter((s) => {
-    if (s.slug === 'planning') return data.eng.type !== 'compilation';
+    if (s.slug === 'planning' || s.slug === 'analytical') return data.eng.type !== 'compilation';
     if (s.slug === 'ledger' || s.slug === 'bank') return data.eng.type === 'audit';
     return true;
   });

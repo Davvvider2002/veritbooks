@@ -167,6 +167,50 @@ function explainJournal(body: any): Task | string {
   };
 }
 
+function explainMovement(body: any): Task | string {
+  const m = body.movement ?? {};
+  if (!text(m.label, 120)) return 'Send the movement.';
+  const data = {
+    statement_line: text(m.label, 120),
+    kind_of_line: text(m.section, 40),
+    this_year: Number(m.cur) || 0,
+    last_year: Number(m.prior) || 0,
+    change: Number(m.change) || 0,
+    change_percent: m.percent === null || m.percent === undefined ? null : Number(m.percent),
+    kind_of_business: text(body.industry, 80) || 'not stated',
+    other_lines: (Array.isArray(body.lines) ? body.lines : []).slice(0, 40).map((l: any) => ({ line: text(l.label, 120), this_year: Number(l.cur) || 0, last_year: Number(l.prior) || 0 })),
+    ratios: (Array.isArray(body.ratios) ? body.ratios : []).slice(0, 12).map((r: any) => ({ ratio: text(r.label, 60), this_year: r.cur ?? null, last_year: r.prior ?? null, unit: text(r.unit, 10) })),
+  };
+  return {
+    system:
+      GROUND_RULES +
+      ' Task: help the accountant plan enquiries about one line of the financial statements that moved significantly against last year. Amounts are in naira. ' +
+      'Use the other lines and ratios to say whether the movement is consistent with the rest of the figures, and name any that it sits oddly with. ' +
+      'List causes that are plausible for a company like this, the questions to put to management, and the documents or calculations that would corroborate the answer. ' +
+      'You do not know which cause is true. Never state one as fact, and never write the explanation for the accountant to record. Be specific to these figures and brief.',
+    user: `<data>\n${JSON.stringify(data)}\n</data>`,
+    tool: {
+      name: 'explain_movement',
+      description: 'Record the points for the accountant.',
+      input_schema: {
+        type: 'object',
+        required: ['consistency', 'possible_causes', 'questions', 'corroboration'],
+        properties: {
+          consistency: { type: 'string', description: 'Two or three sentences on how the movement sits with the other lines and ratios.' },
+          possible_causes: { type: 'array', items: { type: 'string' }, description: 'Three to five plausible causes, each worded as a possibility.' },
+          questions: { type: 'array', items: { type: 'string' }, description: 'Three to five questions for management.' },
+          corroboration: { type: 'array', items: { type: 'string' }, description: 'Three to five documents or calculations that would support or disprove an answer.' },
+        },
+      },
+    },
+    check: (input) => {
+      const list = (x: unknown) => (Array.isArray(x) ? x : []).slice(0, 6).map((y: unknown) => text(y, 400));
+      return { consistency: text(input?.consistency, 1000), causes: list(input?.possible_causes), questions: list(input?.questions), corroboration: list(input?.corroboration) };
+    },
+    maxTokens: 1500,
+  };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return refuse('Use POST.', 405);
@@ -195,7 +239,8 @@ Deno.serve(async (req: Request) => {
   const { data: eng } = await asUser.from('engagements').select('id, status').eq('id', text(body.engagementId, 40)).maybeSingle();
   if (!eng) return refuse('That engagement was not found.', 404);
 
-  const task = body.task === 'map_accounts' ? mapAccounts(body) : body.task === 'explain_journal' ? explainJournal(body) : 'Unknown task.';
+  const task =
+    body.task === 'map_accounts' ? mapAccounts(body) : body.task === 'explain_journal' ? explainJournal(body) : body.task === 'explain_movement' ? explainMovement(body) : 'Unknown task.';
   if (typeof task === 'string') return refuse(task);
 
   // The log is written with the service role, because no browser may write to it.

@@ -214,7 +214,21 @@ What is sent: account codes, names and balances; or one journal's date, descript
 
 Demo mode has no AI service. It returns clearly labelled sample text so the screens can be tried.
 
-Not built: draft notes, a file review assistant, and analytical review commentary.
+- Questions on a movement. On the Analytical review step, for a line that moved significantly, the AI says how the movement sits with the other figures, lists causes to consider, questions for management and what would corroborate an answer. It is told never to state a cause as fact or to write the explanation. This sends the statement lines and ratios for both years.
+
+Confirmed on the live site: a mapping request. Not yet confirmed there: journal explanations and movement questions.
+
+Not built: draft notes and a file review assistant.
+
+### Analytical review
+
+No database update is needed. Explanations are kept with the engagement's testing record. It works with AI off.
+
+- A step for audits and reviews. Every statement line against last year, with the change in amount and percentage, and eight ratios for both years: gross and operating margin, receivable, inventory and payable days, current ratio, borrowings to equity and effective tax rate.
+- A movement is significant when it is at least performance materiality and at least 10%. Without materiality the threshold is 1% of revenue. Opening retained earnings is left out, since it moves by last year's result.
+- Each significant movement needs an explanation, recorded with who gave it and when. Each line opens to its accounts.
+- Sign-off: an advisory on an audit, and blocking on a review, because a review rests on enquiry and analytical procedures.
+- Days ratios use year-end balances and are indicators only.
 
 ## Rules the software enforces
 

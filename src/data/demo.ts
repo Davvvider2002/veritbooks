@@ -484,6 +484,19 @@ export function createDemoRepo(): Repo {
       };
     },
 
+    async explainMovement(engagementId, input) {
+      eng(engagementId);
+      if (!s.firms[firmId()].firm.aiEnabled) throw new Error('AI assistance is turned off for your firm. A partner can turn it on in the firm details.');
+      const up = input.movement.change > 0;
+      return {
+        model: 'demo sample, not AI',
+        consistency: `Sample text. ${input.movement.label} ${up ? 'rose' : 'fell'} against last year. Compare it with the lines it normally moves with.`,
+        causes: [`Sample text. A change in volume or price could have ${up ? 'raised' : 'lowered'} ${input.movement.label.toLowerCase()}.`],
+        questions: ['Sample text. What changed in the business during the year that explains this?'],
+        corroboration: ['Sample text. Agree management’s explanation to a schedule, a contract or the monthly figures.'],
+      };
+    },
+
     async listQuality() {
       return s.quality.filter((q) => q.firmId === firmId()).map(strip);
     },
