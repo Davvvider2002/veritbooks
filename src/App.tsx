@@ -7,7 +7,7 @@ import { PortalPage } from './portal';
 import { QualityPage } from './quality';
 import { repo } from './data';
 import type { User, Workspace } from './data/repo';
-import { AuthPage, Dashboard, FirmSettings, FirmSetup } from './pages';
+import { AuthPage, Dashboard, FirmSettings, FirmSetup, ForgotPage, NewPasswordPage } from './pages';
 import { message } from './ui';
 import { EngagementPage } from './workspace';
 
@@ -16,6 +16,7 @@ type Session =
   | { state: 'error'; error: string }
   | { state: 'signed-out' }
   | { state: 'no-firm'; user: User }
+  | { state: 'new-password'; user: User }
   | { state: 'ready'; user: User; ws: Workspace };
 
 export function App() {
@@ -32,6 +33,8 @@ export function App() {
       const user = await repo.currentUser();
       if (!user) return setSession({ state: 'signed-out' });
       const ws = await repo.workspace();
+      // Someone who came from a reset link chooses a new password before anything else opens.
+      if (repo.recovering()) return setSession({ state: 'new-password', user });
       // A platform admin with no firm of their own belongs in the admin console, not firm setup.
       if (!ws && (await repo.isAdmin())) return nav('/admin', { replace: true });
       setSession(ws ? { state: 'ready', user, ws } : { state: 'no-firm', user });
@@ -45,7 +48,7 @@ export function App() {
     return repo.onAuthChange(() => void refresh());
   }, []);
 
-  if (admin) return <AdminApp />;
+  if (admin && session.state !== 'new-password') return <AdminApp />;
   // A visitor who is not signed in sees the public site at the front door.
   if (session.state === 'signed-out' && path === '/') return <Landing />;
   if (portal)
@@ -89,7 +92,7 @@ export function App() {
             </span>
           </>
         )}
-        {(session.state === 'ready' || session.state === 'no-firm') && (
+        {(session.state === 'ready' || session.state === 'no-firm' || session.state === 'new-password') && (
           <button
             onClick={() => {
               // The next person to sign in on this browser starts from the home page.
@@ -109,7 +112,8 @@ export function App() {
           <div className="banner bad">Could not reach the database: {session.error}</div>
         </div>
       )}
-      {session.state === 'signed-out' && <AuthPage key={path} start={path === '/signup' ? 'up' : 'in'} />}
+      {session.state === 'signed-out' && (path === '/forgot' ? <ForgotPage /> : <AuthPage key={path} start={path === '/signup' ? 'up' : 'in'} />)}
+      {session.state === 'new-password' && <NewPasswordPage onDone={refresh} />}
       {session.state === 'no-firm' && <FirmSetup onDone={refresh} />}
       {session.state === 'ready' && (
         <Routes>

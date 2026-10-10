@@ -52,6 +52,9 @@ function AdminLogin({ refused, onSignedIn }: { refused: string | null; onSignedI
           Sign in to admin
         </button>
       </form>
+      <p className="small">
+        <Link to="/forgot">Forgot your password?</Link>
+      </p>
       {repo.mode === 'demo' && <p className="small muted">Demo mode: sign in as admin@veritbooks.demo with any password of 8 characters or more.</p>}
     </div>
   );

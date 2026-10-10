@@ -309,6 +309,12 @@ export interface Repo {
   /** Returns true when the account still needs email confirmation before sign-in. */
   signUp(email: string, password: string): Promise<boolean>;
   signOut(): Promise<void>;
+  /** Emails a link for choosing a new password. Says nothing about whether the address has an account. */
+  requestPasswordReset(email: string): Promise<void>;
+  /** True when the visitor arrived from a password reset link and must choose a new password. */
+  recovering(): boolean;
+  /** Sets a new password for the signed-in user, and ends the reset. */
+  setPassword(password: string): Promise<void>;
 
   workspace(): Promise<Workspace | null>;
   createFirm(f: NewFirm): Promise<void>;

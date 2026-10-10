@@ -74,6 +74,10 @@ async function fetchAll(page: (from: number, to: number) => PromiseLike<{ data: 
 const CHUNK = 500;
 
 export function createSupabaseRepo(url: string, key: string): Repo {
+  // A reset link brings the visitor back signed in, with "type=recovery" in the address.
+  // That is noted before the client tidies the address away, and kept for this browser tab.
+  const RECOVER = 'veritbooks.recovering';
+  if (/type=recovery/.test(window.location.hash + window.location.search)) sessionStorage.setItem(RECOVER, '1');
   const db: SupabaseClient = createClient(url, key);
 
   /** Calls the assist function, which holds the AI service key. The browser never sees it. */
@@ -113,7 +117,11 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       return u ? { id: u.id, email: u.email ?? '' } : null;
     },
     onAuthChange(cb) {
-      const { data } = db.auth.onAuthStateChange(() => cb());
+      const { data } = db.auth.onAuthStateChange((event) => {
+        if (event === 'PASSWORD_RECOVERY') sessionStorage.setItem(RECOVER, '1');
+        if (event === 'SIGNED_OUT') sessionStorage.removeItem(RECOVER);
+        cb();
+      });
       return () => data.subscription.unsubscribe();
     },
     async signIn(email, password) {
@@ -130,7 +138,21 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       fail(error);
       return !data.session;
     },
+    async requestPasswordReset(email) {
+      // The link returns to the front door, which is already an allowed address.
+      const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+      fail(error);
+    },
+    recovering() {
+      return sessionStorage.getItem(RECOVER) === '1';
+    },
+    async setPassword(password) {
+      const { error } = await db.auth.updateUser({ password });
+      fail(error);
+      sessionStorage.removeItem(RECOVER);
+    },
     async signOut() {
+      sessionStorage.removeItem(RECOVER);
       const { error } = await db.auth.signOut();
       fail(error);
     },

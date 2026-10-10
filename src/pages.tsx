@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { PROGRAMME_VERSION } from './content/programmes';
 import { repo } from './data';
 import type { Workspace } from './data/repo';
@@ -61,12 +61,102 @@ export function AuthPage({ start = 'in' }: { start?: 'in' | 'up' }) {
           {mode === 'in' ? 'Sign in' : 'Create account'}
         </button>
       </form>
+      {mode === 'in' && (
+        <p className="small">
+          <Link to="/forgot">Forgot your password?</Link>
+        </p>
+      )}
       <p className="small">
         {mode === 'in' ? 'New here? ' : 'Already registered? '}
         <button className="link" onClick={() => setMode(mode === 'in' ? 'up' : 'in')}>
           {mode === 'in' ? 'Create an account' : 'Sign in'}
         </button>
       </p>
+    </div>
+  );
+}
+
+/** Asks for the account's email and sends a link for choosing a new password. */
+export function ForgotPage() {
+  const [email, setEmail] = useState('');
+  const [sent, setSent] = useState(false);
+  const { busy, error, run } = useAction();
+  return (
+    <div className="narrow stack">
+      <div>
+        <h1>Reset your password</h1>
+        <p className="muted" style={{ marginTop: 6 }}>
+          Enter the email address you sign in with. We will send a link for choosing a new password.
+        </p>
+      </div>
+      {sent ? (
+        <div className="banner info">
+          If an account uses {email}, a reset link is on its way. Open it on this device. It can take a few minutes, and it may land in spam.
+        </div>
+      ) : (
+        <form
+          className="card stack"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void run(async () => {
+              await repo.requestPasswordReset(email.trim());
+              setSent(true);
+            });
+          }}
+        >
+          <Field label="Email">
+            <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </Field>
+          <ErrorNote error={error} />
+          <button className="primary" disabled={busy}>
+            Send reset link
+          </button>
+        </form>
+      )}
+      <p className="small">
+        <Link to="/signin">Back to sign in</Link>
+      </p>
+    </div>
+  );
+}
+
+/** Shown to someone who arrived from a reset link. Nothing else opens until a new password is set. */
+export function NewPasswordPage({ onDone }: { onDone: () => Promise<void> }) {
+  const [password, setPassword] = useState('');
+  const [again, setAgain] = useState('');
+  const [mismatch, setMismatch] = useState(false);
+  const { busy, error, run } = useAction();
+  return (
+    <div className="narrow stack">
+      <div>
+        <h1>Choose a new password</h1>
+        <p className="muted" style={{ marginTop: 6 }}>
+          Use at least 8 characters. You stay signed in once it is saved.
+        </p>
+      </div>
+      <form
+        className="card stack"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (password !== again) return setMismatch(true);
+          setMismatch(false);
+          void run(async () => {
+            await repo.setPassword(password);
+            await onDone();
+          });
+        }}
+      >
+        <Field label="New password">
+          <input type="password" required minLength={8} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        </Field>
+        <Field label="New password again">
+          <input type="password" required minLength={8} autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} />
+        </Field>
+        <ErrorNote error={mismatch ? 'The two passwords are not the same.' : error} />
+        <button className="primary" disabled={busy}>
+          Save new password
+        </button>
+      </form>
     </div>
   );
 }

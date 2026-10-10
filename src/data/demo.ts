@@ -290,7 +290,26 @@ export function createDemoRepo(): Repo {
       listeners.forEach((l) => l());
       return false;
     },
+    // The demo cannot send email, so the reset link is skipped: the account is opened to choose a new password.
+    async requestPasswordReset(email) {
+      const a = s.accounts[email.trim().toLowerCase()];
+      if (!a) return;
+      s.user = { id: a.id, email: email.trim().toLowerCase() };
+      sessionStorage.setItem('veritbooks.demo.recovering', '1');
+      save();
+      listeners.forEach((l) => l());
+    },
+    recovering() {
+      return sessionStorage.getItem('veritbooks.demo.recovering') === '1';
+    },
+    async setPassword(password) {
+      if (password.length < 8) throw new Error('Use a password of at least 8 characters.');
+      s.accounts[me().email].password = password;
+      sessionStorage.removeItem('veritbooks.demo.recovering');
+      save();
+    },
     async signOut() {
+      sessionStorage.removeItem('veritbooks.demo.recovering');
       s.user = null;
       save();
       listeners.forEach((l) => l());
