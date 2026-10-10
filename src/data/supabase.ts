@@ -533,6 +533,17 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       return inline ? `${data!.signedUrl}#page=${e.page}` : data!.signedUrl;
     },
 
+    async publicPrices() {
+      const { data, error } = await db.rpc('public_prices');
+      fail(error);
+      return {
+        plans: (data.plans ?? []).map((p: any) => ({ code: p.code, name: p.name, priceKobo: p.price_kobo, maxUsers: p.max_users, maxEngagements: p.max_engagements })),
+        engagementPrices: (data.engagement_prices ?? []).map((p: any) => ({ code: p.code, name: p.name, priceKobo: p.price_kobo })),
+        vatPercent: Number(data.vat_percent ?? 0),
+        foundingLeft: data.founding_left ?? 0,
+        supportEmail: data.support_email ?? '',
+      };
+    },
     async isAdmin() {
       const { data, error } = await db.rpc('is_platform_admin');
       if (error) return false;

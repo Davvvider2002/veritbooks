@@ -13,8 +13,8 @@ export const TYPE_LABEL: Record<EngagementType, string> = {
   compilation: 'Compilation',
 };
 
-export function AuthPage() {
-  const [mode, setMode] = useState<'in' | 'up'>('in');
+export function AuthPage({ start = 'in' }: { start?: 'in' | 'up' }) {
+  const [mode, setMode] = useState<'in' | 'up'>(start);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [notice, setNotice] = useState<string | null>(null);

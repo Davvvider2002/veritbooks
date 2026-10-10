@@ -641,6 +641,16 @@ export function createDemoRepo(): Repo {
       return 'Demo mode: there is no payment to confirm.';
     },
 
+    async publicPrices() {
+      const pl = platform();
+      return {
+        plans: pl.plans.filter((p) => p.code !== 'trial').map((p) => ({ code: p.code, name: p.name, priceKobo: p.priceKobo, maxUsers: p.maxUsers, maxEngagements: p.maxEngagements })),
+        engagementPrices: pl.prices.map((p) => ({ ...p })),
+        vatPercent: vatRate(),
+        foundingLeft: Math.max(FOUNDING_PLACES - foundingTaken(), 0),
+        supportEmail: pl.settings.support_email,
+      };
+    },
     async isAdmin() {
       return isAdminUser();
     },

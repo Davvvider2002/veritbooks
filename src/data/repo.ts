@@ -153,6 +153,15 @@ export interface Billing {
   payments: PaymentRecord[];
 }
 
+/** The price list shown to visitors. Prices are before VAT. */
+export interface PublicPrices {
+  plans: { code: string; name: string; priceKobo: number; maxUsers: number | null; maxEngagements: number }[];
+  engagementPrices: { code: string; name: string; priceKobo: number }[];
+  vatPercent: number;
+  foundingLeft: number;
+  supportEmail: string;
+}
+
 /** What the platform owner's console shows. No client file data is in it. */
 export interface AdminFirm {
   id: string; name: string; frc_number: string; address: string; created_at: string;
@@ -370,6 +379,8 @@ export interface Repo {
   /** Checks a payment with the payment provider after the partner is sent back, and activates the plan if it was paid. */
   confirmPayment(transactionId: string): Promise<string>;
 
+  /** The public price list, for the landing page. No sign-in needed. */
+  publicPrices(): Promise<PublicPrices>;
   /** True when the signed-in user is a platform admin. */
   isAdmin(): Promise<boolean>;
   adminOverview(): Promise<AdminData>;

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { AdminApp } from './admin';
 import { BillingPage, PlanStrip } from './billing';
+import { Landing } from './landing/Landing';
 import { PortalPage } from './portal';
 import { QualityPage } from './quality';
 import { repo } from './data';
@@ -43,6 +44,8 @@ export function App() {
   }, []);
 
   if (admin) return <AdminApp />;
+  // A visitor who is not signed in sees the public site at the front door.
+  if (session.state === 'signed-out' && path === '/') return <Landing />;
   if (portal)
     return (
       <>
@@ -103,7 +106,7 @@ export function App() {
           <div className="banner bad">Could not reach the database: {session.error}</div>
         </div>
       )}
-      {session.state === 'signed-out' && <AuthPage />}
+      {session.state === 'signed-out' && <AuthPage key={path} start={path === '/signup' ? 'up' : 'in'} />}
       {session.state === 'no-firm' && <FirmSetup onDone={refresh} />}
       {session.state === 'ready' && (
         <Routes>

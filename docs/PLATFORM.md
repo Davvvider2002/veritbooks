@@ -1,6 +1,6 @@
 # VeritBooks: platform definition
 
-Version 0.9, 10 October 2026.
+Version 0.10, 10 October 2026.
 
 ## What it is
 
@@ -308,6 +308,15 @@ A suspended firm can read its files and change nothing, paid or not. An admin se
 Not built yet: refunds, pay-per-engagement for firms inside their plan allowance (the allowance is used first), and disabling a single user's sign-in.
 
 Setting up: add `FLW_SECRET_KEY` and `FLW_WEBHOOK_HASH` as secrets of the `billing` Edge Function in Supabase. In Flutterwave, set the webhook URL to `https://bdlelkdqlhuhyswofjni.supabase.co/functions/v1/billing` with the same secret hash. For the reminder job, see `supabase/schedule.sql`.
+
+## Public landing page
+
+A visitor who is not signed in sees the landing page at the front door. Sign-in is at `/signin` and sign-up at `/signup`. The page is in `src/landing`.
+
+- **Prices** come from the database through `public_prices()`, the same list the admin console edits and the checkout charges. If the list cannot be loaded, the page shows "Contact us for pricing".
+- **Buttons, the hero photograph, and the privacy, terms and contact links** are set in `src/landing/config.ts`.
+- **The hero photograph** has not been supplied. A labelled placeholder is shown until `public/landing/hero.jpg` is added.
+- **The contact email** is the support email set in the admin console.
 
 ## Rules the software enforces
 

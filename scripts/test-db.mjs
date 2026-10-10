@@ -32,6 +32,7 @@ await db.exec(readFileSync('supabase/migrations/0008_assist.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0009_billing.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0010_admin_and_pay_per.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0011_vat.sql', 'utf8'));
+await db.exec(readFileSync('supabase/migrations/0012_public_prices.sql', 'utf8'));
 // The checks written before VAT run at a zero rate. VAT has its own checks at the end.
 await db.exec(`update platform_settings set vat_percent = 0`);
 
@@ -463,6 +464,8 @@ ov = (await as(Z, `select admin_overview() as o`))[0].o;
 ok('the admin sees VAT collected', ov.vat_kobo === 9300000 && ov.settings.vat_percent === 7.5);
 await denied('the unwrapped functions are closed', () => as(G, `select billing_checkout_net('{"kind":"engagement","type":"audit"}'::jsonb)`), /permission denied/);
 await db.exec(`set role anon`);
+const pub = (await db.query(`select public_prices() as p`)).rows[0].p;
+ok('a visitor can read the price list and nothing else', pub.plans.length === 3 && pub.engagement_prices.length === 4 && Object.keys(pub).length === 5);
 await denied('anonymous visitors cannot read anything', () => db.query(`select * from firms`), /permission denied/);
 await denied('anonymous visitors cannot create a firm', () => db.query(`select create_firm('x','','','','')`), /permission denied/);
 

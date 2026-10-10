@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="Placeholder for the hero photograph">
+  <rect width="1600" height="900" fill="#E5E5E5"/>
+  <rect x="24" y="24" width="1552" height="852" fill="none" stroke="#707070" stroke-width="2" stroke-dasharray="14 12"/>
+  <g font-family="Inter, Arial, sans-serif" text-anchor="middle" fill="#242424">
+    <text x="800" y="420" font-size="44" font-weight="600">Hero photograph goes here</text>
+    <text x="800" y="480" font-size="26" fill="#707070">Three accounting professionals reviewing a printed report. 16:9, at least 1600 × 900.</text>
+    <text x="800" y="524" font-size="22" fill="#707070">Replace public/landing/hero.jpg and set HERO.src in src/landing/config.ts</text>
+  </g>
+</svg>
