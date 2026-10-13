@@ -57,6 +57,7 @@ export function useLoad<T>(fn: () => Promise<T>, deps: unknown[]) {
   const [tick, setTick] = useState(0);
   useEffect(() => {
     let live = true;
+    setError(null);
     fn().then(
       (d) => live && setData(d),
       (e) => live && setError(message(e)),

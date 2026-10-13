@@ -5,7 +5,7 @@ import { repo } from './data';
 import type { Workspace } from './data/repo';
 import { longDate } from './engine/report';
 import type { EngagementType, Role } from './engine/types';
-import { ErrorNote, Field, useAction, useLoad } from './ui';
+import { ErrorNote, Field, message, useAction, useLoad } from './ui';
 
 export const TYPE_LABEL: Record<EngagementType, string> = {
   audit: 'Audit',
@@ -131,7 +131,7 @@ export function NewPasswordPage({ onDone }: { onDone: () => Promise<void> }) {
       <div>
         <h1>Choose a new password</h1>
         <p className="muted" style={{ marginTop: 6 }}>
-          Use at least 8 characters. You stay signed in once it is saved.
+          Use at least 8 characters. You stay signed in once it is saved. If you were invited by a colleague, you can join their firm next.
         </p>
       </div>
       <form
@@ -263,7 +263,17 @@ function Team({ ws, onChanged }: { ws: Workspace; onChanged: () => Promise<void>
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<Role>('staff');
   const { busy, error, run } = useAction();
+  const [notice, setNotice] = useState<string | null>(null);
   const open = (invites.data ?? []).filter((i) => !i.accepted);
+  const send = (id: string) =>
+    run(async () => {
+      setNotice(null);
+      try {
+        setNotice(await repo.sendInvite(id));
+      } finally {
+        invites.reload();
+      }
+    });
 
   return (
     <div className="card stack">
@@ -331,9 +341,13 @@ function Team({ ws, onChanged }: { ws: Workspace; onChanged: () => Promise<void>
         </table>
       </div>
       <ErrorNote error={error} />
+      {notice && <div className="banner info">{notice}</div>}
       {partner && invites.error && (
         <div className="banner warn">
-          Invitations need a database update. Run <code>supabase/migrations/0003_team_and_evidence.sql</code> in the Supabase SQL editor, then reload this page.
+          Invitations could not be loaded: {invites.error}{' '}
+          <button className="link" onClick={() => invites.reload()}>
+            Try again
+          </button>
         </div>
       )}
       {partner && !invites.error && (
@@ -346,18 +360,23 @@ function Team({ ws, onChanged }: { ws: Workspace; onChanged: () => Promise<void>
                   <span>
                     {i.email} <span className="muted">as {i.role}</span>
                   </span>
-                  <button
-                    className="link danger"
-                    disabled={busy}
-                    onClick={() =>
-                      void run(async () => {
-                        await repo.deleteInvite(i.id);
-                        invites.reload();
-                      })
-                    }
-                  >
-                    Withdraw
-                  </button>
+                  <span className="row" style={{ gap: 16 }}>
+                    <button className="link" disabled={busy} aria-label={`Resend invitation to ${i.email}`} onClick={() => void send(i.id)}>
+                      Resend
+                    </button>
+                    <button
+                      className="link danger"
+                      disabled={busy}
+                      onClick={() =>
+                        void run(async () => {
+                          await repo.deleteInvite(i.id);
+                          invites.reload();
+                        })
+                      }
+                    >
+                      Withdraw
+                    </button>
+                  </span>
                 </div>
               ))}
             </div>
@@ -368,9 +387,11 @@ function Team({ ws, onChanged }: { ws: Workspace; onChanged: () => Promise<void>
             onSubmit={(e) => {
               e.preventDefault();
               void run(async () => {
-                await repo.createInvite(email, role);
+                setNotice(null);
+                const id = await repo.createInvite(email, role);
                 setEmail('');
                 invites.reload();
+                setNotice(await repo.sendInvite(id).catch((e) => `The invitation is saved, but the email was not sent: ${message(e)}`));
               });
             }}
           >
@@ -391,7 +412,7 @@ function Team({ ws, onChanged }: { ws: Workspace; onChanged: () => Promise<void>
             <button disabled={busy}>Invite</button>
           </form>
           <p className="small muted" style={{ margin: 0 }}>
-            No email is sent. Ask your colleague to create an account at this site with the same email address. Once they confirm it, they are offered a place in the firm. Only partners can sign a file.
+            Your colleague gets an email with a link. They set a password, confirm their name, and join the firm. If the email does not arrive, use Resend, or ask them to create an account here with the same email address. Only partners can sign a file.
           </p>
         </>
       )}

@@ -48,19 +48,21 @@
 .lp-btn[aria-disabled='true'] { opacity: 0.45; pointer-events: none; }
 
 /* Hero */
-.lp-hero { padding: 72px 0 88px; }
-.lp-hero-in { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr); gap: 56px; align-items: center; }
+.lp-hero { position: relative; overflow: hidden; background: #f4f4f4; min-height: 640px; display: flex; align-items: center; padding: 72px 0; }
+.lp-hero-in { position: relative; z-index: 1; width: 100%; }
+.lp-hero-text { max-width: 530px; }
 .lp-eyebrow { font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--grey); margin-bottom: 18px; }
 .lp h1 { font-size: clamp(38px, 5vw, 60px); font-weight: 700; letter-spacing: -0.035em; line-height: 1.05; }
 .lp-lead { font-size: 18px; color: var(--char); margin-top: 22px; max-width: 34em; }
 .lp-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
 .lp-sub { font-size: 14px; color: var(--grey); margin-top: 12px; }
-.lp ul.lp-attrs { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 30px; padding-top: 22px; border-top: 1px solid var(--line); font-size: 14px; font-weight: 500; color: var(--char); }
+.lp ul.lp-attrs { display: flex; flex-wrap: wrap; gap: 10px 26px; margin-top: 26px; font-size: 14px; font-weight: 500; color: var(--char); }
 .lp-attrs li { display: flex; align-items: center; gap: 8px; }
-.lp-attrs li::before { content: ''; width: 6px; height: 6px; background: var(--black); border-radius: 50%; }
-.lp-photo { margin: 0; border-radius: 18px; overflow: hidden; aspect-ratio: 16 / 9; background: var(--line); box-shadow: 0 24px 60px -30px rgba(17, 17, 17, 0.45); }
-.lp-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center 30%; display: block; filter: grayscale(1); }
-.lp-photo.placeholder { box-shadow: none; }
+.lp-attrs li::before { content: ''; width: 16px; height: 16px; border: 1.5px solid var(--char); border-radius: 50%; background: no-repeat center / 9px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 8'%3E%3Cpath d='M1 4l2.5 2.5L9 1' fill='none' stroke='%23242424' stroke-width='1.6'/%3E%3C/svg%3E"); }
+.lp-photo { position: absolute; top: 0; right: 0; bottom: 0; width: 54%; margin: 0; }
+.lp-photo img { width: 100%; height: 100%; object-fit: cover; object-position: 30% 18%; display: block; filter: grayscale(1); }
+.lp-photo::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, #f4f4f4 0%, rgba(244, 244, 244, 0.92) 14%, rgba(244, 244, 244, 0.55) 30%, rgba(244, 244, 244, 0) 52%), linear-gradient(0deg, rgba(244, 244, 244, 0.5) 0%, rgba(244, 244, 244, 0) 16%); }
+.lp-hero.no-photo .lp-photo { display: none; }
 
 /* Sections */
 .lp-section { padding: 96px 0; background: var(--white); border-top: 1px solid var(--line); }
@@ -212,3 +214,20 @@ html:has(.lp) { scroll-behavior: smooth; }
 .lp-trialband :focus-visible { outline-color: var(--white); }
 @media (max-width: 1000px) { .lp-trialband { grid-template-columns: 1fr; gap: 22px; } .lp-trialband .lp-btn { justify-self: start; } }
 @media (max-width: 720px) { .lp-trial { grid-template-columns: 1fr; } .lp-trial li { border-left: 0; border-top: 1px solid var(--line); } .lp-trial li:first-child { border-top: 0; } }
+
+/* Dark strip under the hero */
+.lp-strip { background: #1a1b1d; color: var(--white); padding: 52px 0; }
+.lp-strip-in { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 36px; }
+.lp-strip-icon { display: inline-grid; place-items: center; width: 46px; height: 46px; border-radius: 10px; background: #2c2d30; margin-bottom: 16px; }
+.lp-strip .lp-icon { color: var(--white); width: 24px; height: 24px; }
+.lp-strip h3 { color: var(--white); font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+.lp-strip p { color: #c9c9c9; font-size: 15px; }
+.lp-login { border-color: #b8b8b8 !important; }
+@media (max-width: 1000px) {
+  .lp-hero { display: block; min-height: 0; padding: 0 0 48px; }
+  .lp-photo { position: relative; width: 100%; height: 360px; }
+  .lp-photo::after { background: linear-gradient(0deg, #f3f3f3 0%, rgba(243, 243, 243, 0) 35%); }
+  .lp-hero-in { margin-top: 0; padding-top: 28px; }
+  .lp-strip-in { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 720px) { .lp-photo { height: 260px; } .lp-strip-in { grid-template-columns: 1fr; gap: 28px; } }

@@ -10,14 +10,17 @@ export const CTA = {
 };
 
 /**
- * The hero photograph. No photograph has been supplied yet, so a labelled placeholder is shown.
- * To replace it: put the photograph at public/landing/hero.jpg (16:9, at least 1600 x 900)
- * and set src to '/landing/hero.jpg'. Keep alt as a plain description of the picture.
+ * The hero photograph, shown on the right of the hero and fading into the page on its left.
+ * To replace it: overwrite public/landing/hero.jpg (people towards the right, at least 1200 px wide)
+ * and update width and height. Keep alt as a plain description of the picture.
  */
 export const HERO = {
-  src: '/landing/hero-placeholder.svg',
-  alt: 'Placeholder for a photograph of three accounting professionals reviewing a printed financial report',
-  placeholder: true,
+  src: '/landing/hero.jpg',
+  alt: 'Three accounting professionals in dark suits reviewing a printed financial report together',
+  width: 792,
+  height: 656,
+  /** true shows the labelled placeholder layout instead of a full-bleed photograph */
+  placeholder: false,
 };
 
 /**

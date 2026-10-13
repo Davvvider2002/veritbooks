@@ -74,10 +74,11 @@ async function fetchAll(page: (from: number, to: number) => PromiseLike<{ data: 
 const CHUNK = 500;
 
 export function createSupabaseRepo(url: string, key: string): Repo {
-  // A reset link brings the visitor back signed in, with "type=recovery" in the address.
+  // A reset link, or an invitation to a new colleague, brings the visitor back signed in with
+  // "type=recovery" or "type=invite" in the address. Either way they choose a password first.
   // That is noted before the client tidies the address away, and kept for this browser tab.
   const RECOVER = 'veritbooks.recovering';
-  if (/type=recovery/.test(window.location.hash + window.location.search)) sessionStorage.setItem(RECOVER, '1');
+  if (/type=(recovery|invite)/.test(window.location.hash + window.location.search)) sessionStorage.setItem(RECOVER, '1');
   const db: SupabaseClient = createClient(url, key);
 
   /** Calls the assist function, which holds the AI service key. The browser never sees it. */
@@ -239,10 +240,19 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       return (data ?? []).map((r): Invite => ({ id: r.id, email: r.email, role: r.role, accepted: !!r.accepted_at }));
     },
     async createInvite(email, role) {
-      const { error } = await db.from('firm_invites').insert({ firm_id: await firmId(), email: email.trim().toLowerCase(), role });
-      if (error && /duplicate key/i.test(error.message)) throw new Error('This email has already been invited.');
+      const { data, error } = await db.from('firm_invites').insert({ firm_id: await firmId(), email: email.trim().toLowerCase(), role }).select('id').single();
+      if (error && /duplicate key/i.test(error.message)) throw new Error('This email has already been invited. Use Resend below.');
       if (error && /row-level security/i.test(error.message)) throw new Error('Only a partner can invite.');
       fail(error);
+      return data!.id as string;
+    },
+    async sendInvite(id) {
+      const { data, error } = await db.functions.invoke('invite', { body: { inviteId: id } });
+      if (error) {
+        const reply = await (error as { context?: Response }).context?.json?.().catch(() => null);
+        throw new Error(reply?.error ?? 'The invitation email could not be sent. The invitation is saved: ask your colleague to create an account with this email address.');
+      }
+      return (data as { message: string }).message;
     },
     async deleteInvite(id) {
       const { error } = await db.from('firm_invites').delete().eq('id', id);

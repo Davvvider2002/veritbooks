@@ -47,6 +47,7 @@ const ICONS: Record<string, ReactNode> = {
   import: <path d="M12 3v11M8 10l4 4 4-4M4 17v3h16v-3" />,
   plan: <path d="M4 5h16v14H4zM4 10h16M9 5v14" />,
   review: <path d="M6 3h9l4 4v14H6zM9 13l2 2 4-4" />,
+  clients: <path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20c0-3.3 2.7-5 6-5s6 1.7 6 5M16 5a3 3 0 0 1 0 6M18 15c2 .5 3 2 3 5" />,
   sign: <path d="M4 19c4 0 3-9 6-9s1 7 4 7 2-4 6-4M4 22h16" />,
 };
 const Icon = ({ name }: { name: string }) => (
@@ -102,6 +103,13 @@ const FEATURES: { icon: string; label: string; head: string; text: string; group
     text: 'Maintain a quality management register, track findings and remedial actions, record evaluations and monitor engagement progress.',
     groups: [{ items: ['ISQM 1-oriented quality management register', 'Quality risks and responses', 'Monitoring findings', 'Remedial actions', 'Independence confirmations', 'Engagement monitoring'] }],
   },
+];
+
+const STRIP = [
+  { icon: 'statements', head: 'Financial Statements', text: 'Generate complete financial statements with notes and supporting schedules.' },
+  { icon: 'evidence', head: 'Audit Working Papers', text: 'Organise evidence, testing, bank reconciliations and sign-off checks by engagement.' },
+  { icon: 'clients', head: 'Multi-Client Management', text: 'Run many clients and engagements, with partner, manager and staff roles.' },
+  { icon: 'quality', head: 'Traceable and Locked', text: 'Every figure traces to its source. Signed files are locked and changes are recorded.' },
 ];
 
 const STEPS = [
@@ -265,8 +273,8 @@ export function Landing() {
                 {label}
               </a>
             ))}
-            <Go to={CTA.signIn} className="lp-signin">
-              Sign in
+            <Go to={CTA.signIn} className="lp-btn line small lp-login">
+              Log in
             </Go>
             <Go to={CTA.getStarted} className="lp-btn solid small">
               Get Started
@@ -276,9 +284,12 @@ export function Landing() {
       </header>
 
       <main id="main">
-        <section className="lp-hero" id="top">
+        <section className={`lp-hero${HERO.placeholder ? ' no-photo' : ''}`} id="top">
+          <figure className="lp-photo">
+            <img src={HERO.src} alt={HERO.alt} width={HERO.width} height={HERO.height} fetchPriority="high" decoding="async" />
+          </figure>
           <div className="lp-wrap lp-hero-in">
-            <div>
+            <div className="lp-hero-text">
               <p className="lp-eyebrow">Accounting &amp; Audit Software</p>
               <h1>From trial balance to signed financial statements.</h1>
               <p className="lp-lead">
@@ -307,14 +318,25 @@ export function Landing() {
                 </li>
               </ul>
               <ul className="lp-attrs">
-                <li>Audit, Review &amp; Compilation</li>
                 <li>IFRS for SMEs</li>
+                <li>Audit | Review | Compilation</li>
                 <li>Built for Professional Accounting Firms</li>
               </ul>
             </div>
-            <figure className={`lp-photo${HERO.placeholder ? ' placeholder' : ''}`}>
-              <img src={HERO.src} alt={HERO.alt} width={1600} height={900} fetchPriority="high" decoding="async" />
-            </figure>
+          </div>
+        </section>
+
+        <section className="lp-strip" aria-label="At a glance">
+          <div className="lp-wrap lp-strip-in">
+            {STRIP.map((x) => (
+              <div key={x.head}>
+                <span className="lp-strip-icon">
+                  <Icon name={x.icon} />
+                </span>
+                <h3>{x.head}</h3>
+                <p>{x.text}</p>
+              </div>
+            ))}
           </div>
         </section>
 

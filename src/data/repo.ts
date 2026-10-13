@@ -323,8 +323,11 @@ export interface Repo {
 
   /** Partners only. */
   listInvites(): Promise<Invite[]>;
-  createInvite(email: string, role: Role): Promise<void>;
+  /** Records an invitation and returns its id. */
+  createInvite(email: string, role: Role): Promise<string>;
   deleteInvite(id: string): Promise<void>;
+  /** Emails the invitation. Returns what was sent, in words. */
+  sendInvite(id: string): Promise<string>;
   setMemberRole(userId: string, role: Role): Promise<void>;
   removeMember(userId: string): Promise<void>;
   myInvites(): Promise<PendingInvite[]>;

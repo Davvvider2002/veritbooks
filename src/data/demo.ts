@@ -352,8 +352,14 @@ export function createDemoRepo(): Repo {
       if (f.members.find((m) => m.userId === me().id)?.role !== 'partner') throw new Error('Only a partner can invite.');
       const e = email.trim().toLowerCase();
       if (s.invites.some((i) => i.firmId === firmId() && i.email === e)) throw new Error('This email has already been invited.');
-      s.invites.push({ id: uid(), firmId: firmId(), email: e, role, accepted: false });
+      const id = uid();
+      s.invites.push({ id, firmId: firmId(), email: e, role, accepted: false });
       save();
+      return id;
+    },
+    async sendInvite(id) {
+      const i = s.invites.find((x) => x.id === id);
+      return `Demo mode: no email is sent. In the live app, ${i?.email ?? 'your colleague'} gets an email with a link to join.`;
     },
     async deleteInvite(id) {
       s.invites = s.invites.filter((i) => !(i.id === id && i.firmId === firmId()));
