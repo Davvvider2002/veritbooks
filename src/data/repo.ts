@@ -25,6 +25,26 @@ export interface Firm {
   address: string;
   /** True when a partner has turned AI assistance on for the firm. Off unless they do. */
   aiEnabled: boolean;
+  /** How the firm's reports look. Set by a partner or manager. */
+  branding: Branding;
+  /** How engagements are numbered. */
+  fileNumbering: { mode: 'manual' | 'auto'; pattern: string };
+  nextFileNo: number;
+}
+
+export interface Branding {
+  /** The firm's logo, as a small data URL. */
+  logo?: string;
+  /** Show the firm's logo faintly across the cover page. */
+  watermark?: boolean;
+  /** Show the firm's logo at the top of the auditor's report and the management letter. */
+  logoOnReport?: boolean;
+  font?: 'serif' | 'sans';
+  /** Printed at the foot of every page, for example the firm's name, address and telephone. */
+  footer?: string;
+  /** Print a cover page and a contents page before the directors' report. */
+  cover?: boolean;
+  contents?: boolean;
 }
 
 export interface Member {
@@ -39,6 +59,9 @@ export interface Client {
   name: string;
   rcNumber: string;
   sector: string;
+  /** The client's logo, as a small data URL, shown on the cover of its financial statements. */
+  logo?: string | null;
+  logoPlacement?: 'left' | 'centre' | 'right';
 }
 
 export interface Engagement {
@@ -57,6 +80,8 @@ export interface Engagement {
   signedByFrc: string | null;
   firmFrc: string | null;
   signedAt: string | null;
+  /** The firm's audit file number. */
+  fileNo: string;
   /** Paid for on its own, so it stays open whatever the firm's plan is doing. */
   payPer: boolean;
   /** The consolidation add-on has been paid for this engagement. */
@@ -336,9 +361,15 @@ export interface Repo {
   listClients(): Promise<Client[]>;
   createClient(c: Omit<Client, 'id'>): Promise<Client>;
   listEngagements(): Promise<Engagement[]>;
-  createEngagement(e: { clientId: string; type: EngagementType; yearEnd: string; programmeVersion: string }): Promise<Engagement>;
+  createEngagement(e: { clientId: string; type: EngagementType; yearEnd: string; programmeVersion: string; fileNo?: string }): Promise<Engagement>;
   getEngagement(id: string): Promise<Engagement | null>;
-  updateEngagement(id: string, patch: Partial<Pick<Engagement, 'planning' | 'programme' | 'report' | 'testing' | 'disclosures'>>): Promise<void>;
+  updateEngagement(id: string, patch: Partial<Pick<Engagement, 'planning' | 'programme' | 'report' | 'testing' | 'disclosures' | 'fileNo'>>): Promise<void>;
+  /** Changes a client's details. */
+  updateClient(id: string, patch: Partial<Omit<Client, 'id'>>): Promise<void>;
+  /** Sets how the firm's reports look. Partners and managers. */
+  setBranding(b: Branding): Promise<void>;
+  /** Sets how new engagements are numbered. Partners only. */
+  setFileNumbering(mode: 'manual' | 'auto', pattern: string, next: number): Promise<void>;
 
   listLines(engagementId: string): Promise<TbLine[]>;
   /** Replaces the whole trial balance of an engagement. */

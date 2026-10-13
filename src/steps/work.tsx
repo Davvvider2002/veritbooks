@@ -1,9 +1,11 @@
+import { parseJournals } from '../engine/journalImport';
+import { readRows } from './input';
 import { useState } from 'react';
 import { PACKS, PACK_VERSION, packOf, programmeFor } from '../content/packs';
 import { repo } from '../data';
 import { BENCHMARKS, benchmarkBase, computeMateriality, unadjustedEffect } from '../engine/checks';
 import { fmt, fmt2, parseAmount } from '../engine/money';
-import type { JournalLine, Planning } from '../engine/types';
+import type { JournalLine, Planning, TbLine } from '../engine/types';
 import { ErrorNote, Field, useAction } from '../ui';
 import type { Ctx } from '../workspace';
 import { FileCount } from './evidence';
@@ -305,6 +307,8 @@ export function JournalsStep({ eng, lines, adjustments, statements, locked, relo
         </div>
       )}
 
+      {!locked && lines.length > 0 && <JournalImport engagementId={eng.id} lines={lines} existing={adjustments.map((a) => a.ref)} reload={reload} />}
+
       {!locked && lines.length > 0 && (
         <div className="card stack">
           <h3>New journal</h3>
@@ -363,6 +367,105 @@ export function JournalsStep({ eng, lines, adjustments, statements, locked, relo
         </div>
       )}
       {lines.length === 0 && <div className="banner info">Import a trial balance first.</div>}
+    </div>
+  );
+}
+
+/** Adds many journals at once from a spreadsheet, after showing what will be added. */
+function JournalImport({ engagementId, lines, existing, reload }: { engagementId: string; lines: TbLine[]; existing: string[]; reload: () => void }) {
+  const [result, setResult] = useState<ReturnType<typeof parseJournals> | null>(null);
+  const [file, setFile] = useState('');
+  const { busy, error, run, setError } = useAction();
+  const taken = new Set(existing.map((r) => r.trim().toLowerCase()));
+  const clash = (result?.journals ?? []).filter((j) => taken.has(j.ref.toLowerCase()));
+  const ready = (result?.journals ?? []).filter((j) => !taken.has(j.ref.toLowerCase()));
+  const name = (id: string) => {
+    const l = lines.find((x) => x.id === id);
+    return l ? `${l.code} ${l.name}` : '';
+  };
+  return (
+    <div className="card stack" aria-label="Import journals">
+      <div className="between">
+        <h3>Import journals from Excel or CSV</h3>
+        <a className="small" href="/samples/journals-template.csv" download>
+          Download a template
+        </a>
+      </div>
+      <p className="small muted" style={{ margin: 0 }}>
+        One row per journal line, with columns for the reference, the account code (or account name as in the trial balance), and debit and credit. Date, description and treatment (posted or proposed) are optional. Rows with the same reference form one journal, and each journal must balance.
+      </p>
+      <input
+        type="file"
+        aria-label="Journal file"
+        accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = ''; // so the same file can be chosen again after it is corrected
+          if (!f) return;
+          setFile(f.name);
+          void run(async () => setResult(parseJournals(await readRows(f), lines)));
+        }}
+      />
+      <ErrorNote error={error} />
+      {result && (
+        <div className="stack">
+          {result.errors.length > 0 && (
+            <div className="banner bad">
+              <strong>{result.errors.length} problem(s) in {file}.</strong> These journals will not be added until the file is corrected:
+              <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+                {result.errors.slice(0, 12).map((e) => (
+                  <li key={e}>{e}</li>
+                ))}
+                {result.errors.length > 12 && <li>and {result.errors.length - 12} more</li>}
+              </ul>
+            </div>
+          )}
+          {clash.length > 0 && <div className="banner warn">Already in this file, so skipped: {clash.map((j) => j.ref).join(', ')}.</div>}
+          {ready.length > 0 && (
+            <>
+              <table className="data">
+                <thead>
+                  <tr>
+                    <th>Journal</th>
+                    <th>Lines</th>
+                    <th>Treatment</th>
+                    <th className="num">Debits ₦</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ready.map((j) => (
+                    <tr key={j.ref}>
+                      <td>
+                        <strong>{j.ref}</strong> {j.description}
+                      </td>
+                      <td className="small">{j.lines.map((l) => name(l.lineId)).join('; ')}</td>
+                      <td>{j.posted ? 'Posted' : 'Proposed'}</td>
+                      <td className="num">{fmt2(j.lines.reduce((a, l) => a + Math.max(l.amount, 0), 0))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div>
+                <button
+                  className="primary"
+                  disabled={busy}
+                  onClick={() => {
+                    setError(null);
+                    void run(async () => {
+                      for (const j of ready) await repo.addAdjustment(engagementId, { ref: j.ref, description: [j.date, j.description].filter(Boolean).join(' · '), posted: j.posted, lines: j.lines });
+                      setResult(null);
+                      setFile('');
+                      reload();
+                    });
+                  }}
+                >
+                  Add {ready.length} journal{ready.length === 1 ? '' : 's'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

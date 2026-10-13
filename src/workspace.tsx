@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { reconcile, type Reconciliation } from './engine/bank';
 import { computeMateriality, type BankGate } from './engine/checks';
 import { testLedger, type GlEntry, type LedgerTest } from './engine/ledger';
@@ -27,7 +27,9 @@ import { TYPE_LABEL } from './pages';
 import { ImportStep, MappingStep } from './steps/input';
 import { ReportStep, SignOffStep, StatementsStep, TrailStep } from './steps/output';
 import { JournalsStep, PlanningStep, ProgrammeStep } from './steps/work';
-import { ErrorNote, useLoad } from './ui';
+import { ErrorNote, useAction, useLoad } from './ui';
+import { OpeningStep } from './steps/opening';
+import { ManagementStep } from './steps/management';
 
 export interface Ctx {
   ws: Workspace;
@@ -161,6 +163,7 @@ const STEPS = [
   { slug: 'mapping', label: 'Mapping', el: MappingStep },
   { slug: 'planning', label: 'Planning', el: PlanningStep },
   { slug: 'analytical', label: 'Analytical review', el: AnalyticalStep },
+  { slug: 'opening', label: 'Opening balances', el: OpeningStep },
   { slug: 'requests', label: 'Client requests', el: RequestsStep },
   { slug: 'programme', label: 'Work programme', el: ProgrammeStep },
   { slug: 'ledger', label: 'Journal testing', el: LedgerStep },
@@ -173,9 +176,50 @@ const STEPS = [
   { slug: 'consolidation', label: 'Consolidation', el: ConsolidationStep },
   { slug: 'statements', label: 'Financial statements', el: StatementsStep },
   { slug: 'report', label: 'Report', el: ReportStep },
+  { slug: 'management', label: 'Management letter', el: ManagementStep },
   { slug: 'sign-off', label: 'Sign-off', el: SignOffStep },
   { slug: 'trail', label: 'Audit trail', el: TrailStep },
 ] as const;
+
+/** The audit file number, shown under the engagement's name and editable until the file is signed. */
+function FileNo({ eng, locked, reload }: { eng: Engagement; locked: boolean; reload: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(eng.fileNo);
+  const { busy, error, run } = useAction();
+  if (!editing)
+    return (
+      <div className="small" style={{ marginTop: 4 }}>
+        File no. {eng.fileNo ? <strong>{eng.fileNo}</strong> : <span className="muted">not set</span>}
+        {!locked && (
+          <>
+            {' '}
+            <button className="link" onClick={() => { setValue(eng.fileNo); setEditing(true); }}>
+              {eng.fileNo ? 'Change' : 'Set'}
+            </button>
+          </>
+        )}
+      </div>
+    );
+  return (
+    <form
+      className="row"
+      style={{ marginTop: 6, gap: 8 }}
+      onSubmit={(e) => {
+        e.preventDefault();
+        void run(async () => {
+          await repo.updateEngagement(eng.id, { fileNo: value });
+          setEditing(false);
+          reload();
+        });
+      }}
+    >
+      <input type="text" aria-label="Audit file number" value={value} maxLength={60} onChange={(e) => setValue(e.target.value)} style={{ width: 200 }} />
+      <button className="primary" disabled={busy}>Save</button>
+      <button type="button" onClick={() => setEditing(false)}>Cancel</button>
+      <ErrorNote error={error} />
+    </form>
+  );
+}
 
 export function EngagementPage({ ws }: { ws: Workspace }) {
   const { id = '', step } = useParams();
@@ -267,7 +311,7 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
 
   // Review and compilation engagements have no materiality step in this version.
   const steps = STEPS.filter((s) => {
-    if (s.slug === 'planning' || s.slug === 'analytical') return data.eng.type !== 'compilation';
+    if (s.slug === 'planning' || s.slug === 'analytical' || s.slug === 'opening' || s.slug === 'management') return data.eng.type !== 'compilation';
     if (s.slug === 'ledger' || s.slug === 'bank') return data.eng.type === 'audit';
     return true;
   });
@@ -305,11 +349,12 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
     <div className="page">
       <div className="between no-print" style={{ marginBottom: 22 }}>
         <div>
-          <div className="small muted">
-            <Link to="/">Engagements</Link> / {TYPE_LABEL[data.eng.type]}
-          </div>
+          <nav className="small muted crumbs" aria-label="Breadcrumb">
+            <Link to="/">Engagements</Link> / <Link to={`/clients?c=${data.client.id}`}>{data.client.name}</Link> / {TYPE_LABEL[data.eng.type]} {data.eng.yearEnd.slice(0, 4)}
+          </nav>
           <h1 style={{ marginTop: 4 }}>{data.client.name}</h1>
           <div className="muted">Year ended {longDate(data.eng.yearEnd)} · IFRS for SMEs{packOf(data.eng.planning) ? ` · ${packOf(data.eng.planning)!.name}` : ''}</div>
+          <FileNo eng={data.eng} locked={ctx.locked} reload={reload} />
         </div>
         <div className="row">
           {data.lines.length > 0 && (
@@ -346,6 +391,18 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
             </div>
           )}
           <Step {...ctx} />
+          <nav className="step-nav no-print" aria-label="Previous and next step">
+            {steps.indexOf(current) > 0 && (
+              <Link to={`/engagements/${id}/${steps[steps.indexOf(current) - 1].slug}`} className="prev">
+                ← {steps[steps.indexOf(current) - 1].label}
+              </Link>
+            )}
+            {steps.indexOf(current) < steps.length - 1 && (
+              <Link to={`/engagements/${id}/${steps[steps.indexOf(current) + 1].slug}`} className="next">
+                {steps[steps.indexOf(current) + 1].label} →
+              </Link>
+            )}
+          </nav>
         </main>
       </div>
     </div>

@@ -20,10 +20,11 @@ const toEngagement = (r: any): Engagement => ({
   signedByFrc: r.signed_by_frc,
   firmFrc: r.firm_frc,
   signedAt: r.signed_at,
+  fileNo: r.file_no ?? '',
   payPer: !!r.pay_per,
   groupAddon: !!r.group_addon,
 });
-const toClient = (r: any): Client => ({ id: r.id, name: r.name, rcNumber: r.rc_number, sector: r.sector });
+const toClient = (r: any): Client => ({ id: r.id, name: r.name, rcNumber: r.rc_number, sector: r.sector, logo: r.logo ?? null, logoPlacement: r.logo_placement ?? 'centre' });
 const toMember = (r: any): Member => ({
   userId: r.user_id,
   role: r.role,
@@ -196,7 +197,7 @@ export function createSupabaseRepo(url: string, key: string): Repo {
           plans: (b.plans ?? []).map((p: any) => ({ code: p.code, name: p.name, maxUsers: p.max_users, maxEngagements: p.max_engagements, listKobo: p.list_kobo, amountKobo: p.amount_kobo, founding: p.founding, creditKobo: p.credit_kobo ?? 0, mode: p.mode ?? 'new' })),
           payments: (b.payments ?? []).map((p: any) => ({ id: p.id, kind: p.kind ?? 'plan', plan: p.plan, engagementType: p.engagement_type ?? null, withGroup: !!p.with_group, amountKobo: p.amount_kobo, vatKobo: p.vat_kobo ?? 0, creditKobo: p.credit_kobo ?? 0, founding: p.founding, source: p.source ?? 'flutterwave', paidAt: p.paid_at, coversUntil: p.covers_until, reference: p.tx_ref, receiptNo: p.receipt_no ?? null })),
         },
-        firm: { id: firm.id, name: firm.name, frcNumber: firm.frc_number, address: firm.address, aiEnabled: !!firm.ai_enabled },
+        firm: { id: firm.id, name: firm.name, frcNumber: firm.frc_number, address: firm.address, aiEnabled: !!firm.ai_enabled, branding: firm.branding ?? {}, fileNumbering: { mode: firm.file_numbering?.mode === 'auto' ? 'auto' : 'manual', pattern: firm.file_numbering?.pattern ?? '' }, nextFileNo: firm.next_file_no ?? 1 },
         me: toMember(mine),
         members: (members ?? []).filter((m) => m.firm_id === mine.firm_id).map(toMember),
       };
@@ -306,9 +307,11 @@ export function createSupabaseRepo(url: string, key: string): Repo {
           type: e.type,
           year_end: e.yearEnd,
           programme_version: e.programmeVersion,
+          file_no: e.fileNo?.trim() ?? '',
         })
         .select()
         .single();
+      if (error && /engagements_file_no_idx/.test(error.message)) throw new Error('Another engagement in your firm already uses that file number.');
       fail(error);
       return toEngagement(data);
     },
@@ -318,7 +321,30 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       return data ? toEngagement(data) : null;
     },
     async updateEngagement(id, patch) {
-      const { error } = await db.from('engagements').update(patch).eq('id', id);
+      const { fileNo, ...rest } = patch;
+      const row: Record<string, unknown> = { ...rest };
+      if (fileNo !== undefined) row.file_no = fileNo.trim();
+      const { error } = await db.from('engagements').update(row).eq('id', id);
+      if (error && /engagements_file_no_idx|duplicate key/.test(error.message)) throw new Error('Another engagement in your firm already uses that file number.');
+      fail(error);
+    },
+    async updateClient(id, patch) {
+      const row: Record<string, unknown> = {};
+      if (patch.name !== undefined) row.name = patch.name.trim();
+      if (patch.rcNumber !== undefined) row.rc_number = patch.rcNumber.trim();
+      if (patch.sector !== undefined) row.sector = patch.sector;
+      if (patch.logo !== undefined) row.logo = patch.logo;
+      if (patch.logoPlacement !== undefined) row.logo_placement = patch.logoPlacement;
+      const { data, error } = await db.from('clients').update(row).eq('id', id).select('id');
+      fail(error);
+      if (!data?.length) throw new Error('The client could not be changed.');
+    },
+    async setBranding(b) {
+      const { error } = await db.rpc('set_firm_branding', { p: b });
+      fail(error);
+    },
+    async setFileNumbering(mode, pattern, next) {
+      const { error } = await db.rpc('set_file_numbering', { p_mode: mode, p_pattern: pattern, p_next: next });
       fail(error);
     },
 

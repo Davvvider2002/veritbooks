@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { AdminApp } from './admin';
+import { ClientsPage } from './clients';
 import { BillingPage, PlanStrip } from './billing';
 import { Landing } from './landing/Landing';
 import { PortalPage } from './portal';
@@ -78,6 +79,12 @@ export function App() {
         <div className="spacer" />
         {session.state === 'ready' && (
           <>
+            <Link to="/" className="small">
+              Engagements
+            </Link>
+            <Link to="/clients" className="small">
+              Clients
+            </Link>
             <Link to="/quality" className="small">
               Quality
             </Link>
@@ -117,7 +124,8 @@ export function App() {
       {session.state === 'no-firm' && <FirmSetup onDone={refresh} />}
       {session.state === 'ready' && (
         <Routes>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/" element={<Dashboard ws={session.ws} />} />
+          <Route path="/clients" element={<ClientsPage ws={session.ws} />} />
           <Route path="/quality" element={<QualityPage ws={session.ws} />} />
           <Route path="/billing" element={<BillingPage ws={session.ws} onChanged={refresh} />} />
           <Route path="/firm" element={<FirmSettings ws={session.ws} onSaved={refresh} />} />

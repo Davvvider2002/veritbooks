@@ -33,6 +33,7 @@ await db.exec(readFileSync('supabase/migrations/0009_billing.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0010_admin_and_pay_per.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0011_vat.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0012_public_prices.sql', 'utf8'));
+await db.exec(readFileSync('supabase/migrations/0013_branding_and_file_numbers.sql', 'utf8'));
 // The checks written before VAT run at a zero rate. VAT has its own checks at the end.
 await db.exec(`update platform_settings set vat_percent = 0`);
 
@@ -286,6 +287,31 @@ const [bb] = await as(B, `insert into bank_accounts (engagement_id, name, accoun
 await as(B, `insert into bank_lines (bank_account_id, engagement_id, txn_date, amount, row_no) values ($1,$2,'2025-01-01',1,1)`, [bb.id, e3.id]);
 ok('removing a bank account removes its lines', (await as(B, `delete from bank_accounts where id = $1 returning id`, [bb.id])).length === 1 && (await as(B, `select * from bank_lines`)).length === 0);
 ok('unlocked engagement can be deleted by its partner', (await as(B, `delete from engagements where id = $1 returning id`, [e3.id])).length === 1);
+
+
+// --- Branding and file numbers ----------------------------------------------
+await as(A, `select set_firm_branding('{"watermark": true, "font": "sans", "footer": "Firm One, Lagos"}'::jsonb)`);
+ok('a partner sets the branding', (await as(A, `select branding from firms where id = $1`, [f1.id]))[0].branding.footer === 'Firm One, Lagos');
+await db.exec(`update firm_members set role = 'manager' where user_id = '${C}'`);
+await as(C, `select set_firm_branding('{"font": "serif"}'::jsonb)`);
+ok('a manager can set the branding too', (await as(A, `select branding from firms where id = $1`, [f1.id]))[0].branding.font === 'serif');
+await denied('a manager cannot change file numbering', () => as(C, `select set_file_numbering('auto', 'X/{N}', 1)`), /Only a partner/);
+await db.exec(`update firm_members set role = 'staff' where user_id = '${C}'`);
+await denied('staff cannot change the branding', () => as(C, `select set_firm_branding('{}'::jsonb)`), /partner or manager/);
+await denied('a logo must be an image', () => as(A, `select set_firm_branding('{"logo": "javascript:alert(1)"}'::jsonb)`), /must be an image/);
+await denied('a client logo must be an image', () => as(A, `update clients set logo = 'hello' where id = $1`, [c1.id]), /check constraint/);
+ok('a client logo can be saved with its placement', (await as(A, `update clients set logo = 'data:image/png;base64,AAAA', logo_placement = 'left' where id = $1 returning id`, [c1.id])).length === 1);
+await denied('a pattern needs {N}', () => as(A, `select set_file_numbering('auto', 'VB/2025', 1)`), /needs \{N\}/);
+await as(A, `select set_file_numbering('auto', 'VB/{YYYY}/{N}', 7)`);
+const [fn1] = await as(A, `insert into engagements (firm_id, client_id, type, year_end) values ($1, $2, 'review', '2026-12-31') returning file_no`, [f1.id, c1.id]);
+const [fn2] = await as(A, `insert into engagements (firm_id, client_id, type, year_end) values ($1, $2, 'review', '2026-12-31') returning file_no`, [f1.id, c1.id]);
+ok('automatic numbers follow the pattern', fn1.file_no === "VB/2026/007" && fn2.file_no === 'VB/2026/008');
+const [fn3] = await as(A, `insert into engagements (firm_id, client_id, type, year_end, file_no) values ($1, $2, 'review', '2026-12-31', ' OWN-1 ') returning file_no`, [f1.id, c1.id]);
+ok("a number typed by hand is kept", fn3.file_no === 'OWN-1');
+await denied('file numbers are unique in the firm', () => as(A, `insert into engagements (firm_id, client_id, type, year_end, file_no) values ($1, $2, 'review', '2026-12-31', 'vb/2026/007')`, [f1.id, c1.id]), /duplicate key/);
+await as(A, `select set_file_numbering('manual', '', 1)`);
+ok('manual numbering leaves the number blank', (await as(A, `insert into engagements (firm_id, client_id, type, year_end) values ($1, $2, 'review', '2026-12-31') returning file_no`, [f1.id, c1.id]))[0].file_no === '');
+ok('a file number can be typed in later', (await as(A, `update engagements set file_no = 'M-12' where firm_id = $1 and file_no = '' and status = 'in_progress' returning id`, [f1.id])).length >= 1);
 
 // --- Trial, plans and payments ---------------------------------------------
 const G = '00000000-0000-0000-0000-000000000010';

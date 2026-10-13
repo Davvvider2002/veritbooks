@@ -12,6 +12,7 @@ import { fmt } from '../engine/money';
 import { draftReport, longDate } from '../engine/report';
 import type { ReportSettings } from '../engine/types';
 import { canOpen, ErrorNote, Field, StatementTable, useAction, useLoad, type OnTrace, type Opened } from '../ui';
+import { BrandedHead, ContentsSheet, CoverSheet, PageFoot } from './branding';
 import type { Ctx } from '../workspace';
 import { ChecksList } from './input';
 
@@ -107,6 +108,24 @@ export function StatementsStep(ctx: Ctx) {
 
   const balanced = st.cur.totalAssets === st.cur.totalEquityAndLiabilities;
   const policies = Object.entries(POLICIES).filter(([code]) => st.notes.has(code));
+  const b = ws.firm.branding;
+  const sheet = `sheet${b.font === 'sans' ? ' sans' : ''}`;
+  // The independent report sits after the directors' pages, where a reader expects it.
+  const reportDraft = (eng.status === 'locked' && r.signedReport) || draftFor(ctx, r);
+  const showReport = true;
+  const reportTitle = eng.type === 'audit' ? 'Independent auditor’s report' : eng.type === 'review' ? 'Independent practitioner’s review report' : 'Accountant’s compilation report';
+  const contents = [
+    { id: 'fs-directors', title: 'Report of the directors' },
+    { id: 'fs-responsibilities', title: 'Statement of directors’ responsibilities' },
+    ...(showReport ? [{ id: 'fs-report', title: reportTitle }] : []),
+    { id: 'fs-position', title: 'Statement of financial position' },
+    { id: 'fs-income', title: 'Statement of profit or loss and other comprehensive income' },
+    { id: 'fs-equity', title: 'Statement of changes in equity' },
+    ...(st.cashFlow ? [{ id: 'fs-cashflow', title: 'Statement of cash flows' }] : []),
+    { id: 'fs-notes', title: 'Notes to the financial statements' },
+    { id: 'fs-value-added', title: 'Statement of value added' },
+    { id: 'fs-summary', title: 'Financial summary' },
+  ];
 
   return (
     <div>
@@ -144,7 +163,10 @@ export function StatementsStep(ctx: Ctx) {
         </div>
       </div>
 
-      <section className="sheet">
+      {b.cover !== false && <CoverSheet ctx={ctx} />}
+      {b.contents !== false && <ContentsSheet ctx={ctx} entries={contents} />}
+
+      <section className={sheet} id="fs-directors">
         <SheetHead ctx={ctx} title="Report of the directors" />
         <p>
           The directors present their report and the financial statements of {client.name} for the year ended {longDate(eng.yearEnd)}.
@@ -207,9 +229,10 @@ export function StatementsStep(ctx: Ctx) {
             {d.registeredOffice?.trim() || '[Registered office]'}
           </div>
         </div>
+        <PageFoot ctx={ctx} />
       </section>
 
-      <section className="sheet">
+      <section className={sheet} id="fs-responsibilities">
         <SheetHead ctx={ctx} title="Statement of directors’ responsibilities" sub={`in relation to the financial statements for the year ended ${longDate(eng.yearEnd)}`} />
         <p>
           The Companies and Allied Matters Act 2020 requires the directors to prepare financial statements for each financial year that give a true and fair view of the state of affairs of the company at the end of the year and of its profit or loss for the year.
@@ -239,9 +262,12 @@ export function StatementsStep(ctx: Ctx) {
             {r.cfoFrc || '[FRC number]'}
           </div>
         </div>
+        <PageFoot ctx={ctx} />
       </section>
 
-      <section className="sheet">
+      {showReport && <ReportSheet ctx={ctx} draft={reportDraft} ready={eng.type !== 'audit' || !!r.opinion || (eng.status === 'locked' && !!r.signedReport)} />}
+
+      <section className={sheet} id="fs-position">
         <SheetHead ctx={ctx} title="Statement of financial position" sub={`as at ${longDate(eng.yearEnd)}`} />
         <StatementTable rows={st.position} curLabel={year} priorLabel={prior} notes onTrace={onTrace} />
         <div className="approval">
@@ -265,15 +291,17 @@ export function StatementsStep(ctx: Ctx) {
             </div>
           </div>
         </div>
+        <PageFoot ctx={ctx} />
       </section>
 
-      <section className="sheet">
+      <section className={sheet} id="fs-income">
         <SheetHead ctx={ctx} title="Statement of profit or loss and other comprehensive income" />
         <StatementTable rows={st.income} curLabel={year} priorLabel={prior} notes onTrace={onTrace} />
         <p style={{ marginTop: 16 }}>There were no items of other comprehensive income in the year.</p>
+        <PageFoot ctx={ctx} />
       </section>
 
-      <section className="sheet">
+      <section className={sheet} id="fs-equity">
         <SheetHead ctx={ctx} title="Statement of changes in equity" />
         <EquityRows table={st.equity} onTrace={onTrace} />
         {equityPrior && (
@@ -282,16 +310,18 @@ export function StatementsStep(ctx: Ctx) {
             <EquityRows table={equityPrior} onTrace={onTrace} />
           </>
         )}
+        <PageFoot ctx={ctx} />
       </section>
 
       {st.cashFlow && (
-        <section className="sheet">
+        <section className={sheet} id="fs-cashflow">
           <SheetHead ctx={ctx} title="Statement of cash flows" />
           <StatementTable rows={st.cashFlow} curLabel={year} onTrace={onTrace} />
-        </section>
+          <PageFoot ctx={ctx} />
+      </section>
       )}
 
-      <section className="sheet">
+      <section className={sheet} id="fs-notes">
         <SheetHead ctx={ctx} title="Notes to the financial statements" />
         <h3>1. General information</h3>
         <p>
@@ -450,17 +480,19 @@ export function StatementsStep(ctx: Ctx) {
             </>
           );
         })()}
+        <PageFoot ctx={ctx} />
       </section>
 
-      <section className="sheet">
+      <section className={sheet} id="fs-value-added">
         <SheetHead ctx={ctx} title="Statement of value added" />
         <StatementTable rows={st.valueAdded} curLabel={year} priorLabel={prior} onTrace={onTrace} />
         <p className="small" style={{ marginTop: 16 }}>
           This statement is presented as other national disclosure, as directed by the Financial Reporting Council of Nigeria. It is not a required statement under the IFRS for SMEs Accounting Standard.
         </p>
+        <PageFoot ctx={ctx} />
       </section>
 
-      <section className="sheet">
+      <section className={sheet} id="fs-summary">
         <SheetHead ctx={ctx} title="Financial summary" sub="other national disclosure" />
         <div className="scroll-x">
           <table className="fs wide">
@@ -489,6 +521,7 @@ export function StatementsStep(ctx: Ctx) {
             Figures for earlier years are not presented because {summary.years.length < 2 ? 'no earlier year is' : 'they are not'} held in this file.
           </p>
         )}
+        <PageFoot ctx={ctx} />
       </section>
       {trace && <TracePanel key={`${trace.label}|${trace.period}`} ctx={ctx} opened={trace} onClose={() => setTrace(null)} />}
     </div>
@@ -506,6 +539,60 @@ function draftFor(ctx: Ctx, settings: ReportSettings) {
     group: !!ctx.group && ctx.group.members.length > 0,
     groupCashFlow: !!ctx.group?.cashFlow,
   });
+}
+
+
+/** The auditor's, reviewer's or accountant's report, as one printed page. */
+function ReportSheet({ ctx, draft, ready }: { ctx: Ctx; draft: ReturnType<typeof draftFor>; ready: boolean }) {
+  const { eng, ws } = ctx;
+  const signed = eng.status === 'locked';
+  return (
+    <section className={`sheet${ws.firm.branding.font === 'sans' ? ' sans' : ''}`} id="fs-report">
+      <DraftMark locked={signed} />
+      <BrandedHead ctx={ctx} />
+      <div className="entity">{ws.firm.name}</div>
+      <h2>{draft.title}</h2>
+      <div className="sub">{draft.addressee}</div>
+      {!ready ? (
+        <p><em>The engagement partner has not yet selected the opinion. The report is drafted once it is.</em></p>
+      ) : (
+        draft.sections.map((s, i) => (
+          <div key={i}>
+            {s.heading && <h3>{s.heading}</h3>}
+            {s.paragraphs.map((p, j) => (
+              <p key={j}>{p}</p>
+            ))}
+          </div>
+        ))
+      )}
+      <div className="sign-grid">
+        <div className="sign-line">
+          {signed ? (
+            <>
+              {eng.signedByName}
+              <br />
+              {eng.signedByFrc}
+              <br />
+              For: {ws.firm.name} ({eng.firmFrc})
+              <br />
+              {ws.firm.address}
+              <br />
+              {longDate((eng.signedAt ?? '').slice(0, 10))}
+            </>
+          ) : (
+            <>
+              [Engagement partner]
+              <br />
+              [FRC number]
+              <br />
+              For: {ws.firm.name}
+            </>
+          )}
+        </div>
+      </div>
+      <PageFoot ctx={ctx} />
+    </section>
+  );
 }
 
 export function ReportStep(ctx: Ctx) {
@@ -650,49 +737,7 @@ export function ReportStep(ctx: Ctx) {
         )}
       </div>
 
-      <section className="sheet">
-        <DraftMark locked={signed} />
-        <div className="entity">{ws.firm.name}</div>
-        <h2>{draft.title}</h2>
-        <div className="sub">{draft.addressee}</div>
-        {eng.type === 'audit' && !r.opinion ? (
-          <p><em>The engagement partner has not yet selected the opinion. The report is drafted once it is.</em></p>
-        ) : (
-          draft.sections.map((s, i) => (
-            <div key={i}>
-              {s.heading && <h3>{s.heading}</h3>}
-              {s.paragraphs.map((p, j) => (
-                <p key={j}>{p}</p>
-              ))}
-            </div>
-          ))
-        )}
-        <div className="sign-grid">
-          <div className="sign-line">
-            {signed ? (
-              <>
-                {eng.signedByName}
-                <br />
-                {eng.signedByFrc}
-                <br />
-                For: {ws.firm.name} ({eng.firmFrc})
-                <br />
-                {ws.firm.address}
-                <br />
-                {longDate((eng.signedAt ?? '').slice(0, 10))}
-              </>
-            ) : (
-              <>
-                [Engagement partner]
-                <br />
-                [FRC number]
-                <br />
-                For: {ws.firm.name}
-              </>
-            )}
-          </div>
-        </div>
-      </section>
+      <ReportSheet ctx={ctx} draft={draft} ready={eng.type !== 'audit' || !!r.opinion || (signed && !!eng.report.signedReport)} />
     </div>
   );
 }

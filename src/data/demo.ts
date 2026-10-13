@@ -208,6 +208,17 @@ export function createDemoRepo(): Repo {
       payments: [...sub.payments].reverse(),
     };
   };
+  /** The next automatic file number, or blank when numbering is by hand. */
+  const nextFileNo = (yearEnd: string): string => {
+    const f = s.firms[firmId()].firm;
+    if (f.fileNumbering?.mode !== 'auto') return '';
+    for (;;) {
+      const n = f.nextFileNo ?? 1;
+      f.nextFileNo = n + 1;
+      const no = f.fileNumbering.pattern.replace('{YYYY}', yearEnd.slice(0, 4)).replace('{YY}', yearEnd.slice(2, 4)).replace('{N}', String(n).padStart(3, '0'));
+      if (!s.engagements.some((x) => x.firmId === firmId() && (x as any).fileNo?.toLowerCase() === no.toLowerCase())) return no;
+    }
+  };
   const isAdminUser = () => !!s.user && (s.user.email === DEMO_ADMIN || platform().admins.includes(s.user.email));
   /** Records a payment. The amount given is before VAT, unless it was received another way, when it includes VAT. */
   const receipt = (sub: DemoSub, p: Omit<PaymentRecord, 'id' | 'paidAt' | 'reference' | 'receiptNo' | 'source' | 'vatKobo'> & { source?: PaymentRecord['source']; reference?: string }) => {
@@ -319,13 +330,16 @@ export function createDemoRepo(): Repo {
       if (!s.user) return null;
       const f = s.firms[s.memberOf[s.user.id]];
       if (!f) return null;
+      f.firm.branding ??= {};
+      f.firm.fileNumbering ??= { mode: 'manual', pattern: '' };
+      f.firm.nextFileNo ??= 1;
       return { billing: billingOf(s.memberOf[s.user.id]), firm: f.firm, members: f.members, me: f.members.find((m) => m.userId === s.user!.id)! };
     },
     async createFirm(f) {
       if (s.memberOf[me().id]) throw new Error('You already belong to a firm.');
       const id = uid();
       s.firms[id] = {
-        firm: { id, name: f.name.trim(), frcNumber: f.frcNumber.trim(), address: f.address.trim(), aiEnabled: false },
+        firm: { id, name: f.name.trim(), frcNumber: f.frcNumber.trim(), address: f.address.trim(), aiEnabled: false, branding: {}, fileNumbering: { mode: 'manual', pattern: '' }, nextFileNo: 1 },
         members: [{ userId: me().id, role: 'partner', fullName: f.fullName.trim(), frcNumber: f.memberFrc.trim() }],
       };
       s.memberOf[me().id] = id;
@@ -453,6 +467,7 @@ export function createDemoRepo(): Repo {
         signedByFrc: null,
         firmFrc: null,
         signedAt: null,
+        fileNo: e.fileNo?.trim() || nextFileNo(e.yearEnd),
         payPer,
         groupAddon,
       };
@@ -466,8 +481,34 @@ export function createDemoRepo(): Repo {
       const e = s.engagements.find((x) => x.id === id && x.firmId === firmId());
       return e ? ({ ...strip(e), testing: e.testing ?? {}, disclosures: e.disclosures ?? {} } as Engagement) : null;
     },
+    async updateClient(id, patch) {
+      const c = s.clients.find((x) => x.id === id && x.firmId === firmId());
+      if (!c) throw new Error('The client could not be changed.');
+      Object.assign(c, Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)));
+      if (patch.name !== undefined) c.name = patch.name.trim();
+      save();
+    },
+    async setBranding(b) {
+      const f = s.firms[firmId()];
+      if (!['partner', 'manager'].includes(f.members.find((m) => m.userId === me().id)?.role ?? '')) throw new Error('Only a partner or manager can change the report branding.');
+      f.firm.branding = b;
+      save();
+    },
+    async setFileNumbering(mode, pattern, next) {
+      partner();
+      if (mode === 'auto' && !pattern.includes('{N}')) throw new Error('An automatic pattern needs {N} where the number goes, for example VB/{YYYY}/{N}.');
+      if (!(next >= 1)) throw new Error('The next number must be 1 or more.');
+      Object.assign(s.firms[firmId()].firm, { fileNumbering: { mode, pattern: pattern.trim() }, nextFileNo: next });
+      save();
+    },
     async updateEngagement(id, patch) {
       const e = open(id);
+      if (patch.fileNo !== undefined) {
+        const no = patch.fileNo.trim();
+        if (no && s.engagements.some((x) => x.id !== id && x.firmId === e.firmId && (x as any).fileNo?.toLowerCase() === no.toLowerCase()))
+          throw new Error('Another engagement in your firm already uses that file number.');
+        patch = { ...patch, fileNo: no };
+      }
       const had = (e.planning as any)?.group?.subsidiaries?.length > 0;
       if ((e as any).payPer && !(e as any).groupAddon && !had && (patch as any).planning?.group?.subsidiaries?.length > 0)
         throw new Error('Group consolidation is an add-on for an engagement paid for on its own. A partner can add it under Billing.');

@@ -252,3 +252,33 @@ table.admin-table th, table.admin-table td { padding: 10px 12px; vertical-align:
 .page.wide .row > input[type='text'], .page.wide .row > input[type='search'] { flex: 1 1 200px; }
 table.data th.num { text-align: right; }
 .brand img { height: 26px; width: auto; vertical-align: -6px; margin-right: 8px; }
+
+/* Branding on printed pages */
+.sheet.sans, .sheet.sans h2, .sheet.sans h3 { font-family: var(--sans); }
+.sheet-foot { margin-top: 32px; padding-top: 10px; border-top: 1px solid var(--rule); font-family: var(--sans); font-size: 11px; color: var(--muted); text-align: center; white-space: pre-line; }
+.letterhead { text-align: right; margin-bottom: 18px; }
+.letterhead img { max-height: 64px; max-width: 240px; }
+.sheet.cover { min-height: 860px; display: flex; flex-direction: column; overflow: hidden; }
+.sheet.cover .watermark { position: absolute; left: 50%; top: 50%; width: 70%; max-height: 70%; object-fit: contain; transform: translate(-50%, -50%); opacity: 0.07; pointer-events: none; }
+.cover-logo { display: flex; margin-bottom: 40px; position: relative; }
+.cover-logo.left { justify-content: flex-start; }
+.cover-logo.centre { justify-content: center; }
+.cover-logo.right { justify-content: flex-end; }
+.cover-logo img { max-height: 110px; max-width: 280px; }
+.cover-body { flex: 1; display: flex; flex-direction: column; justify-content: center; text-align: center; position: relative; }
+.cover-body h1 { font-size: 34px; margin: 0; }
+.cover-rc { color: var(--muted); margin-top: 6px; }
+.cover-title { font-size: 22px; margin-top: 36px; }
+.cover-sub { color: var(--muted); margin-top: 6px; font-size: 17px; }
+.cover-foot { text-align: center; position: relative; margin-top: 40px; }
+ol.contents { padding-left: 22px; line-height: 2.1; }
+ol.contents a { color: inherit; text-decoration: none; border-bottom: 1px dotted var(--rule-strong); }
+.ml-point { margin-top: 18px; }
+.ml-point h3 .small { font-weight: 400; color: var(--muted); }
+tr.warn-row td { background: var(--warn-soft); }
+.step-nav { display: flex; justify-content: space-between; gap: 12px; margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--rule); }
+.step-nav a { text-decoration: none; padding: 9px 14px; border: 1px solid var(--rule-strong); border-radius: 6px; color: var(--ink); background: #fff; font-weight: 500; }
+.step-nav a:hover { border-color: var(--ink); }
+.step-nav .next { margin-left: auto; }
+.logo-preview { max-height: 70px; max-width: 220px; border: 1px solid var(--rule); background: #fff; padding: 6px; border-radius: 6px; }
+@media print { .cover-body h1 { font-size: 28px; } .sheet.cover { min-height: 0; height: 250mm; } }

@@ -1,6 +1,6 @@
 # VeritBooks: platform definition
 
-Version 0.10, 10 October 2026.
+Version 0.11, 10 October 2026.
 
 ## What it is
 
@@ -308,6 +308,25 @@ A suspended firm can read its files and change nothing, paid or not. An admin se
 Not built yet: refunds, pay-per-engagement for firms inside their plan allowance (the allowance is used first), and disabling a single user's sign-in.
 
 Setting up: add `FLW_SECRET_KEY` and `FLW_WEBHOOK_HASH` as secrets of the `billing` Edge Function in Supabase. In Flutterwave, set the webhook URL to `https://bdlelkdqlhuhyswofjni.supabase.co/functions/v1/billing` with the same secret hash. For the reminder job, see `supabase/schedule.sql`.
+
+## Working on a file
+
+- **Clients page:** every client with its engagements. A partner can correct a client's name and RC number, and add the client's logo with its position on the cover (left, centre or right). Signed files show a new name when viewed or printed again. The signed report wording keeps the name it was signed with.
+- **Getting around:** Engagements and Clients are in the top bar. Each file shows a breadcrumb back to its client, and every step ends with buttons for the previous and next step.
+- **Audit file numbers:** typed by hand, or given automatically from a pattern such as `AF/{YYYY}/{N}`, set by a partner in Firm details. A number can be changed on the engagement until the file is signed. Numbers are unique within the firm.
+- **Opening balances (audit and review):** when last year's file for the same client is in VeritBooks, this year's prior year column is compared line by line with last year's closing figures after posted journals. Otherwise the team agrees the balances to last year's signed statements and records the work. A conclusion is recorded either way.
+- **Journal import:** journals can be added from an Excel or CSV file, one row per line, grouped by reference. Each journal must balance and use accounts in the trial balance. A template is provided. Journals already in the file are skipped.
+- **Management letter (audit and review):** matters with observation, implication, recommendation, management's response, priority and status, printed as a letter on the firm's letterhead.
+
+## Report branding
+
+Set by a partner or manager in Firm details: the firm logo, a faint watermark of it on the cover, the logo at the top of the auditor's report and management letter, a classic or modern typeface, and a footer on every page. A cover page and a contents page can be switched off.
+
+The financial statements now print in this order: cover, contents, report of the directors, statement of directors' responsibilities, the independent auditor's (or reviewer's, or accountant's) report, the primary statements, notes, statement of value added and financial summary. The contents page lists the sections without page numbers, because the notes run to a different length in every file.
+
+## Invitations
+
+A partner's invitation is emailed by the `invite` Edge Function through Supabase Auth. Someone new sets a password from the link and joins the firm. Someone who already has an account gets a sign-in link. Supabase's built-in email sends only a few messages an hour, so connect your own email service in Supabase Auth settings before inviting many people.
 
 ## Public landing page
 

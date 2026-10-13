@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { PROGRAMME_VERSION } from './content/programmes';
 import { repo } from './data';
-import type { Workspace } from './data/repo';
+import { readLogo } from './image';
+import type { Branding, Workspace } from './data/repo';
 import { longDate } from './engine/report';
 import type { EngagementType, Role } from './engine/types';
 import { ErrorNote, Field, message, useAction, useLoad } from './ui';
@@ -420,6 +421,155 @@ function Team({ ws, onChanged }: { ws: Workspace; onChanged: () => Promise<void>
   );
 }
 
+/** How the firm's printed reports look. Partners and managers. */
+function BrandingSetting({ ws, onChanged }: { ws: Workspace; onChanged: () => Promise<void> }) {
+  const [b, setB] = useState<Branding>({ cover: true, contents: true, logoOnReport: true, watermark: true, font: 'serif', ...ws.firm.branding });
+  const [saved, setSaved] = useState(false);
+  const { busy, error, run, setError } = useAction();
+  const can = ws.me.role === 'partner' || ws.me.role === 'manager';
+  const set = (patch: Partial<Branding>) => {
+    setSaved(false);
+    setB({ ...b, ...patch });
+  };
+  const tick = (key: 'cover' | 'contents' | 'logoOnReport' | 'watermark', label: string) => (
+    <label className="row small" style={{ flexWrap: 'nowrap' }}>
+      <input type="checkbox" disabled={!can} checked={b[key] !== false} onChange={(e) => set({ [key]: e.target.checked })} />
+      <span>{label}</span>
+    </label>
+  );
+  return (
+    <section className="card stack" aria-label="Report branding">
+      <h3>Report branding</h3>
+      <p className="small muted" style={{ margin: 0 }}>
+        How your financial statements, reports and management letters look when printed. A client’s own logo and its position are set on the Clients page.
+      </p>
+      <div className="grid2">
+        <Field label="Firm logo">
+          <div className="row">
+            {b.logo ? <img className="logo-preview" src={b.logo} alt={`${ws.firm.name} logo`} /> : <span className="small muted">No logo</span>}
+            {can && (
+              <>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  aria-label="Upload firm logo"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setError(null);
+                    void readLogo(file).then((logo) => set({ logo }), (err) => setError(message(err)));
+                  }}
+                />
+                {b.logo && (
+                  <button className="link danger" onClick={() => set({ logo: undefined })}>
+                    Remove logo
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </Field>
+        <Field label="Typeface">
+          <select disabled={!can} value={b.font ?? 'serif'} onChange={(e) => set({ font: e.target.value as 'serif' | 'sans' })}>
+            <option value="serif">Classic (serif)</option>
+            <option value="sans">Modern (sans serif)</option>
+          </select>
+        </Field>
+      </div>
+      <div className="grid2">
+        <div className="stack" style={{ gap: 6 }}>
+          {tick('watermark', 'Firm logo as a faint watermark on the cover page')}
+          {tick('logoOnReport', 'Firm logo at the top of the auditor’s report and management letter')}
+          {tick('cover', 'Print a cover page')}
+          {tick('contents', 'Print a contents page')}
+        </div>
+        <Field label="Footer on every page" hint="For example your firm’s name, address and telephone. Two lines at most.">
+          <textarea disabled={!can} rows={2} maxLength={240} value={b.footer ?? ''} onChange={(e) => set({ footer: e.target.value })} />
+        </Field>
+      </div>
+      <ErrorNote error={error} />
+      {saved && <div className="banner info">Saved. Open any file’s Financial statements step to see it.</div>}
+      {can ? (
+        <div>
+          <button
+            className="primary"
+            disabled={busy}
+            onClick={() =>
+              void run(async () => {
+                await repo.setBranding(b);
+                await onChanged();
+                setSaved(true);
+              })
+            }
+          >
+            Save branding
+          </button>
+        </div>
+      ) : (
+        <span className="small muted">Only a partner or manager can change this.</span>
+      )}
+    </section>
+  );
+}
+
+/** Whether audit file numbers are typed by hand or given automatically. Partners only. */
+function FileNumbering({ ws, onChanged }: { ws: Workspace; onChanged: () => Promise<void> }) {
+  const [mode, setMode] = useState(ws.firm.fileNumbering.mode);
+  const [pattern, setPattern] = useState(ws.firm.fileNumbering.pattern || 'AF/{YYYY}/{N}');
+  const [next, setNext] = useState(String(ws.firm.nextFileNo));
+  const [saved, setSaved] = useState(false);
+  const { busy, error, run } = useAction();
+  const partner = ws.me.role === 'partner';
+  const example = pattern.replace('{YYYY}', '2025').replace('{YY}', '25').replace('{N}', String(Number(next) || 1).padStart(3, '0'));
+  return (
+    <section className="card stack" aria-label="Audit file numbers">
+      <h3>Audit file numbers</h3>
+      <div className="grid3">
+        <Field label="Numbering">
+          <select disabled={!partner} value={mode} onChange={(e) => { setSaved(false); setMode(e.target.value as 'manual' | 'auto'); }}>
+            <option value="manual">Manual: typed for each engagement</option>
+            <option value="auto">Automatic: from a pattern</option>
+          </select>
+        </Field>
+        {mode === 'auto' && (
+          <>
+            <Field label="Pattern" hint="{YYYY} year of the year end, {YY} its last two digits, {N} the number.">
+              <input type="text" disabled={!partner} value={pattern} maxLength={40} onChange={(e) => { setSaved(false); setPattern(e.target.value); }} />
+            </Field>
+            <Field label="Next number" hint={`The next file will be ${example}.`}>
+              <input type="number" min={1} disabled={!partner} value={next} onChange={(e) => { setSaved(false); setNext(e.target.value); }} />
+            </Field>
+          </>
+        )}
+      </div>
+      <p className="small muted" style={{ margin: 0 }}>
+        A number can always be typed or changed on the engagement itself until it is signed. Numbers are unique within the firm.
+      </p>
+      <ErrorNote error={error} />
+      {saved && <div className="banner info">Saved.</div>}
+      {partner ? (
+        <div>
+          <button
+            className="primary"
+            disabled={busy}
+            onClick={() =>
+              void run(async () => {
+                await repo.setFileNumbering(mode, pattern, Number(next) || 1);
+                await onChanged();
+                setSaved(true);
+              })
+            }
+          >
+            Save numbering
+          </button>
+        </div>
+      ) : (
+        <span className="small muted">Only a partner can change this.</span>
+      )}
+    </section>
+  );
+}
+
 /** AI assistance is off until a partner turns it on, with the consequences set out first. */
 function AssistSetting({ ws, onChanged }: { ws: Workspace; onChanged: () => Promise<void> }) {
   const { busy, error, run } = useAction();
@@ -521,20 +671,22 @@ export function FirmSettings({ ws, onSaved }: { ws: Workspace; onSaved: () => Pr
           </button>
         </div>
       </form>
+      <BrandingSetting ws={ws} onChanged={onSaved} />
+      <FileNumbering ws={ws} onChanged={onSaved} />
       <AssistSetting ws={ws} onChanged={onSaved} />
       <Team ws={ws} onChanged={onSaved} />
     </div>
   );
 }
 
-export function Dashboard() {
+export function Dashboard({ ws }: { ws: Workspace }) {
   const nav = useNavigate();
   const { data, error, reload } = useLoad(
     async () => ({ clients: await repo.listClients(), engagements: await repo.listEngagements() }),
     [],
   );
   const [client, setClient] = useState({ name: '', rcNumber: '' });
-  const [eng, setEng] = useState({ clientId: '', type: 'audit' as EngagementType, yearEnd: '', notPie: false });
+  const [eng, setEng] = useState({ clientId: '', type: 'audit' as EngagementType, yearEnd: '', notPie: false, fileNo: '' });
   const a1 = useAction();
   const a2 = useAction();
 
@@ -559,6 +711,7 @@ export function Dashboard() {
                   <th>Client</th>
                   <th>Type</th>
                   <th>Year end</th>
+                  <th>File no.</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -577,6 +730,7 @@ export function Dashboard() {
                     </td>
                     <td>{TYPE_LABEL[e.type]}</td>
                     <td>{longDate(e.yearEnd)}</td>
+                    <td className="small">{e.fileNo || '–'}</td>
                     <td>
                       {e.status === 'locked' ? <span className="tag ok">Signed and locked</span> : <span className="tag">In progress</span>}
                     </td>
@@ -599,6 +753,7 @@ export function Dashboard() {
                 type: eng.type,
                 yearEnd: eng.yearEnd,
                 programmeVersion: PROGRAMME_VERSION,
+                fileNo: eng.fileNo,
               });
               nav(`/engagements/${created.id}`);
             });
@@ -627,6 +782,12 @@ export function Dashboard() {
               <input type="date" required value={eng.yearEnd} onChange={(e) => setEng({ ...eng, yearEnd: e.target.value })} />
             </Field>
           </div>
+          <Field
+            label="Audit file number"
+            hint={ws.firm.fileNumbering.mode === 'auto' ? `Leave blank to number it automatically (${ws.firm.fileNumbering.pattern}).` : 'Optional. A partner can switch on automatic numbering in Firm details.'}
+          >
+            <input type="text" maxLength={60} value={eng.fileNo} onChange={(e) => setEng({ ...eng, fileNo: e.target.value })} />
+          </Field>
           <label className="row small" style={{ alignItems: 'flex-start', flexWrap: 'nowrap' }}>
             <input type="checkbox" required checked={eng.notPie} onChange={(e) => setEng({ ...eng, notPie: e.target.checked })} style={{ marginTop: 3 }} />
             <span>

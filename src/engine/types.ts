@@ -76,6 +76,27 @@ export interface Testing {
   movements?: Record<string, { note: string; by: string; at: string }>;
   /** Conclusion on each bank reconciliation, keyed by bank account id. */
   bank?: Record<string, { note: string; by: string; at: string }>;
+  /** Whether this year's opening balances agree with last year's audited closing balances. */
+  opening?: { status: 'agreed' | 'explained' | 'first_year'; note: string; by: string; at: string; source: 'veritbooks' | 'manual' };
+  /** Points for the letter to management. */
+  managementLetter?: ManagementLetter;
+}
+
+export interface ManagementPoint {
+  id: string;
+  title: string;
+  observation: string;
+  implication: string;
+  recommendation: string;
+  response: string;
+  priority: 'high' | 'medium' | 'low';
+  status: 'open' | 'agreed' | 'resolved';
+}
+
+export interface ManagementLetter {
+  addressee?: string;
+  date?: string;
+  points: ManagementPoint[];
 }
 
 export interface RelatedParty {
