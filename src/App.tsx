@@ -3,6 +3,7 @@ import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-r
 import { AdminApp } from './admin';
 import { ClientsPage } from './clients';
 import { BillingPage, PlanStrip } from './billing';
+import { SecondFactor } from './mfa';
 import { Landing } from './landing/Landing';
 import { PortalPage } from './portal';
 import { QualityPage } from './quality';
@@ -18,6 +19,7 @@ type Session =
   | { state: 'signed-out' }
   | { state: 'no-firm'; user: User }
   | { state: 'new-password'; user: User }
+  | { state: 'second-factor'; user: User }
   | { state: 'ready'; user: User; ws: Workspace };
 
 export function App() {
@@ -36,6 +38,9 @@ export function App() {
       const ws = await repo.workspace();
       // Someone who came from a reset link chooses a new password before anything else opens.
       if (repo.recovering()) return setSession({ state: 'new-password', user });
+      // Someone who has turned on two-factor enters their code before anything of the firm opens.
+      const mfa = await repo.mfaStatus().catch(() => ({ enrolled: false, verified: false }));
+      if (mfa.enrolled && !mfa.verified) return setSession({ state: 'second-factor', user });
       // A platform admin with no firm of their own belongs in the admin console, not firm setup.
       if (!ws && (await repo.adminStatus()).admin) return nav('/admin', { replace: true });
       setSession(ws ? { state: 'ready', user, ws } : { state: 'no-firm', user });
@@ -99,7 +104,7 @@ export function App() {
             </span>
           </>
         )}
-        {(session.state === 'ready' || session.state === 'no-firm' || session.state === 'new-password') && (
+        {(session.state === 'ready' || session.state === 'no-firm' || session.state === 'new-password' || session.state === 'second-factor') && (
           <button
             onClick={() => {
               // The next person to sign in on this browser starts from the home page.
@@ -121,6 +126,7 @@ export function App() {
       )}
       {session.state === 'signed-out' && (path === '/forgot' ? <ForgotPage /> : <AuthPage key={path} start={path === '/signup' ? 'up' : 'in'} />)}
       {session.state === 'new-password' && <NewPasswordPage onDone={refresh} />}
+      {session.state === 'second-factor' && <SecondFactor enrolled onDone={() => void refresh()} />}
       {session.state === 'no-firm' && <FirmSetup onDone={refresh} />}
       {session.state === 'ready' && (
         <Routes>

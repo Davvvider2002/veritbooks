@@ -104,6 +104,15 @@ export function createSupabaseRepo(url: string, key: string): Repo {
     return data as Record<string, unknown>;
   };
 
+  const mfaFn = async (body: Record<string, unknown>) => {
+    const { data, error } = await db.functions.invoke('mfa', { body });
+    if (error) {
+      const reply = await (error as { context?: Response }).context?.json?.().catch(() => null);
+      throw new Error(reply?.error ?? 'Two-factor authentication could not be changed just now.');
+    }
+    return data as Record<string, unknown>;
+  };
+
   const firmId = async () => {
     const { data, error } = await db.from('firm_members').select('firm_id').limit(1).maybeSingle();
     fail(error);
@@ -630,8 +639,34 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       if (error) throw new Error(/invalid|expired|code/i.test(error.message) ? 'That code is not right. Codes change every 30 seconds: check the clock on your phone and try the current one.' : error.message);
     },
     async adminResetTwoFactor(userId) {
-      const { error } = await db.rpc('admin_reset_two_factor', { p_user: userId });
+      await mfaFn({ action: 'reset', userId });
+    },
+    async mfaStatus() {
+      const [{ data: f }, { data: a }] = await Promise.all([db.auth.mfa.listFactors(), db.auth.mfa.getAuthenticatorAssuranceLevel()]);
+      return { enrolled: (f?.totp ?? []).some((x) => x.status === 'verified'), verified: a?.currentLevel === 'aal2' };
+    },
+    async mfaDisable() {
+      const { data } = await db.auth.mfa.listFactors();
+      for (const f of data?.all ?? []) {
+        const { error } = await db.auth.mfa.unenroll({ factorId: f.id });
+        fail(error);
+      }
+      await db.auth.refreshSession();
+    },
+    async createBackupCodes() {
+      const { data, error } = await db.rpc('create_backup_codes');
       fail(error);
+      return data as string[];
+    },
+    async backupCodesLeft() {
+      const { data, error } = await db.rpc('backup_codes_left');
+      fail(error);
+      return data as number;
+    },
+    async recoverWithBackupCode(code) {
+      const r = await mfaFn({ action: 'recover', code });
+      await db.auth.refreshSession();
+      return r.message as string;
     },
     async isAdmin() {
       const { data, error } = await db.rpc('is_platform_admin');

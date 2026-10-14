@@ -52,7 +52,7 @@ interface Platform {
   settings: { seller_name: string; seller_address: string; tax_id: string; support_email: string; vat_percent?: number };
   admins: string[];
   /** Each admin's authenticator secret, by email, once set up. */
-  mfa?: Record<string, { secret: string; verified: boolean }>;
+  mfa?: Record<string, { secret: string; verified: boolean; backup?: string[] }>;
   log: AdminData['log'];
   receipt: number;
 }
@@ -746,6 +746,35 @@ export function createDemoRepo(): Repo {
       f.verified = true;
       sessionStorage.setItem(MFA_KEY, me().email);
       save();
+    },
+    async mfaStatus() {
+      if (!s.user) return { enrolled: false, verified: false };
+      return { enrolled: !!platform().mfa?.[me().email]?.verified, verified: verifiedNow() };
+    },
+    async mfaDisable() {
+      if (!verifiedNow()) throw new Error('Enter the code from your authenticator app first.');
+      if (platform().mfa) delete platform().mfa![me().email];
+      save();
+    },
+    async createBackupCodes() {
+      const f = platform().mfa?.[me().email];
+      if (!f?.verified || !verifiedNow()) throw new Error('Enter the code from your authenticator app first.');
+      const hex = () => Array.from(crypto.getRandomValues(new Uint8Array(2)), (b) => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+      const codes = Array.from({ length: 10 }, () => `${hex()}-${hex()}`);
+      f.backup = codes.map((c) => c.replace('-', ''));
+      save();
+      return codes;
+    },
+    async backupCodesLeft() {
+      return platform().mfa?.[me().email]?.backup?.length ?? 0;
+    },
+    async recoverWithBackupCode(code) {
+      const f = platform().mfa?.[me().email];
+      const c = code.toUpperCase().replace(/[^0-9A-Z]/g, '');
+      if (!f?.backup?.includes(c)) throw new Error('That backup code is not right, or has been used.');
+      delete platform().mfa![me().email];
+      save();
+      return 'Two-factor authentication has been turned off for your account. Turn it on again with your new phone in Firm details.';
     },
     async adminResetTwoFactor(userId) {
       if (!isAdminUser()) throw new Error('Not found.');

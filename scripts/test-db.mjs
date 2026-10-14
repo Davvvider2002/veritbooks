@@ -38,6 +38,7 @@ await db.exec(readFileSync('supabase/migrations/0011_vat.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0012_public_prices.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0013_branding_and_file_numbers.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0014_admin_two_factor.sql', 'utf8'));
+await db.exec(readFileSync('supabase/migrations/0015_two_factor_for_firms.sql', 'utf8'));
 // The checks written before VAT run at a zero rate. VAT has its own checks at the end.
 await db.exec(`update platform_settings set vat_percent = 0`);
 
@@ -55,6 +56,12 @@ let failed = 0;
 const as = async (uid, sql, params = []) =>
   db.transaction(async (tx) => {
     await tx.exec(`set local role authenticated; select set_config('request.jwt.sub', '${uid}', true);`);
+    return (await tx.query(sql, params)).rows;
+  });
+// A session that has passed the second factor.
+const as2 = async (uid, sql, params = []) =>
+  db.transaction(async (tx) => {
+    await tx.exec(`set local role authenticated; select set_config('request.jwt.sub', '${uid}', true); select set_config('request.jwt.aal', 'aal2', true);`);
     return (await tx.query(sql, params)).rows;
   });
 const ok = (name, cond) => { console.log(`${cond ? 'pass' : 'FAIL'}  ${name}`); if (!cond) failed++; };
@@ -293,6 +300,31 @@ ok('removing a bank account removes its lines', (await as(B, `delete from bank_a
 ok('unlocked engagement can be deleted by its partner', (await as(B, `delete from engagements where id = $1 returning id`, [e3.id])).length === 1);
 
 
+
+// --- Optional two-factor for firm users, and backup codes ---------------------
+await db.exec(`insert into auth.mfa_factors (user_id, status) values ('${B}', 'unverified')`);
+ok('an unfinished set-up changes nothing', (await as(B, `select * from engagements`)).length >= 0 && (await as(B, `select * from firms`)).length === 1);
+await db.exec(`insert into auth.mfa_factors (user_id, status) values ('${B}', 'verified')`);
+ok('once turned on, a password-only session sees nothing of the firm', (await as(B, `select * from firms`)).length === 0 && (await as(B, `select * from clients`)).length === 0 && (await as(B, `select * from firm_members`)).length === 0);
+await denied('and cannot pay', () => as(B, `select billing_checkout('{"kind":"plan","plan":"solo"}'::jsonb)`), /authenticator app first/);
+await denied('or read billing', () => as(B, `select billing_overview()`), /authenticator app first/);
+await denied('or change branding', () => as(B, `select set_firm_branding('{}'::jsonb)`), /authenticator app first/);
+const b2 = (sql, params = []) => as2(B, sql, params);
+ok('with the code, everything is back', (await b2(`select * from firms`)).length === 1 && (await b2(`select * from firm_members`)).length >= 1);
+ok('a colleague without two-factor is unaffected', (await as(A, `select * from firms`)).length === 1);
+await denied('backup codes need the second factor', () => as(B, `select create_backup_codes()`), /authenticator app first/);
+const [{ c: codes }] = await b2(`select create_backup_codes() as c`);
+ok('ten backup codes are made, stored only as hashes', codes.length === 10 && /^[0-9A-F]{4}-[0-9A-F]{4}$/.test(codes[0]) && (await db.query(`select count(*)::int as n from mfa_backup_codes where code_hash = $1`, [codes[0]])).rows[0].n === 0);
+ok('ten are left', (await b2(`select backup_codes_left() as n`))[0].n === 10);
+await denied('backup codes cannot be read from the browser', () => as(B, `select * from mfa_backup_codes`), /permission denied/);
+ok('a wrong code fails', (await as(B, `select use_backup_code('0000-0000') as ok`))[0].ok === false);
+ok('a right code works, typed loosely', (await as(B, `select use_backup_code($1) as ok`, [codes[3].toLowerCase().replace('-', ' ')]))[0].ok === true);
+ok('and cannot be used twice', (await as(B, `select use_backup_code($1) as ok`, [codes[3]]))[0].ok === false);
+ok('the others are retired with it', (await as(B, `select use_backup_code($1) as ok`, [codes[4]]))[0].ok === false);
+for (let i = 0; i < 2; i++) await as(B, `select use_backup_code('1111-1111')`);
+await denied('wrong guesses are limited', () => as(B, `select use_backup_code($1)`, [codes[5]]), /Too many/);
+await db.exec(`update auth.mfa_factors set status = 'unverified' where user_id = '${B}'`);
+
 // --- Branding and file numbers ----------------------------------------------
 await as(A, `select set_firm_branding('{"watermark": true, "font": "sans", "footer": "Firm One, Lagos"}'::jsonb)`);
 ok('a partner sets the branding', (await as(A, `select branding from firms where id = $1`, [f1.id]))[0].branding.footer === 'Firm One, Lagos');
@@ -424,12 +456,6 @@ ok('the twenty-first firm pays the list price', b.founding_left === 0 && b.plans
 // --- Platform admin ---------------------------------------------------------
 const Z = '00000000-0000-0000-0000-0000000000ff';
 await db.exec(`insert into auth.users (id, email, email_confirmed_at) values ('${Z}', 'owner@veritbooks.ng', now()); insert into platform_admins (user_id) values ('${Z}')`);
-// An admin session that has passed the second factor.
-const as2 = async (uid, sql, params = []) =>
-  db.transaction(async (tx) => {
-    await tx.exec(`set local role authenticated; select set_config('request.jwt.sub', '${uid}', true); select set_config('request.jwt.aal', 'aal2', true);`);
-    return (await tx.query(sql, params)).rows;
-  });
 await denied('an admin without the second factor sees nothing', () => as(Z, `select admin_overview()`), /Not found/);
 await denied('an admin without the second factor can do nothing', () => as(Z, `select admin_act('extend_trial', $1::jsonb)`, [JSON.stringify({ firm: f1.id, days: 5 })]), /Not found/);
 ok('the sign-in page learns the second factor is needed', (await as(Z, `select admin_status() as s`))[0].s.aal === 'aal1' && (await as(Z, `select admin_status() as s`))[0].s.admin === true);
@@ -471,15 +497,10 @@ await denied('an admin must have a confirmed account', () => act(Z, 'add_admin',
 await act(Z, 'add_admin', { email: 'ADA@firm1.ng' });
 ok('an admin can add another', (await as2(A, `select is_platform_admin() as a`))[0].a === true);
 await denied('an admin cannot remove themselves', () => act(Z, 'remove_admin', { user: Z }), /yourself/);
-await db.exec(`insert into auth.mfa_factors (user_id, status) values ('${A}', 'verified')`);
-await denied('an admin cannot reset their own second factor', () => as2(Z, `select admin_reset_two_factor($1)`, [Z]), /your own/);
-await as2(Z, `select admin_reset_two_factor($1)`, [A]);
-ok('another admin can reset a lost authenticator', (await db.query(`select * from auth.mfa_factors where user_id = $1`, [A])).rows.length === 0);
-await denied('a reset needs the second factor too', () => as(Z, `select admin_reset_two_factor($1)`, [A]), /Not found/);
 await act(Z, 'remove_admin', { user: A });
 ok('and remove one', (await as2(A, `select is_platform_admin() as a`))[0].a === false);
 ov = (await as2(Z, `select admin_overview() as o`))[0].o;
-ok('every admin action is logged', ov.log.length === 13 && ov.log.every((l) => l.admin === 'owner@veritbooks.ng') && ov.log.some((l) => l.action === 'suspend' && l.firm === 'Firm Three'));
+ok('every admin action is logged', ov.log.length === 12 && ov.log.every((l) => l.admin === 'owner@veritbooks.ng') && ov.log.some((l) => l.action === 'suspend' && l.firm === 'Firm Three'));
 // Reminders
 await db.exec(`update firms set trial_ends_at = now() + interval '2 days', paid_until = null where id = '${f1.id}'`);
 let due = (await svc(`select billing_due_notices() as d`))[0].d;

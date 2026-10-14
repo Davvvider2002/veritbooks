@@ -28,25 +28,6 @@ $$;
 revoke execute on function public.admin_status() from public, anon;
 grant execute on function public.admin_status() to authenticated;
 
--- If an admin loses their phone, another admin can clear their authenticator, and they set
--- up a new one at their next sign-in. Nobody can clear their own: that needs a second admin,
--- or the owner of the Supabase project.
-create or replace function public.admin_reset_two_factor(p_user uuid) returns void
-language plpgsql security definer set search_path = '' as $$
-begin
-  if not private.is_admin() then
-    raise exception 'Not found.' using errcode = 'P0001';
-  end if;
-  if p_user = auth.uid() then
-    raise exception 'You cannot reset your own two-factor authentication. Ask another admin.' using errcode = 'P0001';
-  end if;
-  if not exists (select 1 from public.platform_admins where user_id = p_user and removed_at is null) then
-    raise exception 'That person is not an admin.' using errcode = 'P0001';
-  end if;
-  delete from auth.mfa_factors where user_id = p_user;
-  insert into public.admin_log (admin_id, action, detail)
-  values (auth.uid(), 'reset_two_factor', jsonb_build_object('admin', (select email from auth.users where id = p_user)));
-end;
-$$;
-revoke execute on function public.admin_reset_two_factor(uuid) from public, anon;
-grant execute on function public.admin_reset_two_factor(uuid) to authenticated;
+
+-- Resetting another admin's lost authenticator is done by the mfa Edge Function, which can
+-- remove a factor with the service role. See supabase/functions/mfa.

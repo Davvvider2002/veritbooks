@@ -427,6 +427,15 @@ export interface Repo {
   mfaEnroll(): Promise<{ factorId: string; qr: string | null; secret: string }>;
   /** Checks a six-digit code from the authenticator app, which completes set-up or sign-in. */
   mfaVerify(factorId: string | null, code: string): Promise<void>;
+  /** Whether the signed-in user has an authenticator, and whether this session has passed it. */
+  mfaStatus(): Promise<{ enrolled: boolean; verified: boolean }>;
+  /** Removes the user's own authenticator. Needs a session that has passed it. */
+  mfaDisable(): Promise<void>;
+  /** Makes ten new backup codes, shown once. Needs a session that has passed the second factor. */
+  createBackupCodes(): Promise<string[]>;
+  backupCodesLeft(): Promise<number>;
+  /** Uses a backup code to remove a lost authenticator. Returns what happened, in words. */
+  recoverWithBackupCode(code: string): Promise<string>;
   /** Clears another admin's authenticator so they can set up a new one. */
   adminResetTwoFactor(userId: string): Promise<void>;
   /** True when the signed-in user is a platform admin. */

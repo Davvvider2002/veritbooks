@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { PROGRAMME_VERSION } from './content/programmes';
 import { repo } from './data';
 import { readLogo } from './image';
+import { TwoFactorSetting } from './mfa';
 import type { Branding, Workspace } from './data/repo';
 import { longDate } from './engine/report';
 import type { EngagementType, Role } from './engine/types';
@@ -671,6 +672,7 @@ export function FirmSettings({ ws, onSaved }: { ws: Workspace; onSaved: () => Pr
           </button>
         </div>
       </form>
+      {ws.me.role === 'partner' && <TwoFactorSetting />}
       <BrandingSetting ws={ws} onChanged={onSaved} />
       <FileNumbering ws={ws} onChanged={onSaved} />
       <AssistSetting ws={ws} onChanged={onSaved} />
