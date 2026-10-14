@@ -337,7 +337,7 @@ function FirmRow({ f, d, act, busy, open, toggle }: { f: AdminFirm; d: AdminData
   );
 }
 
-function Users({ d, act, busy, me }: { d: AdminData; act: Act; busy: boolean; me: User }) {
+function Users({ d, act, busy, me, resetMfa }: { d: AdminData; act: Act; busy: boolean; me: User; resetMfa: (id: string) => void }) {
   const [q, setQ] = useState('');
   const rows = d.users.filter((u) => !q.trim() || `${u.email} ${u.name ?? ''} ${u.firm ?? ''}`.toLowerCase().includes(q.trim().toLowerCase()));
   return (
@@ -377,9 +377,14 @@ function Users({ d, act, busy, me }: { d: AdminData; act: Act; busy: boolean; me
                 <td>{day(u.last_sign_in_at)}</td>
                 <td style={{ textAlign: 'right' }}>
                   {u.admin && u.id !== me.id && (
-                    <button disabled={busy} aria-label={`Remove admin ${u.email}`} onClick={() => act('remove_admin', { user: u.id })}>
-                      Remove admin
-                    </button>
+                    <span className="row" style={{ gap: 8, justifyContent: 'flex-end' }}>
+                      <button disabled={busy} aria-label={`Reset two-factor for ${u.email}`} onClick={() => resetMfa(u.id)}>
+                        Reset 2FA
+                      </button>
+                      <button disabled={busy} aria-label={`Remove admin ${u.email}`} onClick={() => act('remove_admin', { user: u.id })}>
+                        Remove admin
+                      </button>
+                    </span>
                   )}
                 </td>
               </tr>
@@ -583,7 +588,7 @@ function Settings({ d, act, busy }: { d: AdminData; act: Act; busy: boolean }) {
             Add admin
           </button>
         </div>
-        <span className="small muted">An admin can see every firm, change plans and prices, and suspend accounts. Give this to very few people. Remove an admin from the Sign-ups tab.</span>
+        <span className="small muted">An admin can see every firm, change plans and prices, and suspend accounts. Give this to very few people. Each new admin sets up an authenticator app at their first sign-in. Remove an admin from the Sign-ups tab.</span>
       </section>
     </div>
   );
@@ -592,7 +597,7 @@ function Settings({ d, act, busy }: { d: AdminData; act: Act; busy: boolean }) {
 const ACTION: Record<string, string> = {
   extend_trial: 'Extended trial', set_plan: 'Gave a plan', end_plan: 'Ended plan', record_payment: 'Recorded a payment', suspend: 'Suspended', unsuspend: 'Lifted suspension',
   founding: 'Changed founding status', grant_credit: 'Granted an engagement', note: 'Changed note', set_price: 'Changed a plan price', set_engagement_price: 'Changed an engagement price',
-  settings: 'Changed seller details', add_admin: 'Added an admin', remove_admin: 'Removed an admin',
+  settings: 'Changed seller details', add_admin: 'Added an admin', remove_admin: 'Removed an admin', reset_two_factor: 'Reset an admin’s two-factor',
 };
 
 function Log({ d }: { d: AdminData }) {
@@ -631,9 +636,83 @@ function Log({ d }: { d: AdminData }) {
   );
 }
 
+/** The second step of the admin sign-in: a code from an authenticator app, set up on first use. */
+function SecondFactor({ enrolled, onDone }: { enrolled: boolean; onDone: () => void }) {
+  const [setup, setSetup] = useState<{ factorId: string; qr: string | null; secret: string } | null>(null);
+  const [code, setCode] = useState('');
+  const { busy, error, run } = useAction();
+  useEffect(() => {
+    if (!enrolled) void run(async () => setSetup(await repo.mfaEnroll()));
+  }, []);
+  const submit = () =>
+    void run(async () => {
+      await repo.mfaVerify(setup?.factorId ?? null, code);
+      onDone();
+    });
+  return (
+    <div className="narrow stack">
+      <div>
+        <h1>{enrolled ? 'Enter your code' : 'Set up two-factor authentication'}</h1>
+        <p className="muted" style={{ marginTop: 6 }}>
+          {enrolled
+            ? 'Open your authenticator app and enter the six-digit code shown for VeritBooks.'
+            : 'The admin console needs a second step at every sign-in. Use an authenticator app such as Google Authenticator, Microsoft Authenticator or 1Password.'}
+        </p>
+      </div>
+      <form
+        className="card stack"
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit();
+        }}
+      >
+        {!enrolled && (
+          <>
+            <ol className="small" style={{ margin: 0, paddingLeft: 18 }}>
+              <li>In your authenticator app, add an account.</li>
+              <li>Scan this code, or type the key below.</li>
+              <li>Enter the six-digit code the app shows.</li>
+            </ol>
+            {setup?.qr && <img src={setup.qr} alt="QR code to add VeritBooks to an authenticator app" className="mfa-qr" />}
+            {setup && (
+              <div>
+                <div className="small muted">Key</div>
+                <code className="mfa-secret" aria-label="Authenticator key">{setup.secret.replace(/(.{4})/g, '$1 ').trim()}</code>
+              </div>
+            )}
+            {!setup && !error && <span className="muted">Preparing…</span>}
+          </>
+        )}
+        <Field label="Six-digit code">
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            pattern="[0-9]{6}"
+            maxLength={6}
+            required
+            autoFocus
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+          />
+        </Field>
+        <ErrorNote error={error} />
+        <button className="primary" disabled={busy || code.length !== 6 || (!enrolled && !setup)}>
+          {enrolled ? 'Verify' : 'Turn on and continue'}
+        </button>
+      </form>
+      <p className="small muted">
+        {enrolled
+          ? 'Lost your phone? Another admin can reset your authenticator from the Sign-ups tab. If you are the only admin, it can be cleared in the Supabase dashboard under Authentication.'
+          : 'Keep the key somewhere safe, such as a password manager. Anyone with it can produce your codes.'}
+      </p>
+    </div>
+  );
+}
+
 /** The platform owner's console, at /admin. It has its own sign-in and shows no client files. */
 export function AdminApp() {
-  const [who, setWho] = useState<{ state: 'loading' } | { state: 'out'; refused: string | null } | { state: 'in'; user: User }>({ state: 'loading' });
+  const [who, setWho] = useState<{ state: 'loading' } | { state: 'out'; refused: string | null } | { state: 'second'; user: User; enrolled: boolean } | { state: 'in'; user: User }>({ state: 'loading' });
   const [data, setData] = useState<AdminData | null>(null);
   const [tab, setTab] = useState<Tab>('Overview');
   const [openId, setOpenId] = useState<string | null>(null);
@@ -652,11 +731,14 @@ export function AdminApp() {
   const check = async () => {
     const user = await repo.currentUser();
     if (!user) return setWho({ state: 'out', refused: null });
-    if (!(await repo.isAdmin())) {
+    const st = await repo.adminStatus();
+    if (!st.admin) {
       // Someone who is not an admin learns nothing here, and is not left signed in on this page.
       await repo.signOut();
       return setWho({ state: 'out', refused: 'That account is not a VeritBooks admin.' });
     }
+    // The password alone opens nothing. The database checks for the second factor too.
+    if (!st.verified) return setWho({ state: 'second', user, enrolled: st.enrolled });
     setWho({ state: 'in', user });
     await load();
   };
@@ -678,7 +760,7 @@ export function AdminApp() {
           Verit<span>Books</span> <em>Admin</em>
         </span>
         <div className="spacer" />
-        {who.state === 'in' && (
+        {(who.state === 'in' || who.state === 'second') && (
           <>
             <span className="small">{who.user.email}</span>
             <button
@@ -703,6 +785,7 @@ export function AdminApp() {
       {header}
       {who.state === 'loading' && <div className="page muted">Loading…</div>}
       {who.state === 'out' && <AdminLogin refused={who.refused} onSignedIn={() => void check()} />}
+      {who.state === 'second' && <SecondFactor enrolled={who.enrolled} onDone={() => void check()} />}
       {who.state === 'in' && (
         <div className="page wide stack">
           <nav className="tabs" aria-label="Admin sections">
@@ -717,7 +800,7 @@ export function AdminApp() {
           {!data && !loadError && <div className="muted">Loading…</div>}
           {data && tab === 'Overview' && <Overview d={data} open={(id) => { setOpenId(id); setTab('Firms'); }} />}
           {data && tab === 'Firms' && <Firms d={data} act={act} busy={busy} openId={openId} setOpenId={setOpenId} />}
-          {data && tab === 'Sign-ups' && <Users d={data} act={act} busy={busy} me={who.user} />}
+          {data && tab === 'Sign-ups' && <Users d={data} act={act} busy={busy} me={who.user} resetMfa={(id) => void run(async () => { setDone(null); await repo.adminResetTwoFactor(id); setDone('Two-factor reset. They set up a new authenticator at their next sign-in.'); await load(); })} />}
           {data && tab === 'Payments' && <Payments d={data} />}
           {data && tab === 'Prices' && <Prices d={data} act={act} busy={busy} />}
           {data && tab === 'Settings' && <Settings d={data} act={act} busy={busy} />}

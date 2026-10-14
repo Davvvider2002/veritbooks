@@ -7,6 +7,7 @@ const db = new PGlite();
 await db.exec(`
   create role anon nologin; create role authenticated nologin; create role service_role nologin;
   create schema auth;
+  create table auth.mfa_factors (id uuid primary key default gen_random_uuid(), user_id uuid, status text);
   create table auth.users (id uuid primary key, email text, email_confirmed_at timestamptz, created_at timestamptz default now(), last_sign_in_at timestamptz);
   -- Stand-in for Supabase Storage: enough to run the bucket row and the object policies.
   create schema storage;
@@ -16,6 +17,8 @@ await db.exec(`
   grant usage on schema storage to authenticated, anon;
   grant select, insert, update, delete on storage.objects to authenticated;
   grant select, insert on storage.objects to anon;
+  create function auth.jwt() returns jsonb language sql stable as
+    $$ select jsonb_build_object('aal', coalesce(nullif(current_setting('request.jwt.aal', true), ''), 'aal1')) $$;
   create function auth.uid() returns uuid language sql stable as
     $$ select nullif(current_setting('request.jwt.sub', true), '')::uuid $$;
   grant usage on schema auth to authenticated, anon;
@@ -34,6 +37,7 @@ await db.exec(readFileSync('supabase/migrations/0010_admin_and_pay_per.sql', 'ut
 await db.exec(readFileSync('supabase/migrations/0011_vat.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0012_public_prices.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0013_branding_and_file_numbers.sql', 'utf8'));
+await db.exec(readFileSync('supabase/migrations/0014_admin_two_factor.sql', 'utf8'));
 // The checks written before VAT run at a zero rate. VAT has its own checks at the end.
 await db.exec(`update platform_settings set vat_percent = 0`);
 
@@ -420,13 +424,24 @@ ok('the twenty-first firm pays the list price', b.founding_left === 0 && b.plans
 // --- Platform admin ---------------------------------------------------------
 const Z = '00000000-0000-0000-0000-0000000000ff';
 await db.exec(`insert into auth.users (id, email, email_confirmed_at) values ('${Z}', 'owner@veritbooks.ng', now()); insert into platform_admins (user_id) values ('${Z}')`);
-const act = (u, a, p) => as(u, `select admin_act($1, $2::jsonb)`, [a, JSON.stringify(p)]);
-await denied('a partner cannot open the admin console', () => as(A, `select admin_overview()`), /Not found/);
+// An admin session that has passed the second factor.
+const as2 = async (uid, sql, params = []) =>
+  db.transaction(async (tx) => {
+    await tx.exec(`set local role authenticated; select set_config('request.jwt.sub', '${uid}', true); select set_config('request.jwt.aal', 'aal2', true);`);
+    return (await tx.query(sql, params)).rows;
+  });
+await denied('an admin without the second factor sees nothing', () => as(Z, `select admin_overview()`), /Not found/);
+await denied('an admin without the second factor can do nothing', () => as(Z, `select admin_act('extend_trial', $1::jsonb)`, [JSON.stringify({ firm: f1.id, days: 5 })]), /Not found/);
+ok('the sign-in page learns the second factor is needed', (await as(Z, `select admin_status() as s`))[0].s.aal === 'aal1' && (await as(Z, `select admin_status() as s`))[0].s.admin === true);
+ok('an outsider learns only that they are not an admin', JSON.stringify((await as(A, `select admin_status() as s`))[0].s) === '{"admin":false}');
+await denied('a partner with a second factor is still not an admin', () => as2(A, `select admin_overview()`), /Not found/);
+const act = (u, a, p) => as2(u, `select admin_act($1, $2::jsonb)`, [a, JSON.stringify(p)]);
+await denied('a partner cannot open the admin console', () => as2(A, `select admin_overview()`), /Not found/);
 await denied('a partner cannot act as admin', () => act(A, 'extend_trial', { firm: f1.id, days: 30 }), /Not found/);
-ok('a partner is not an admin', (await as(A, `select is_platform_admin() as a`))[0].a === false && (await as(Z, `select is_platform_admin() as a`))[0].a === true);
+ok('a partner is not an admin', (await as2(A, `select is_platform_admin() as a`))[0].a === false && (await as2(Z, `select is_platform_admin() as a`))[0].a === true);
 await denied('admin tables are closed to users', () => as(A, `select * from platform_admins`), /permission denied/);
 await denied('nobody can make themselves an admin', () => as(A, `insert into platform_admins (user_id) values ($1)`, [A]), /permission denied/);
-let ov = (await as(Z, `select admin_overview() as o`))[0].o;
+let ov = (await as2(Z, `select admin_overview() as o`))[0].o;
 ok('the admin sees every firm and sign-up', ov.firms.length >= 4 && ov.users.some((u) => u.email === 'femi@else.ng' && u.firm === null) && ov.firms.find((f) => f.id === f3.id).members[0].email === 'gbenga@firm3.ng');
 ok('the admin sees money received', ov.revenue_kobo > 0 && ov.payments.some((y) => y.receipt_no === 1001));
 ok('the overview carries no client file data', !/tb_lines|balance|ledger/.test(JSON.stringify(Object.keys(ov.firms[0]))));
@@ -454,12 +469,17 @@ await act(Z, 'settings', { seller_name: 'VeritBooks Limited', seller_address: 'L
 ok('receipts carry the seller details', (await bill(A)).seller.name === 'VeritBooks Limited');
 await denied('an admin must have a confirmed account', () => act(Z, 'add_admin', { email: 'emeka@firm1.ng' }), /confirmed account/);
 await act(Z, 'add_admin', { email: 'ADA@firm1.ng' });
-ok('an admin can add another', (await as(A, `select is_platform_admin() as a`))[0].a === true);
+ok('an admin can add another', (await as2(A, `select is_platform_admin() as a`))[0].a === true);
 await denied('an admin cannot remove themselves', () => act(Z, 'remove_admin', { user: Z }), /yourself/);
+await db.exec(`insert into auth.mfa_factors (user_id, status) values ('${A}', 'verified')`);
+await denied('an admin cannot reset their own second factor', () => as2(Z, `select admin_reset_two_factor($1)`, [Z]), /your own/);
+await as2(Z, `select admin_reset_two_factor($1)`, [A]);
+ok('another admin can reset a lost authenticator', (await db.query(`select * from auth.mfa_factors where user_id = $1`, [A])).rows.length === 0);
+await denied('a reset needs the second factor too', () => as(Z, `select admin_reset_two_factor($1)`, [A]), /Not found/);
 await act(Z, 'remove_admin', { user: A });
-ok('and remove one', (await as(A, `select is_platform_admin() as a`))[0].a === false);
-ov = (await as(Z, `select admin_overview() as o`))[0].o;
-ok('every admin action is logged', ov.log.length === 12 && ov.log.every((l) => l.admin === 'owner@veritbooks.ng') && ov.log.some((l) => l.action === 'suspend' && l.firm === 'Firm Three'));
+ok('and remove one', (await as2(A, `select is_platform_admin() as a`))[0].a === false);
+ov = (await as2(Z, `select admin_overview() as o`))[0].o;
+ok('every admin action is logged', ov.log.length === 13 && ov.log.every((l) => l.admin === 'owner@veritbooks.ng') && ov.log.some((l) => l.action === 'suspend' && l.firm === 'Firm Three'));
 // Reminders
 await db.exec(`update firms set trial_ends_at = now() + interval '2 days', paid_until = null where id = '${f1.id}'`);
 let due = (await svc(`select billing_due_notices() as d`))[0].d;
@@ -486,7 +506,7 @@ const vp = (await bill()).payments[0];
 ok('the receipt carries the VAT', vp.vat_kobo === 300000 && vp.amount_kobo === 4300000 && (await svc(`select payment_receipt($1) as r`, [vq.tx_ref]))[0].r.vat_kobo === 300000);
 await act(Z, 'record_payment', { firm: f2.id, plan: 'firm', amount_naira: 1290000, reference: 'Transfer incl. VAT' });
 ok('a recorded transfer is treated as VAT inclusive', (await bill(B)).payments[0].vat_kobo === 9000000);
-ov = (await as(Z, `select admin_overview() as o`))[0].o;
+ov = (await as2(Z, `select admin_overview() as o`))[0].o;
 ok('the admin sees VAT collected', ov.vat_kobo === 9300000 && ov.settings.vat_percent === 7.5);
 await denied('the unwrapped functions are closed', () => as(G, `select billing_checkout_net('{"kind":"engagement","type":"audit"}'::jsonb)`), /permission denied/);
 await db.exec(`set role anon`);

@@ -1,5 +1,6 @@
 import type { GlEntry } from '../engine/ledger';
 import { DEFAULT_VAT_PERCENT, ENGAGEMENT_PRICES, FOUNDING_PLACES, PLANS, PRICE_HOLD_YEARS, TRIAL_DAYS, addYears, firmState, planQuote, vatOn, vatWithin, type Plan, type Subscription } from '../engine/billing';
+import { checkCode, newSecret } from '../totp';
 import { suggestMapping } from '../engine/mapping';
 import type { Adjustment, Nature, TbLine } from '../engine/types';
 import {
@@ -50,6 +51,8 @@ interface Platform {
   prices: { code: 'compilation' | 'review' | 'audit' | 'group'; name: string; priceKobo: number }[];
   settings: { seller_name: string; seller_address: string; tax_id: string; support_email: string; vat_percent?: number };
   admins: string[];
+  /** Each admin's authenticator secret, by email, once set up. */
+  mfa?: Record<string, { secret: string; verified: boolean }>;
   log: AdminData['log'];
   receipt: number;
 }
@@ -219,7 +222,12 @@ export function createDemoRepo(): Repo {
       if (!s.engagements.some((x) => x.firmId === firmId() && (x as any).fileNo?.toLowerCase() === no.toLowerCase())) return no;
     }
   };
-  const isAdminUser = () => !!s.user && (s.user.email === DEMO_ADMIN || platform().admins.includes(s.user.email));
+  // In demo mode the second factor lasts as long as this browser tab's sign-in.
+  const MFA_KEY = 'veritbooks.demo.aal2';
+  const verifiedNow = () => !!s.user && sessionStorage.getItem(MFA_KEY) === s.user.email;
+  const isAdminAccount = () => !!s.user && (s.user.email === DEMO_ADMIN || platform().admins.includes(s.user.email));
+  const isAdminUser = () => isAdminAccount() && verifiedNow();
+
   /** Records a payment. The amount given is before VAT, unless it was received another way, when it includes VAT. */
   const receipt = (sub: DemoSub, p: Omit<PaymentRecord, 'id' | 'paidAt' | 'reference' | 'receiptNo' | 'source' | 'vatKobo'> & { source?: PaymentRecord['source']; reference?: string }) => {
     const vatKobo = p.source === 'manual' ? vatWithin(p.amountKobo, vatRate()) : vatOn(p.amountKobo, vatRate());
@@ -321,6 +329,7 @@ export function createDemoRepo(): Repo {
     },
     async signOut() {
       sessionStorage.removeItem('veritbooks.demo.recovering');
+      sessionStorage.removeItem('veritbooks.demo.aal2');
       s.user = null;
       save();
       listeners.forEach((l) => l());
@@ -719,6 +728,32 @@ export function createDemoRepo(): Repo {
     },
     async isAdmin() {
       return isAdminUser();
+    },
+    async adminStatus() {
+      if (!isAdminAccount()) return { admin: false, verified: false, enrolled: false };
+      return { admin: true, verified: verifiedNow(), enrolled: !!platform().mfa?.[me().email]?.verified };
+    },
+    async mfaEnroll() {
+      const secret = newSecret();
+      (platform().mfa ??= {})[me().email] = { secret, verified: false };
+      save();
+      return { factorId: 'demo', qr: null, secret };
+    },
+    async mfaVerify(_factorId, code) {
+      const f = platform().mfa?.[me().email];
+      if (!f) throw new Error('No authenticator is set up for this account.');
+      if (!(await checkCode(f.secret, code))) throw new Error('That code is not right. Codes change every 30 seconds: check the clock on your phone and try the current one.');
+      f.verified = true;
+      sessionStorage.setItem(MFA_KEY, me().email);
+      save();
+    },
+    async adminResetTwoFactor(userId) {
+      if (!isAdminUser()) throw new Error('Not found.');
+      if (userId === me().id) throw new Error('You cannot reset your own two-factor authentication. Ask another admin.');
+      const email = Object.entries(s.accounts).find(([, a]) => a.id === userId)?.[0];
+      if (email && platform().mfa) delete platform().mfa![email];
+      platform().log.push({ at: new Date().toISOString(), action: 'reset_two_factor', detail: { admin: email ?? '' }, admin: me().email, firm: null });
+      save();
     },
     async adminOverview() {
       if (!isAdminUser()) throw new Error('Not found.');

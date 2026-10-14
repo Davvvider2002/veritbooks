@@ -421,6 +421,14 @@ export interface Repo {
 
   /** The public price list, for the landing page. No sign-in needed. */
   publicPrices(): Promise<PublicPrices>;
+  /** Where the signed-in user stands as an admin: not one, or one who has or has not passed the second factor. */
+  adminStatus(): Promise<{ admin: boolean; verified: boolean; enrolled: boolean }>;
+  /** Starts setting up an authenticator app. Returns a QR code (as an image source, when available) and the secret to type in. */
+  mfaEnroll(): Promise<{ factorId: string; qr: string | null; secret: string }>;
+  /** Checks a six-digit code from the authenticator app, which completes set-up or sign-in. */
+  mfaVerify(factorId: string | null, code: string): Promise<void>;
+  /** Clears another admin's authenticator so they can set up a new one. */
+  adminResetTwoFactor(userId: string): Promise<void>;
   /** True when the signed-in user is a platform admin. */
   isAdmin(): Promise<boolean>;
   adminOverview(): Promise<AdminData>;

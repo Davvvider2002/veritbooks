@@ -602,6 +602,37 @@ export function createSupabaseRepo(url: string, key: string): Repo {
         supportEmail: data.support_email ?? '',
       };
     },
+    async adminStatus() {
+      const { data, error } = await db.rpc('admin_status');
+      if (error) return { admin: false, verified: false, enrolled: false };
+      if (!data?.admin) return { admin: false, verified: false, enrolled: false };
+      const { data: f } = await db.auth.mfa.listFactors();
+      return { admin: true, verified: data.aal === 'aal2', enrolled: (f?.totp ?? []).some((x) => x.status === 'verified') };
+    },
+    async mfaEnroll() {
+      // A set-up that was started and never finished is cleared first, or Supabase refuses a second one.
+      const { data: list } = await db.auth.mfa.listFactors();
+      for (const f of list?.all ?? []) if (f.status !== 'verified') await db.auth.mfa.unenroll({ factorId: f.id });
+      const { data, error } = await db.auth.mfa.enroll({ factorType: 'totp', friendlyName: `VeritBooks admin ${new Date().toISOString().slice(0, 10)}` });
+      fail(error);
+      return { factorId: data!.id, qr: data!.totp.qr_code || null, secret: data!.totp.secret };
+    },
+    async mfaVerify(factorId, code) {
+      let id = factorId;
+      if (!id) {
+        const { data } = await db.auth.mfa.listFactors();
+        id = data?.totp.find((f) => f.status === 'verified')?.id ?? null;
+        if (!id) throw new Error('No authenticator is set up for this account.');
+      }
+      const { data: ch, error: e1 } = await db.auth.mfa.challenge({ factorId: id });
+      fail(e1);
+      const { error } = await db.auth.mfa.verify({ factorId: id, challengeId: ch!.id, code: code.trim() });
+      if (error) throw new Error(/invalid|expired|code/i.test(error.message) ? 'That code is not right. Codes change every 30 seconds: check the clock on your phone and try the current one.' : error.message);
+    },
+    async adminResetTwoFactor(userId) {
+      const { error } = await db.rpc('admin_reset_two_factor', { p_user: userId });
+      fail(error);
+    },
     async isAdmin() {
       const { data, error } = await db.rpc('is_platform_admin');
       if (error) return false;

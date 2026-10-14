@@ -282,3 +282,5 @@ tr.warn-row td { background: var(--warn-soft); }
 .step-nav .next { margin-left: auto; }
 .logo-preview { max-height: 70px; max-width: 220px; border: 1px solid var(--rule); background: #fff; padding: 6px; border-radius: 6px; }
 @media print { .cover-body h1 { font-size: 28px; } .sheet.cover { min-height: 0; height: 250mm; } }
+.mfa-qr { width: 200px; height: 200px; align-self: center; background: #fff; padding: 8px; border: 1px solid var(--rule); border-radius: 8px; }
+.mfa-secret { display: block; font-size: 15px; letter-spacing: 0.06em; background: #fff; border: 1px solid var(--rule); border-radius: 6px; padding: 8px 10px; word-break: break-all; user-select: all; }

@@ -1,6 +1,6 @@
 # VeritBooks: platform definition
 
-Version 0.11, 10 October 2026.
+Version 0.12, 10 October 2026.
 
 ## What it is
 
@@ -302,6 +302,8 @@ At `/admin`, with its own sign-in. Only accounts listed as platform admins get i
 - **Prices:** yearly plan prices and limits, and single engagement prices.
 - **Settings:** seller details for receipts, the support email, and who the admins are.
 - **Log:** every admin action, with who did it and when.
+
+**Two-factor authentication for admins.** Every admin signs in with a password and then a six-digit code from an authenticator app, set up at their first sign-in. The database checks for the second factor (Supabase's `aal2` session level) on every admin function, so a stolen password alone opens nothing. Another admin can reset a lost authenticator from the Sign-ups tab. A sole admin's authenticator can be cleared in the Supabase dashboard under Authentication.
 
 A suspended firm can read its files and change nothing, paid or not. An admin sees no client file: no trial balance, ledger, evidence or report. The first admin is added in the database. After that, admins add each other.
 

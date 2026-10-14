@@ -37,7 +37,7 @@ export function App() {
       // Someone who came from a reset link chooses a new password before anything else opens.
       if (repo.recovering()) return setSession({ state: 'new-password', user });
       // A platform admin with no firm of their own belongs in the admin console, not firm setup.
-      if (!ws && (await repo.isAdmin())) return nav('/admin', { replace: true });
+      if (!ws && (await repo.adminStatus()).admin) return nav('/admin', { replace: true });
       setSession(ws ? { state: 'ready', user, ws } : { state: 'no-firm', user });
     } catch (e) {
       setSession({ state: 'error', error: message(e) });
