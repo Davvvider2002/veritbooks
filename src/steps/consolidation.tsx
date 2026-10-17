@@ -12,7 +12,7 @@ import {
   type GroupSetup,
   type GroupSubsidiary,
 } from '../engine/consolidation';
-import { fmt, fmt2, parseAmount } from '../engine/money';
+import { fmt, fmt2, parseAmount, cur } from '../engine/money';
 import { longDate } from '../engine/report';
 import { repo } from '../data';
 import { ErrorNote, Field, StatementTable, useAction, useLoad } from '../ui';
@@ -64,7 +64,7 @@ export function ConsolidationStep(ctx: Ctx) {
         )}
         {!locked && isGroup && (
           <div className="banner warn">
-            Read the assumptions before relying on these statements. A subsidiary held for part of a year is taken to earn its results evenly through that year. Unrealised profit is borne by the owners of the parent. A subsidiary’s reserves since acquisition sit in group retained earnings. Goodwill on a foreign subsidiary stays at its naira amount at acquisition. Where your group does not fit, use eliminations to correct the result, and say so in the file.
+            Read the assumptions before relying on these statements. A subsidiary held for part of a year is taken to earn its results evenly through that year. Unrealised profit is borne by the owners of the parent. A subsidiary’s reserves since acquisition sit in group retained earnings. Goodwill on a foreign subsidiary stays at its amount in the group’s currency at acquisition. Where your group does not fit, use eliminations to correct the result, and say so in the file.
           </div>
         )}
         <ErrorNote error={loadError ?? error} />
@@ -362,10 +362,10 @@ function Sheets({ ctx, c, group, setup }: { ctx: Ctx; c: Consolidated; group: Gr
               <thead>
                 <tr>
                   <th></th>
-                  <th className="num">On acquisition<br />₦</th>
-                  <th className="num">Amortised to date<br />₦</th>
-                  <th className="num">Charge for the year<br />₦</th>
-                  <th className="num">Carrying amount<br />₦</th>
+                  <th className="num">On acquisition<br />{cur()}</th>
+                  <th className="num">Amortised to date<br />{cur()}</th>
+                  <th className="num">Charge for the year<br />{cur()}</th>
+                  <th className="num">Carrying amount<br />{cur()}</th>
                 </tr>
               </thead>
               <tbody>
@@ -398,8 +398,8 @@ function Sheets({ ctx, c, group, setup }: { ctx: Ctx; c: Consolidated; group: Gr
                 <tr>
                   <th></th>
                   <th className="num">Held by others</th>
-                  <th className="num">Share of profit<br />₦</th>
-                  <th className="num">At end of year<br />₦</th>
+                  <th className="num">Share of profit<br />{cur()}</th>
+                  <th className="num">At end of year<br />{cur()}</th>
                 </tr>
               </thead>
               <tbody>
@@ -443,9 +443,9 @@ function Sheets({ ctx, c, group, setup }: { ctx: Ctx; c: Consolidated; group: Gr
                   <th></th>
                   <th>Method</th>
                   <th className="num">Held</th>
-                  <th className="num">Share of profit<br />₦</th>
-                  <th className="num">Dividends received<br />₦</th>
-                  <th className="num">Carrying amount<br />₦</th>
+                  <th className="num">Share of profit<br />{cur()}</th>
+                  <th className="num">Dividends received<br />{cur()}</th>
+                  <th className="num">Carrying amount<br />{cur()}</th>
                 </tr>
               </thead>
               <tbody>
@@ -468,7 +468,7 @@ function Sheets({ ctx, c, group, setup }: { ctx: Ctx; c: Consolidated; group: Gr
           <>
             <h3>{++n}. Foreign subsidiaries</h3>
             <p>
-              The assets and liabilities of a subsidiary that reports in another currency are translated into naira at the rate at the year end. Its income and expenses are translated at the average rate for the year. The resulting exchange differences are recognised in other comprehensive income and accumulated in equity. Goodwill arising on the acquisition of a foreign subsidiary is carried at the naira amount determined at acquisition.
+              The assets and liabilities of a subsidiary that reports in another currency are translated into the group’s presentation currency at the rate at the year end. Its income and expenses are translated at the average rate for the year. The resulting exchange differences are recognised in other comprehensive income and accumulated in equity. Goodwill arising on the acquisition of a foreign subsidiary is carried at the amount in the presentation currency determined at acquisition.
             </p>
             <table className="fs wide">
               <thead>
@@ -507,7 +507,7 @@ function EquityTable({ e }: { e: GroupEquity }) {
           <tr>
             <th></th>
             {e.columns.map((col) => (
-              <th key={col} className="num">{col}<br />₦</th>
+              <th key={col} className="num">{col}<br />{cur()}</th>
             ))}
           </tr>
         </thead>
@@ -592,7 +592,7 @@ function Worksheet({ c, year }: { c: Consolidated; year: string }) {
         </table>
       </div>
       <p className="small muted" style={{ margin: 0 }}>
-        Subsidiaries are shown in naira, for the part of the year they were in the group. Each company’s own equity is left out of its column: the group’s equity is the parent’s, plus its share of what each subsidiary has earned since acquisition, less goodwill written off and unrealised profit.
+        Subsidiaries are shown in the group’s currency, for the part of the year they were in the group. Each company’s own equity is left out of its column: the group’s equity is the parent’s, plus its share of what each subsidiary has earned since acquisition, less goodwill written off and unrealised profit.
       </p>
     </div>
   );
@@ -662,7 +662,7 @@ function SubsidiaryForm({
     if (f.changed && f.disposed && f.netAssetsAtDisposal.trim() === '') return setProblem('Enter the subsidiary’s net assets on the day it was sold. The group’s gain or loss on the sale depends on it.');
     if (f.foreign) {
       if (!f.currency.trim()) return setProblem('Name the subsidiary’s currency.');
-      if (!(['closing', 'average', 'closingPrior', 'averagePrior'] as K[]).every((k) => rate(k) > 0)) return setProblem('Enter all four exchange rates, as naira to one unit of the currency.');
+      if (!(['closing', 'average', 'closingPrior', 'averagePrior'] as K[]).every((k) => rate(k) > 0)) return setProblem('Enter all four exchange rates, as units of the group’s currency to one unit of the subsidiary’s.');
     }
     setProblem(null);
     void submit({
@@ -697,13 +697,13 @@ function SubsidiaryForm({
         </Field>
       </div>
       <div className="grid2">
-        {money('cost', 'Cost of the investment (₦)', 'As carried in the parent’s own books, mapped to Investments.')}
-        {money('netAssets', 'Subsidiary’s net assets when acquired (₦)', 'At fair value on the acquisition date. For a sub-group, the net assets belonging to its own shareholders.')}
+        {money('cost', `Cost of the investment (${cur()})`, 'As carried in the parent’s own books, mapped to Investments.')}
+        {money('netAssets', `Subsidiary’s net assets when acquired (${cur()})`, 'At fair value on the acquisition date. For a sub-group, the net assets belonging to its own shareholders.')}
       </div>
       <div className="grid2" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
-        {money('amortised', 'Goodwill amortised to date (₦)', 'Up to the end of this year, or to the day it was sold, with any impairment.')}
-        {money('charge', `Of which in ${years[0]} (₦)`)}
-        {money('chargePrior', `And in ${years[1]} (₦)`)}
+        {money('amortised', `Goodwill amortised to date (${cur()})`, 'Up to the end of this year, or to the day it was sold, with any impairment.')}
+        {money('charge', `Of which in ${years[0]} (${cur()})`)}
+        {money('chargePrior', `And in ${years[1]} (${cur()})`)}
       </div>
 
       <label className="row" style={{ gap: 8 }}>
@@ -718,7 +718,7 @@ function SubsidiaryForm({
             <Field label="Date control was lost" hint="Leave blank if it is still held.">
               <input type="date" value={f.disposed} onChange={set('disposed')} />
             </Field>
-            {money('netAssetsAtDisposal', 'Net assets on the day it was sold (₦)')}
+            {money('netAssetsAtDisposal', `Net assets on the day it was sold (${cur()})`)}
           </div>
           <p className="small muted" style={{ margin: 0 }}>
             Its income and expenses are included for the days it was held, as a share of the full year in its own engagement. That is right only if its results arose evenly. If they did not, correct the difference with an elimination.
@@ -749,11 +749,11 @@ function SubsidiaryForm({
             ))}
           </div>
           <div className="grid2">
-            {money('reservePriorEnd', `Group’s share of exchange differences to the end of ${years[1]} (₦)`, 'The translation reserve for this subsidiary in last year’s consolidated statements. Nil if this is the first consolidation.')}
-            {money('differencePrior', `Exchange difference arising in ${years[1]} (₦)`, 'On the whole subsidiary, for last year’s column.')}
+            {money('reservePriorEnd', `Group’s share of exchange differences to the end of ${years[1]} (${cur()})`, 'The translation reserve for this subsidiary in last year’s consolidated statements. Nil if this is the first consolidation.')}
+            {money('differencePrior', `Exchange difference arising in ${years[1]} (${cur()})`, 'On the whole subsidiary, for last year’s column.')}
           </div>
           <p className="small muted" style={{ margin: 0 }}>
-            Rates are naira to one unit of the currency. The cost and net assets above stay in naira, at the rate on the acquisition date. This year’s exchange difference is worked out for you.
+            Rates are units of the group’s currency to one unit of the subsidiary’s. The cost and net assets above stay in the group’s currency, at the rate on the acquisition date. This year’s exchange difference is worked out for you.
           </p>
         </>
       )}
@@ -806,15 +806,15 @@ function AssociateForm({ submit, busy, years }: { submit: (a: Associate) => Prom
         </div>
       </div>
       <div className="grid2">
-        {money('cost', 'Cost (₦)', 'As carried in the parent’s own books, mapped to Investments.')}
-        {f.method === 'equity' && money('carryingStartPrior', `Carrying amount at the start of ${years[1]} (₦)`, 'Cost plus the group’s share of profits kept by the investee up to then.')}
+        {money('cost', `Cost (${cur()})`, 'As carried in the parent’s own books, mapped to Investments.')}
+        {f.method === 'equity' && money('carryingStartPrior', `Carrying amount at the start of ${years[1]} (${cur()})`, 'Cost plus the group’s share of profits kept by the investee up to then.')}
       </div>
       {f.method === 'equity' && (
         <div className="grid2" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr' }}>
-          {money('share', `Share of profit, ${years[0]} (₦)`, 'After tax. Negative for a loss.')}
-          {money('dividends', `Dividends received, ${years[0]} (₦)`)}
-          {money('sharePrior', `Share of profit, ${years[1]} (₦)`)}
-          {money('dividendsPrior', `Dividends received, ${years[1]} (₦)`)}
+          {money('share', `Share of profit, ${years[0]} (${cur()})`, 'After tax. Negative for a loss.')}
+          {money('dividends', `Dividends received, ${years[0]} (${cur()})`)}
+          {money('sharePrior', `Share of profit, ${years[1]} (${cur()})`)}
+          {money('dividendsPrior', `Dividends received, ${years[1]} (${cur()})`)}
         </div>
       )}
       <ErrorNote error={problem} />

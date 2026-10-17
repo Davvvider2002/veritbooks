@@ -38,7 +38,7 @@ const audit: ProgrammeItem[] = [
   { id: 'a-jnl-1', area: 'Journals', text: 'Test journal entries and other adjustments for evidence of management override.' },
   { id: 'a-cmp-1', area: 'Completion', text: 'Evaluate going concern and events after the reporting date.' },
   { id: 'a-cmp-2', area: 'Completion', text: 'Evaluate misstatements and conclude on the schedule of unadjusted differences.' },
-  { id: 'a-cmp-3', area: 'Completion', text: 'Review the financial statements against the disclosure requirements of the framework and the Companies and Allied Matters Act 2020.' },
+  { id: 'a-cmp-3', area: 'Completion', text: 'Review the financial statements against the disclosure requirements of the framework and the companies law of the client’s country.' },
   { id: 'a-cmp-4', area: 'Completion', text: 'Obtain the signed letter of representation and the directors’ approval of the financial statements.' },
   { id: 'a-cmp-5', area: 'Completion', text: 'Complete the engagement partner review of the file.' },
 ];

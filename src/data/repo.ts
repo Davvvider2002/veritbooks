@@ -21,8 +21,11 @@ export interface User {
 export interface Firm {
   id: string;
   name: string;
+  /** The regulator's registration or licence number, named for the firm's country: FRC in Nigeria, ICAG in Ghana. */
   frcNumber: string;
   address: string;
+  /** Where the firm practises. Sets the law its reports cite, the licence it signs with, and its prices. */
+  country: CountryCode;
   /** True when a partner has turned AI assistance on for the firm. Off unless they do. */
   aiEnabled: boolean;
   /** How the firm's reports look. Set by a partner or manager. */
@@ -82,6 +85,8 @@ export interface Engagement {
   signedAt: string | null;
   /** The firm's audit file number. */
   fileNo: string;
+  /** The currency the financial statements are presented in. */
+  currency: CurrencyCode;
   /** Paid for on its own, so it stays open whatever the firm's plan is doing. */
   payPer: boolean;
   /** The consolidation add-on has been paid for this engagement. */
@@ -98,6 +103,7 @@ export interface LogEntry {
 }
 
 import type { PlanMode } from '../engine/billing';
+import type { CountryCode, CurrencyCode } from '../content/jurisdictions';
 
 export type PlanCode = 'solo' | 'practice' | 'firm';
 
@@ -140,6 +146,7 @@ export interface PaymentRecord {
   amountKobo: number;
   /** The VAT inside amountKobo. */
   vatKobo: number;
+  currency: BillingCurrency;
   creditKobo: number;
   founding: boolean;
   source: 'flutterwave' | 'manual';
@@ -173,13 +180,27 @@ export interface Billing {
   credits: { id: string; type: EngagementType; withGroup: boolean }[];
   openEngagements: { id: string; client: string; type: EngagementType; yearEnd: string; payPer: boolean; groupAddon: boolean }[];
   seller: Seller;
-  /** Prices are stated before VAT. This rate is added when a payment is started. */
+  /** Prices are stated before tax. This rate is added when a payment is started. */
   vatPercent: number;
+  /** The firm's country, and the currency and tax it is charged in. */
+  country: CountryCode;
+  currency: BillingCurrency;
+  taxLabel: string;
+  /** True until the firm has paid for anything. After that the platform owner changes the country. */
+  canChangeCountry: boolean;
   payments: PaymentRecord[];
 }
 
-/** The price list shown to visitors. Prices are before VAT. */
+/** The currencies firms are charged in. Flutterwave collects naira and cedis locally, and US dollars elsewhere. */
+export type BillingCurrency = 'NGN' | 'GHS' | 'USD';
+
+/** The price list shown to visitors, for one country. Prices are before tax. */
 export interface PublicPrices {
+  country: CountryCode;
+  currency: BillingCurrency;
+  taxLabel: string;
+  /** The countries a firm can sign up in. */
+  countries: { code: CountryCode; name: string; currency: BillingCurrency }[];
   plans: { code: string; name: string; priceKobo: number; maxUsers: number | null; maxEngagements: number }[];
   engagementPrices: { code: string; name: string; priceKobo: number }[];
   vatPercent: number;
@@ -192,7 +213,7 @@ export interface AdminFirm {
   id: string; name: string; frc_number: string; address: string; created_at: string;
   state: Billing['state']; plan: string; trial_ends_at: string; paid_until: string | null;
   founding_number: number | null; founding_agreed_at: string | null; founding_agreed_by: string | null;
-  suspended_reason: string; note: string; ai_enabled: boolean;
+  suspended_reason: string; note: string; ai_enabled: boolean; country: CountryCode;
   engagements: number; signed: number; clients: number; credits: number; paid_kobo: number; last_activity: string | null;
   members: { name: string; role: string; email: string | null; joined: string }[];
 }
@@ -204,11 +225,20 @@ export interface AdminData {
   vat_month_kobo: number;
   firms: AdminFirm[];
   users: { id: string; email: string; created_at: string; confirmed: boolean; last_sign_in_at: string | null; firm: string | null; role: string | null; name: string | null; admin: boolean }[];
-  payments: { id: string; firm: string; firm_id: string; kind: string; plan: string | null; engagement_type: string | null; with_group: boolean; amount_kobo: number; credit_kobo: number; founding: boolean; status: string; source: string; note: string; tx_ref: string; provider_id: string | null; receipt_no: number | null; created_at: string; paid_at: string | null }[];
+  revenue: { currency: BillingCurrency; total_kobo: number; month_kobo: number | null; vat_kobo: number; vat_month_kobo: number | null }[];
+  countries: AdminCountry[];
+  payments: { id: string; firm: string; firm_id: string; kind: string; currency: BillingCurrency; vat_kobo: number; plan: string | null; engagement_type: string | null; with_group: boolean; amount_kobo: number; credit_kobo: number; founding: boolean; status: string; source: string; note: string; tx_ref: string; provider_id: string | null; receipt_no: number | null; created_at: string; paid_at: string | null }[];
   plans: { code: string; name: string; price_kobo: number; max_users: number | null; max_engagements: number }[];
   engagement_prices: { code: string; name: string; price_kobo: number }[];
   settings: { seller_name: string; seller_address: string; tax_id: string; support_email: string; vat_percent: number };
   log: { at: string; action: string; detail: Record<string, unknown> | null; admin: string | null; firm: string | null }[];
+}
+
+/** A country as the platform owner manages it. Prices are in the minor unit of its currency. */
+export interface AdminCountry {
+  code: CountryCode; name: string; currency: BillingCurrency; vat_percent: number; tax_label: string;
+  min_charge: number; enabled: boolean; firms: number;
+  plans: Record<string, number>; engagement_prices: Record<string, number>;
 }
 
 export interface Workspace {
@@ -219,6 +249,7 @@ export interface Workspace {
 }
 
 export interface NewFirm {
+  country: CountryCode;
   name: string;
   frcNumber: string;
   address: string;
@@ -361,9 +392,9 @@ export interface Repo {
   listClients(): Promise<Client[]>;
   createClient(c: Omit<Client, 'id'>): Promise<Client>;
   listEngagements(): Promise<Engagement[]>;
-  createEngagement(e: { clientId: string; type: EngagementType; yearEnd: string; programmeVersion: string; fileNo?: string }): Promise<Engagement>;
+  createEngagement(e: { clientId: string; type: EngagementType; yearEnd: string; programmeVersion: string; fileNo?: string; currency?: CurrencyCode }): Promise<Engagement>;
   getEngagement(id: string): Promise<Engagement | null>;
-  updateEngagement(id: string, patch: Partial<Pick<Engagement, 'planning' | 'programme' | 'report' | 'testing' | 'disclosures' | 'fileNo'>>): Promise<void>;
+  updateEngagement(id: string, patch: Partial<Pick<Engagement, 'planning' | 'programme' | 'report' | 'testing' | 'disclosures' | 'fileNo' | 'currency'>>): Promise<void>;
   /** Changes a client's details. */
   updateClient(id: string, patch: Partial<Omit<Client, 'id'>>): Promise<void>;
   /** Sets how the firm's reports look. Partners and managers. */
@@ -420,7 +451,10 @@ export interface Repo {
   confirmPayment(transactionId: string): Promise<string>;
 
   /** The public price list, for the landing page. No sign-in needed. */
-  publicPrices(): Promise<PublicPrices>;
+  /** The price list for one country. Nigeria when none is given. */
+  publicPrices(country?: CountryCode): Promise<PublicPrices>;
+  /** Moves the firm to another country, before it has paid for anything. Partners only. */
+  setFirmCountry(country: CountryCode): Promise<void>;
   /** Where the signed-in user stands as an admin: not one, or one who has or has not passed the second factor. */
   adminStatus(): Promise<{ admin: boolean; verified: boolean; enrolled: boolean }>;
   /** Starts setting up an authenticator app. Returns a QR code (as an image source, when available) and the secret to type in. */

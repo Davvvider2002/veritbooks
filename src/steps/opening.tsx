@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { repo } from '../data';
 import type { Engagement } from '../data/repo';
-import { fmt } from '../engine/money';
+import { fmt, cur } from '../engine/money';
 import { openingComparison } from '../engine/opening';
 import { longDate } from '../engine/report';
 import type { Adjustment, TbLine } from '../engine/types';
@@ -76,9 +76,9 @@ export function OpeningStep({ eng, client, lines, ws, locked, reload }: Ctx) {
               <thead>
                 <tr>
                   <th>Statement line</th>
-                  <th className="num">Last year, audited ₦</th>
-                  <th className="num">This year, opening ₦</th>
-                  <th className="num">Difference ₦</th>
+                  <th className="num">Last year, audited {cur()}</th>
+                  <th className="num">This year, opening {cur()}</th>
+                  <th className="num">Difference {cur()}</th>
                 </tr>
               </thead>
               <tbody>

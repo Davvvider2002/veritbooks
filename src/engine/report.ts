@@ -1,4 +1,5 @@
 import type { EngagementType, ReportSettings } from './types';
+import { frameworkText, JURISDICTIONS, type Jurisdiction } from '../content/jurisdictions';
 
 export interface ReportInput {
   type: EngagementType;
@@ -10,6 +11,8 @@ export interface ReportInput {
   group?: boolean;
   /** True when the consolidated statement of cash flows is among the statements. */
   groupCashFlow?: boolean;
+  /** Where the firm practises. Nigeria when not given. */
+  jurisdiction?: Jurisdiction;
 }
 
 export interface ReportSection {
@@ -42,7 +45,7 @@ const OPINION_HEADING = {
  * Draft report wording. The structure follows the elements an auditor's report carries
  * (opinion, basis, responsibilities, other legal requirements). The wording is a starting
  * draft for the engagement partner, who owns the opinion and must review every paragraph
- * against the current standards and the Companies and Allied Matters Act 2020.
+ * against the current standards and the companies law of the firm's country.
  */
 export function draftReport(i: ReportInput): DraftReport {
   const company = companyReport(i);
@@ -50,8 +53,8 @@ export function draftReport(i: ReportInput): DraftReport {
 }
 
 /**
- * Rewords a company report to cover the consolidated statements as well. In Nigeria a parent
- * presents consolidated and separate financial statements together, under one report.
+ * Rewords a company report to cover the consolidated statements as well. A parent presents
+ * consolidated and separate financial statements together, under one report.
  * Starter wording, like the rest: the partner must check it against ISA 700 and ISA 600 (Revised).
  */
 function groupReport(r: DraftReport, i: ReportInput): DraftReport {
@@ -109,8 +112,8 @@ function companyReport(i: ReportInput): DraftReport {
     `the statement of financial position as at ${date}, the statement of profit or loss, ` +
     `the statement of changes in equity${i.hasCashFlow ? ' and the statement of cash flows' : ''} ` +
     `for the year then ended, and the notes to the financial statements, including a summary of significant accounting policies`;
-  const framework =
-    'the IFRS for SMEs Accounting Standard, the Companies and Allied Matters Act 2020 and the Financial Reporting Council of Nigeria Act 2011';
+  const j = i.jurisdiction ?? JURISDICTIONS.NG;
+  const framework = frameworkText(j);
 
   if (i.type === 'compilation') {
     return {
@@ -177,7 +180,7 @@ function companyReport(i: ReportInput): DraftReport {
       : `We have audited the financial statements of ${i.clientName}, which comprise ${list}.`;
 
   const standards =
-    'We conducted our audit in accordance with International Standards on Auditing. Our responsibilities under those standards are described in the Auditor’s responsibilities section of our report. We are independent of the company in accordance with the ethical requirements relevant to our audit of the financial statements in Nigeria, and we have fulfilled our other ethical responsibilities in accordance with those requirements.';
+    `We conducted our audit in accordance with International Standards on Auditing. Our responsibilities under those standards are described in the Auditor’s responsibilities section of our report. We are independent of the company in accordance with the ethical requirements relevant to our audit of the financial statements in ${j.inName}, and we have fulfilled our other ethical responsibilities in accordance with those requirements.`;
 
   const basisParagraphs = {
     unmodified: [standards, 'We believe that the audit evidence we have obtained is sufficient and appropriate to provide a basis for our opinion.'],
@@ -198,7 +201,7 @@ function companyReport(i: ReportInput): DraftReport {
     added.push({
       heading: 'Other information',
       paragraphs: [
-        'The directors are responsible for the other information. The other information comprises the report of the directors, the statement of directors’ responsibilities, the statement of value added and the financial summary, which we obtained before the date of this report. It does not include the financial statements and our auditor’s report on them.',
+        `The directors are responsible for the other information. The other information comprises the report of the directors, the statement of directors’ responsibilities${j.nationalStatements ? ', the statement of value added and the financial summary' : ''}, which we obtained before the date of this report. It does not include the financial statements and our auditor’s report on them.`,
         'Our opinion on the financial statements does not cover the other information and we do not express any form of assurance conclusion on it.',
         'In connection with our audit of the financial statements, our responsibility is to read the other information and, in doing so, consider whether it is materially inconsistent with the financial statements or our knowledge obtained in the audit, or otherwise appears to be materially misstated. If, based on the work we have performed, we conclude that there is a material misstatement of the other information, we are required to report that fact.',
         s.otherInformation?.trim() ? s.otherInformation.trim() : 'We have nothing to report in this regard.',
@@ -223,7 +226,7 @@ function companyReport(i: ReportInput): DraftReport {
         opinion === 'disclaimer'
           ? [
               'Our responsibility is to conduct an audit of the company’s financial statements in accordance with International Standards on Auditing and to issue an auditor’s report. However, because of the matter described in the Basis for disclaimer of opinion section, we were not able to obtain sufficient appropriate audit evidence to provide a basis for an audit opinion.',
-              'We are independent of the company in accordance with the ethical requirements relevant to our audit of the financial statements in Nigeria, and we have fulfilled our other ethical responsibilities in accordance with those requirements.',
+              `We are independent of the company in accordance with the ethical requirements relevant to our audit of the financial statements in ${j.inName}, and we have fulfilled our other ethical responsibilities in accordance with those requirements.`,
             ]
           : [
               'Our objectives are to obtain reasonable assurance about whether the financial statements as a whole are free from material misstatement, whether due to fraud or error, and to issue an auditor’s report that includes our opinion. Reasonable assurance is a high level of assurance, but it is not a guarantee that an audit conducted in accordance with International Standards on Auditing will always detect a material misstatement when it exists.',
@@ -231,15 +234,19 @@ function companyReport(i: ReportInput): DraftReport {
               'As part of an audit we exercise professional judgment and maintain professional scepticism throughout. We identify and assess the risks of material misstatement, design and perform procedures responsive to those risks, obtain an understanding of internal control relevant to the audit, evaluate the accounting policies used and the estimates made by the directors, conclude on the appropriateness of the going concern basis, and evaluate the overall presentation of the financial statements. We communicate with the directors regarding the planned scope and timing of the audit and significant audit findings.',
             ],
     },
-    {
-      heading: 'Report on other legal and regulatory requirements',
-      paragraphs: [
-        'In accordance with the requirements of the Companies and Allied Matters Act 2020, we confirm that:',
-        '(i) we have obtained all the information and explanations which, to the best of our knowledge and belief, were necessary for the purpose of our audit;',
-        '(ii) in our opinion, proper books of account have been kept by the company, so far as appears from our examination of those books; and',
-        '(iii) the company’s statement of financial position and statement of profit or loss are in agreement with the books of account.',
-      ],
-    },
+    ...(j.statutoryConfirmations && j.companiesAct
+      ? [
+          {
+            heading: 'Report on other legal and regulatory requirements',
+            paragraphs: [
+              `In accordance with the requirements of ${j.companiesAct}, we confirm that:`,
+              '(i) we have obtained all the information and explanations which, to the best of our knowledge and belief, were necessary for the purpose of our audit;',
+              '(ii) in our opinion, proper books of account have been kept by the company, so far as appears from our examination of those books; and',
+              '(iii) the company’s statement of financial position and statement of profit or loss are in agreement with the books of account.',
+            ],
+          },
+        ]
+      : []),
   ];
 
   return {

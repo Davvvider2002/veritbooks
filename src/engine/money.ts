@@ -1,10 +1,21 @@
 import type { Kobo } from './types';
 
+/** Amounts are held in the minor unit of the engagement's currency: kobo, pesewas, cents. */
 export const toKobo = (naira: number): Kobo => Math.round(naira * 100);
 
 /**
+ * The symbol of the currency on screen. The workspace sets it from the engagement before its
+ * steps draw, so every column heading and amount label follows the engagement's currency.
+ */
+let current = '₦';
+export const cur = (): string => current;
+export const setCur = (symbol: string): void => {
+  current = symbol;
+};
+
+/**
  * Parse a cell from a trial balance into kobo. Returns null when the cell holds no number.
- * Accepts 1,234.50  (1,234.50)  -1234.5  1234.50 Cr  ₦1,234  and plain numbers.
+ * Accepts 1,234.50  (1,234.50)  -1234.5  1234.50 Cr  ₦1,234  GH₵1,234  US$1,234  and plain numbers.
  */
 export function parseAmount(raw: unknown): Kobo | null {
   if (raw === null || raw === undefined) return null;
@@ -22,7 +33,7 @@ export function parseAmount(raw: unknown): Kobo | null {
   } else if (/dr\.?$/i.test(s)) {
     s = s.replace(/dr\.?$/i, '');
   }
-  s = s.replace(/[₦,\s]|NGN|N(?=\d)/gi, '');
+  s = s.replace(/GH[₵¢]|GHS|SLE|LRD|GMD|USD|US\$|L\$|NGN|Le(?=\s*\d)|D(?=\s*\d)|N(?=\s*\d)|[₦$,\s]/gi, '');
   if (s.startsWith('-')) {
     negative = !negative;
     s = s.slice(1);

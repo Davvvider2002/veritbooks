@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { naira } from './billing';
+import { JURISDICTIONS, jurisdictionOf, type CountryCode } from './content/jurisdictions';
 import { SecondFactor } from './mfa';
 import { repo } from './data';
-import type { AdminData, AdminFirm, User } from './data/repo';
-import { FOUNDING_PLACES, daysLeft } from './engine/billing';
+import type { AdminCountry, AdminData, AdminFirm, User } from './data/repo';
+import { FOUNDING_PLACES, daysLeft, priceText } from './engine/billing';
 import { longDate } from './engine/report';
 import { ErrorNote, Field, message, useAction } from './ui';
 
@@ -18,6 +18,10 @@ const STATE: Record<AdminFirm['state'], { label: string; tag: string }> = {
 const TABS = ['Overview', 'Firms', 'Sign-ups', 'Payments', 'Prices', 'Settings', 'Log'] as const;
 type Tab = (typeof TABS)[number];
 type Act = (action: string, args: Record<string, unknown>) => void;
+/** The currency a firm is charged in, from its country. */
+const currencyOfFirm = (d: AdminData, f: Pick<AdminFirm, 'country'>) => d.countries?.find((c) => c.code === (f.country ?? 'NG'))?.currency ?? 'NGN';
+/** Amounts in several currencies, each in its own: "₦480,000 · GH₵1,500". */
+const amounts = (xs: { currency: string; kobo: number }[]) => (xs.length ? xs.map((x) => priceText(x.kobo, x.currency)).join(' · ') : priceText(0, 'NGN'));
 
 /** The platform owner's sign-in. Separate from the firm sign-in, and it lets in admins only. */
 function AdminLogin({ refused, onSignedIn }: { refused: string | null; onSignedIn: () => void }) {
@@ -83,7 +87,11 @@ function Overview({ d, open }: { d: AdminData; open: (firm: string) => void }) {
       <div className="grid4">
         <Stat label="Firms" value={d.firms.length} note={`${d.firms.filter((f) => f.created_at >= since(7)).length} new in the last 7 days`} />
         <Stat label="On a paid plan" value={count('active')} note={`${count('trial')} in trial, ${count('expired')} lapsed`} />
-        <Stat label="Received this month" value={naira(d.revenue_month_kobo)} note={`${naira(d.revenue_kobo)} in total. VAT inside: ${naira(d.vat_month_kobo)} this month, ${naira(d.vat_kobo)} in total`} />
+        <Stat
+          label="Received this month"
+          value={amounts((d.revenue ?? []).filter((r) => r.month_kobo).map((r) => ({ currency: r.currency, kobo: r.month_kobo ?? 0 })))}
+          note={`${amounts((d.revenue ?? []).map((r) => ({ currency: r.currency, kobo: r.total_kobo })))} in total. Tax inside: ${amounts((d.revenue ?? []).filter((r) => r.vat_kobo).map((r) => ({ currency: r.currency, kobo: r.vat_kobo })))}`}
+        />
         <Stat label="Founding places" value={`${d.founding_taken} of ${FOUNDING_PLACES}`} note={`${FOUNDING_PLACES - d.founding_taken} left`} />
       </div>
       <section className="card stack" aria-label="Needs attention">
@@ -123,6 +131,7 @@ function FirmDetail({ f, d, act, busy }: { f: AdminFirm; d: AdminData; act: Act;
   const [credit, setCredit] = useState('audit');
   const [withGroup, setWithGroup] = useState(false);
   const [note, setNote] = useState(f.note);
+  const [country, setCountry] = useState<string>(f.country ?? 'NG');
   const go = (action: string, args: Record<string, unknown> = {}) => act(action, { firm: f.id, ...args });
   return (
     <div className="stack admin-detail">
@@ -130,7 +139,7 @@ function FirmDetail({ f, d, act, busy }: { f: AdminFirm; d: AdminData; act: Act;
         <div>
           <div className="small muted">Firm</div>
           <div>{f.name}</div>
-          <div className="small">{f.frc_number || 'No FRC number yet'}</div>
+          <div className="small">{JURISDICTIONS[(f.country ?? 'NG') as CountryCode]?.name ?? f.country}. {f.frc_number || `No ${jurisdictionOf(f.country).licenceShort} yet`}</div>
           <div className="small">{f.address}</div>
           <div className="small muted" style={{ marginTop: 8 }}>
             {f.clients} clients, {f.engagements} engagements, {f.signed} signed. {f.credits} paid engagement{f.credits === 1 ? '' : 's'} not yet opened. AI assistance {f.ai_enabled ? 'on' : 'off'}. Last activity {day(f.last_activity)}.
@@ -204,13 +213,27 @@ function FirmDetail({ f, d, act, busy }: { f: AdminFirm; d: AdminData; act: Act;
         <fieldset className="stack">
           <legend>Record a payment received another way</legend>
           <div className="row">
-            <input type="number" min={1} aria-label="Amount received in naira" placeholder="Amount, ₦" value={amount} onChange={(e) => setAmount(e.target.value)} style={{ width: 130 }} />
+            <input type="number" min={0.01} step="any" aria-label={`Amount received in ${currencyOfFirm(d, f)}`} placeholder={`Amount, ${currencyOfFirm(d, f)}`} value={amount} onChange={(e) => setAmount(e.target.value)} style={{ width: 130 }} />
             <input type="text" aria-label="Payment reference" placeholder="Bank reference" value={reference} onChange={(e) => setReference(e.target.value)} />
             <button disabled={busy || !amount || !reference.trim()} onClick={() => go('record_payment', { plan, amount_naira: Number(amount), reference })}>
               Record for {paid.find((p) => p.code === plan)?.name}
             </button>
           </div>
-          <span className="small muted">For a bank transfer. Enter what was received, VAT included. Adds a year of the plan chosen on the left and issues a receipt.</span>
+          <span className="small muted">For a bank transfer. Enter what was received in {currencyOfFirm(d, f)}, tax included. Adds a year of the plan chosen on the left and issues a receipt.</span>
+        </fieldset>
+        <fieldset className="stack">
+          <legend>Country</legend>
+          <div className="row">
+            <select aria-label="Move to country" value={country} onChange={(e) => setCountry(e.target.value)}>
+              {(d.countries ?? []).map((c) => (
+                <option key={c.code} value={c.code}>{c.name} ({c.currency})</option>
+              ))}
+            </select>
+            <button disabled={busy || country === (f.country ?? 'NG')} onClick={() => go('set_country', { country })}>
+              Move firm
+            </button>
+          </div>
+          <span className="small muted">Changes the law its reports cite, its licence label, and the currency of its next payment. Past receipts keep their currency. A founding firm’s held prices move to the new country’s list.</span>
         </fieldset>
         <fieldset className="stack">
           <legend>Engagements and founding offer</legend>
@@ -320,7 +343,7 @@ function FirmRow({ f, d, act, busy, open, toggle }: { f: AdminFirm; d: AdminData
           {f.engagements}
           <span className="muted"> / {f.signed} signed</span>
         </td>
-        <td className="num">{naira(f.paid_kobo)}</td>
+        <td className="num">{priceText(f.paid_kobo, currencyOfFirm(d, f))}</td>
         <td style={{ textAlign: 'right' }}>
           <button aria-label={`Manage ${f.name}`} onClick={toggle}>
             {open ? 'Close' : 'Manage'}
@@ -411,7 +434,7 @@ function Payments({ d }: { d: AdminData }) {
           <option value="all">All</option>
         </select>
         <span className="small muted">
-          {rows.length} shown, {naira(rows.filter((p) => p.status === 'paid').reduce((t, p) => t + p.amount_kobo, 0))} received. The latest 300 are listed.
+          {rows.length} shown, {amounts(['NGN', 'GHS', 'USD'].map((c) => ({ currency: c, kobo: rows.filter((p) => p.status === 'paid' && (p.currency ?? 'NGN') === c).reduce((t, p) => t + p.amount_kobo, 0) })).filter((x) => x.kobo))} received. The latest 300 are listed.
         </span>
       </div>
       <div className="card" style={{ padding: 0 }}>
@@ -440,7 +463,7 @@ function Payments({ d }: { d: AdminData }) {
                 <td>
                   <span className={`tag ${p.status === 'paid' ? 'ok' : p.status === 'failed' ? 'bad' : ''}`}>{p.status === 'pending' ? 'not finished' : p.status}</span>
                 </td>
-                <td className="num">{naira(p.amount_kobo)}</td>
+                <td className="num">{priceText(p.amount_kobo, p.currency ?? 'NGN')}</td>
               </tr>
             ))}
             {rows.length === 0 && (
@@ -457,16 +480,89 @@ function Payments({ d }: { d: AdminData }) {
   );
 }
 
-function PlanPrice({ p, act, busy }: { p: AdminData['plans'][number]; act: Act; busy: boolean }) {
-  const [price, setPrice] = useState(String(p.price_kobo / 100));
+/** A price in a country's own currency, saved on its own. */
+function PriceCell({ label, minor, onSave, busy }: { label: string; minor: number; currency: string; onSave: (major: number) => void; busy: boolean }) {
+  const [v, setV] = useState(String(minor / 100));
+  return (
+    <div className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
+      <input type="number" min={0.01} step="any" aria-label={label} value={v} onChange={(e) => setV(e.target.value)} style={{ width: 130 }} />
+      <button disabled={busy || Number(v) * 100 === minor || !(Number(v) > 0)} aria-label={`Save ${label}`} onClick={() => onSave(Number(v))}>
+        Save
+      </button>
+    </div>
+  );
+}
+
+function CountryPrices({ c, d, act, busy }: { c: AdminCountry; d: AdminData; act: Act; busy: boolean }) {
+  const [tax, setTax] = useState({ vat_percent: c.vat_percent, tax_label: c.tax_label, enabled: c.enabled });
+  const plans = d.plans.filter((p) => p.code !== 'trial');
+  return (
+    <section className="card stack" aria-label={`${c.name} prices`}>
+      <div className="between">
+        <h3>{c.name}</h3>
+        <span className="small muted">
+          Charged in {c.currency}. {c.firms} firm{c.firms === 1 ? '' : 's'}.{!c.enabled && ' Closed to new firms.'}
+        </span>
+      </div>
+      <table className="data">
+        <thead>
+          <tr>
+            <th>Yearly plan</th>
+            <th>Price a year, {c.currency}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {plans.map((p) => (
+            <tr key={p.code}>
+              <td>{p.name}</td>
+              <td>
+                <PriceCell key={c.plans[p.code]} label={`${c.name} ${p.name} price`} minor={c.plans[p.code] ?? 0} currency={c.currency} busy={busy} onSave={(price) => act('country_price', { country: c.code, plan: p.code, price })} />
+              </td>
+            </tr>
+          ))}
+          {d.engagement_prices.map((p) => (
+            <tr key={p.code}>
+              <td>{p.code === 'group' ? 'Group consolidation add-on' : `One ${p.name.toLowerCase()}`}</td>
+              <td>
+                <PriceCell key={c.engagement_prices[p.code]} label={`${c.name} ${p.name} engagement price`} minor={c.engagement_prices[p.code] ?? 0} currency={c.currency} busy={busy} onSave={(price) => act('country_engagement_price', { country: c.code, code: p.code, price })} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="row" style={{ alignItems: 'flex-end' }}>
+        <Field label="Tax name">
+          <input type="text" aria-label={`${c.name} tax name`} maxLength={30} value={tax.tax_label} onChange={(e) => setTax({ ...tax, tax_label: e.target.value })} style={{ width: 160 }} />
+        </Field>
+        <Field label="Rate, %">
+          <input type="number" aria-label={`${c.name} tax rate`} min={0} max={50} step={0.1} value={tax.vat_percent} onChange={(e) => setTax({ ...tax, vat_percent: Number(e.target.value) })} style={{ width: 100 }} />
+        </Field>
+        {c.code !== 'NG' && (
+          <label className="row small" style={{ gap: 6, paddingBottom: 8 }}>
+            <input type="checkbox" checked={tax.enabled} onChange={(e) => setTax({ ...tax, enabled: e.target.checked })} />
+            Open to new firms
+          </label>
+        )}
+        <button disabled={busy} aria-label={`Save ${c.name} tax`} onClick={() => act('country_settings', { country: c.code, ...tax })} style={{ marginBottom: 4 }}>
+          Save tax
+        </button>
+      </div>
+      <span className="small muted">
+        {c.code === 'NG'
+          ? 'Nigerian VAT is 7.5%.'
+          : 'Set the rate once VeritBooks is registered for tax here, or once advised none is due. Until then nothing is added.'}{' '}
+        The tax is added on top of each price at checkout and shown on the receipt.
+      </span>
+    </section>
+  );
+}
+
+function PlanLimits({ p, act, busy }: { p: AdminData['plans'][number]; act: Act; busy: boolean }) {
   const [users, setUsers] = useState(p.max_users === null ? '' : String(p.max_users));
   const [engs, setEngs] = useState(String(p.max_engagements));
   return (
     <tr>
       <td>{p.name}</td>
-      <td>
-        <input type="number" min={1} aria-label={`${p.name} price in naira`} value={price} onChange={(e) => setPrice(e.target.value)} style={{ width: 140 }} />
-      </td>
       <td>
         <input type="number" min={1} aria-label={`${p.name} users`} placeholder="No limit" value={users} onChange={(e) => setUsers(e.target.value)} style={{ width: 110 }} />
       </td>
@@ -474,24 +570,7 @@ function PlanPrice({ p, act, busy }: { p: AdminData['plans'][number]; act: Act; 
         <input type="number" min={1} aria-label={`${p.name} engagements`} value={engs} onChange={(e) => setEngs(e.target.value)} style={{ width: 110 }} />
       </td>
       <td style={{ textAlign: 'right' }}>
-        <button disabled={busy} aria-label={`Save ${p.name}`} onClick={() => act('set_price', { plan: p.code, price_naira: Number(price), max_users: users, max_engagements: Number(engs) })}>
-          Save
-        </button>
-      </td>
-    </tr>
-  );
-}
-
-function EngagementPrice({ p, act, busy }: { p: AdminData['engagement_prices'][number]; act: Act; busy: boolean }) {
-  const [price, setPrice] = useState(String(p.price_kobo / 100));
-  return (
-    <tr>
-      <td>{p.code === 'group' ? 'Group consolidation add-on' : `One ${p.name.toLowerCase()}`}</td>
-      <td>
-        <input type="number" min={1} aria-label={`${p.name} engagement price in naira`} value={price} onChange={(e) => setPrice(e.target.value)} style={{ width: 140 }} />
-      </td>
-      <td style={{ textAlign: 'right' }}>
-        <button disabled={busy} aria-label={`Save ${p.name} engagement price`} onClick={() => act('set_engagement_price', { code: p.code, price_naira: Number(price) })}>
+        <button disabled={busy} aria-label={`Save ${p.name} allowances`} onClick={() => act('plan_limits', { plan: p.code, max_users: users, max_engagements: Number(engs) })}>
           Save
         </button>
       </td>
@@ -500,15 +579,27 @@ function EngagementPrice({ p, act, busy }: { p: AdminData['engagement_prices'][n
 }
 
 function Prices({ d, act, busy }: { d: AdminData; act: Act; busy: boolean }) {
+  const [code, setCode] = useState<string>('NG');
+  const c = (d.countries ?? []).find((x) => x.code === code);
   return (
     <div className="stack">
-      <section className="card stack" aria-label="Yearly plans">
-        <h3>Yearly plans</h3>
+      <div className="row" role="tablist" aria-label="Country">
+        {(d.countries ?? []).map((x) => (
+          <button key={x.code} role="tab" aria-selected={x.code === code} className={x.code === code ? 'primary' : ''} onClick={() => setCode(x.code)}>
+            {x.name}
+          </button>
+        ))}
+      </div>
+      {c && <CountryPrices key={c.code + JSON.stringify(c)} c={c} d={d} act={act} busy={busy} />}
+      <span className="small muted">
+        A new price applies to the next payment. Founding firms keep the prices of the day they joined, in their own currency, until their two years are up.
+      </span>
+      <section className="card stack" aria-label="Plan allowances">
+        <h3>Plan allowances, the same in every country</h3>
         <table className="data">
           <thead>
             <tr>
               <th>Plan</th>
-              <th>Price a year, ₦</th>
               <th>Users</th>
               <th>Engagements a year</th>
               <th />
@@ -516,30 +607,11 @@ function Prices({ d, act, busy }: { d: AdminData; act: Act; busy: boolean }) {
           </thead>
           <tbody>
             {d.plans.filter((p) => p.code !== 'trial').map((p) => (
-              <PlanPrice key={p.code + p.price_kobo + p.max_engagements + p.max_users} p={p} act={act} busy={busy} />
+              <PlanLimits key={p.code + p.max_engagements + p.max_users} p={p} act={act} busy={busy} />
             ))}
           </tbody>
         </table>
-        <span className="small muted">
-          A new price applies to the next payment. Founding firms keep the prices of the day they joined until their two years are up. Leave users empty for no limit.
-        </span>
-      </section>
-      <section className="card stack" aria-label="Single engagements">
-        <h3>Single engagements</h3>
-        <table className="data">
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th>Price, ₦</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {d.engagement_prices.map((p) => (
-              <EngagementPrice key={p.code + p.price_kobo} p={p} act={act} busy={busy} />
-            ))}
-          </tbody>
-        </table>
+        <span className="small muted">Leave users empty for no limit.</span>
       </section>
     </div>
   );
@@ -552,7 +624,7 @@ function Settings({ d, act, busy }: { d: AdminData; act: Act; busy: boolean }) {
   return (
     <div className="stack">
       <section className="card stack" aria-label="Seller details">
-        <h3>Seller details and VAT, printed on every receipt</h3>
+        <h3>Seller details, printed on every receipt</h3>
         <div className="grid2">
           <Field label="Seller name">
             <input type="text" value={s.seller_name} onChange={(e) => setS({ ...s, seller_name: e.target.value })} />
@@ -563,15 +635,12 @@ function Settings({ d, act, busy }: { d: AdminData; act: Act; busy: boolean }) {
           <Field label="Address">
             <input type="text" value={s.seller_address} onChange={(e) => setS({ ...s, seller_address: e.target.value })} />
           </Field>
-          <Field label="VAT rate, %" hint="Added on top of every price at checkout. Nigerian VAT is 7.5%. Set 0 to charge none.">
-            <input type="number" min={0} max={50} step={0.1} value={s.vat_percent} onChange={(e) => setS({ ...s, vat_percent: Number(e.target.value) })} />
-          </Field>
           <Field label="Support email" hint="Shown to firms on receipts and when an account is suspended.">
             <input type="email" value={s.support_email} onChange={(e) => setS({ ...s, support_email: e.target.value })} />
           </Field>
         </div>
         <div>
-          <button className="primary" disabled={busy} onClick={() => act('settings', s)}>
+          <button className="primary" disabled={busy} onClick={() => { const { vat_percent: _rate, ...seller } = s; act('settings', seller); }}>
             Save seller details
           </button>
         </div>
@@ -598,6 +667,7 @@ function Settings({ d, act, busy }: { d: AdminData; act: Act; busy: boolean }) {
 const ACTION: Record<string, string> = {
   extend_trial: 'Extended trial', set_plan: 'Gave a plan', end_plan: 'Ended plan', record_payment: 'Recorded a payment', suspend: 'Suspended', unsuspend: 'Lifted suspension',
   founding: 'Changed founding status', grant_credit: 'Granted an engagement', note: 'Changed note', set_price: 'Changed a plan price', set_engagement_price: 'Changed an engagement price',
+  country_price: 'Changed a country plan price', country_engagement_price: 'Changed a country engagement price', country_settings: 'Changed a country’s tax', set_country: 'Moved a firm to another country', plan_limits: 'Changed plan allowances',
   settings: 'Changed seller details', add_admin: 'Added an admin', remove_admin: 'Removed an admin', reset_two_factor: 'Reset an admin’s two-factor',
 };
 

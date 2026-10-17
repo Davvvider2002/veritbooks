@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { fmt } from './engine/money';
+import { fmt, cur } from './engine/money';
 import type { Period, Row, Source } from './engine/statements';
 
 /** A figure the reader has asked to open: what it is, which column it sits in, and where it comes from. */
@@ -100,8 +100,8 @@ export function StatementTable({
         <tr>
           <th></th>
           {notes && <th style={{ textAlign: 'center' }}>Note</th>}
-          <th className="num">{curLabel}<br />₦</th>
-          {priorLabel && <th className="num">{priorLabel}<br />₦</th>}
+          <th className="num">{curLabel}<br />{cur()}</th>
+          {priorLabel && <th className="num">{priorLabel}<br />{cur()}</th>}
         </tr>
       </thead>
       <tbody>

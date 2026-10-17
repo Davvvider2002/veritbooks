@@ -39,8 +39,9 @@ await db.exec(readFileSync('supabase/migrations/0012_public_prices.sql', 'utf8')
 await db.exec(readFileSync('supabase/migrations/0013_branding_and_file_numbers.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0014_admin_two_factor.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0015_two_factor_for_firms.sql', 'utf8'));
+await db.exec(readFileSync('supabase/migrations/0016_west_africa.sql', 'utf8'));
 // The checks written before VAT run at a zero rate. VAT has its own checks at the end.
-await db.exec(`update platform_settings set vat_percent = 0`);
+await db.exec(`update platform_settings set vat_percent = 0; update countries set vat_percent = 0`);
 
 const A = '00000000-0000-0000-0000-00000000000a'; // partner, firm 1
 const B = '00000000-0000-0000-0000-00000000000b'; // partner, firm 2
@@ -418,7 +419,7 @@ b = await bill();
 ok('the firm is active for a year on Solo', b.state === 'active' && b.plan === 'solo' && Math.round((new Date(b.paid_until) - Date.now()) / 86400000) >= 365 && b.max_engagements === 15);
 ok('it is founding firm number 1, with prices held for two years', b.founding_number === 1 && b.founding_left === 19 && Math.round((new Date(b.price_lock_until) - Date.now()) / 86400000) >= 730);
 ok('renewal is at the held list price, not the discount', b.plans.find((p) => p.code === 'solo').amount_kobo === 18000000 && b.plans.find((p) => p.code === 'solo').founding === false);
-await db.exec(`update plans set price_kobo = 25000000 where code = 'solo'`);
+await db.exec(`update plans set price_kobo = 25000000 where code = 'solo'; update country_plan_prices set price = 25000000 where country = 'NG' and plan = 'solo'`);
 ok('a later price rise does not reach a founding firm', (await bill()).plans.find((p) => p.code === 'solo').amount_kobo === 18000000);
 ok('other firms see the new price', (await bill(A)).plans.find((p) => p.code === 'solo').list_kobo === 25000000);
 await db.exec(`update plans set price_kobo = 18000000 where code = 'solo'`);
@@ -532,9 +533,65 @@ ok('the admin sees VAT collected', ov.vat_kobo === 9300000 && ov.settings.vat_pe
 await denied('the unwrapped functions are closed', () => as(G, `select billing_checkout_net('{"kind":"engagement","type":"audit"}'::jsonb)`), /permission denied/);
 await db.exec(`set role anon`);
 const pub = (await db.query(`select public_prices() as p`)).rows[0].p;
-ok('a visitor can read the price list and nothing else', pub.plans.length === 3 && pub.engagement_prices.length === 4 && Object.keys(pub).length === 5);
+ok('a visitor can read the price list and nothing else', pub.plans.length === 3 && pub.engagement_prices.length === 4 && pub.currency === 'NGN' && !JSON.stringify(pub).includes('Firm One'));
 await denied('anonymous visitors cannot read anything', () => db.query(`select * from firms`), /permission denied/);
 await denied('anonymous visitors cannot create a firm', () => db.query(`select create_firm('x','','','','')`), /permission denied/);
+
+// --- West Africa: a firm's country sets its prices, currency and tax --------
+await db.exec(`reset role`);
+const pubGh = (await db.query(`select public_prices('gh') as p`)).rows[0].p;
+ok('each country has its own price list, in its own currency', pubGh.currency === 'GHS' && pubGh.plans.find((p) => p.code === 'solo').price_kobo === 150000 && pubGh.countries.length === 5);
+ok('Sierra Leone, Liberia and The Gambia are charged in US dollars', (await db.query(`select public_prices('LR') as p`)).rows[0].p.currency === 'USD');
+const GH1 = '00000000-0000-0000-0000-000000000021';
+const LR1 = '00000000-0000-0000-0000-000000000022';
+await db.exec(`insert into auth.users (id, email, email_confirmed_at) values ('${GH1}', 'kofi@accra.gh', now()), ('${LR1}', 'musu@monrovia.lr', now())`);
+await denied('a firm must choose a country that is offered', () => as(GH1, `select create_firm('Accra Partners','','Accra','Kofi','', 'FR')`), /Choose the country/);
+const [fg] = await as(GH1, `select * from create_firm('Accra Partners', '', 'Accra', 'Kofi Mensah', '', 'gh')`);
+ok('a Ghanaian firm is recorded as Ghanaian', fg.country === 'GH');
+await db.exec(`delete from payments where status = 'pending'`); // places held by earlier checks' unfinished payments
+await db.exec(`update firms set founding_number = null, price_lock_until = null, locked_prices = null`); // earlier checks filled every place
+let bg = (await as(GH1, `select billing_overview() as b`))[0].b;
+ok('it is quoted in cedis, founding price included', bg.currency === 'GHS' && bg.plans.find((p) => p.code === 'solo').amount_kobo === 90000 && bg.engagement_prices.find((x) => x.code === 'audit').price_kobo === 35000);
+await denied('a partner cannot change the country directly', () => as(GH1, `update firms set country = 'NG' where id = $1`, [fg.id]), /Firm settings/);
+await as(GH1, `select set_firm_country('LR')`);
+bg = (await as(GH1, `select billing_overview() as b`))[0].b;
+ok('before paying, a partner can change the country, and the prices follow', bg.country === 'LR' && bg.currency === 'USD' && bg.plans.find((p) => p.code === 'solo').list_kobo === 9900);
+await as(GH1, `select set_firm_country('GH')`);
+await act(Z, 'country_settings', { country: 'GH', vat_percent: 20, tax_label: 'VAT and levies' });
+const gq = await co(GH1, { kind: 'engagement', type: 'audit' });
+ok('the country tax rate and currency are on the payment', gq.net_kobo === 35000 && gq.vat_kobo === 7000 && gq.amount_kobo === 42000 && gq.currency === 'GHS' && gq.tax_label === 'VAT and levies');
+await denied('a cedi payment cannot be settled in naira', () => svc(`select apply_payment($1,'g1',42000,'NGN')`, [gq.tx_ref]), /does not match/);
+ok('a cedi payment settles in cedis', (await svc(`select apply_payment($1,'g1',42000,'GHS') as r`, [gq.tx_ref]))[0].r === 'paid');
+ok('the receipt names the currency and the tax', (await svc(`select payment_receipt($1) as r`, [gq.tx_ref]))[0].r.currency === 'GHS' && (await svc(`select payment_receipt($1) as r`, [gq.tx_ref]))[0].r.tax_label === 'VAT and levies');
+await denied('after paying, the partner cannot change the country', () => as(GH1, `select set_firm_country('NG')`), /contact VeritBooks support/);
+ok('and the overview says so', (await as(GH1, `select billing_overview() as b`))[0].b.can_change_country === false);
+const gp = await co(GH1, { kind: 'plan', plan: 'solo', founding_agreed: true });
+await svc(`select apply_payment($1,'g2',$2,'GHS')`, [gp.tx_ref, gp.amount_kobo]);
+const fgRow = (await db.query(`select * from firms where id = $1`, [fg.id])).rows[0];
+ok('a Ghanaian founding firm keeps its prices in cedis', fgRow.founding_number !== null && fgRow.locked_prices.solo === 150000);
+await act(Z, 'country_price', { country: 'GH', plan: 'practice', price: 4500 });
+await act(Z, 'country_engagement_price', { country: 'GH', code: 'review', price: 250 });
+const pubGh2 = (await db.query(`select public_prices('GH') as p`)).rows[0].p;
+ok('the admin sets prices for one country without touching another', pubGh2.plans.find((p) => p.code === 'practice').price_kobo === 450000 && pubGh2.engagement_prices.find((x) => x.code === 'review').price_kobo === 25000 && (await db.query(`select public_prices('NG') as p`)).rows[0].p.plans.find((p) => p.code === 'practice').price_kobo === 48000000);
+await denied('a partner cannot set country prices', () => act(GH1, 'country_price', { country: 'GH', plan: 'solo', price: 1 }), /Not found/);
+await denied('Nigeria cannot be closed', () => act(Z, 'country_settings', { country: 'NG', vat_percent: 7.5, tax_label: 'VAT', enabled: false }), /cannot be closed/);
+await act(Z, 'country_settings', { country: 'GM', vat_percent: 0, tax_label: 'VAT', enabled: false });
+ok('a country can be closed to new firms', (await db.query(`select public_prices('GM') as p`)).rows[0].p === null && (await db.query(`select public_prices('NG') as p`)).rows[0].p.countries.length === 4);
+const [fl] = await as(LR1, `select * from create_firm('Monrovia CPAs', '', 'Monrovia', 'Musu Kollie', '', 'LR')`);
+await act(Z, 'record_payment', { firm: fl.id, plan: 'solo', amount_naira: 99, reference: 'Wire' });
+ok('a recorded payment takes the firm currency', (await as(LR1, `select billing_overview() as b`))[0].b.payments[0].currency === 'USD');
+ov = (await as2(Z, `select admin_overview() as o`))[0].o;
+ok('the admin sees revenue for each currency, and each firm country', ov.revenue.some((r) => r.currency === 'GHS' && r.total_kobo > 0) && ov.revenue.some((r) => r.currency === 'USD' && r.total_kobo === 9900) && ov.firms.find((f) => f.id === fg.id).country === 'GH' && ov.countries.length === 5);
+await act(Z, 'set_country', { firm: fl.id, country: 'SL' });
+ok('the admin can move a firm to another country', (await db.query(`select country from firms where id = $1`, [fl.id])).rows[0].country === 'SL');
+await act(Z, 'plan_limits', { plan: 'solo', max_users: 5, max_engagements: 25 });
+ok('the admin sets plan allowances once, for every country', (await db.query(`select public_prices('GH') as p`)).rows[0].p.plans.find((p) => p.code === 'solo').max_users === 5);
+// Signing names the licence of the firm's country.
+const [cg] = await as(GH1, `insert into clients (firm_id, name) values ($1, 'Kumasi Traders') returning *`, [fg.id]);
+const [eg] = await as(GH1, `insert into engagements (firm_id, client_id, type, year_end, currency) values ($1, $2, 'audit', '2025-12-31', 'GHS') returning *`, [fg.id, cg.id]);
+ok('an engagement records its currency', eg.currency === 'GHS');
+await denied('an engagement currency must be one we know', () => as(GH1, `insert into engagements (firm_id, client_id, type, year_end, currency) values ($1, $2, 'audit', '2024-12-31', 'XYZ')`, [fg.id, cg.id]), /check/);
+await denied('a Ghanaian partner is asked for an ICAG licence', () => as(GH1, `select sign_engagement($1)`, [eg.id]), /ICAG practising licence number is missing/);
 
 console.log(failed ? `\n${failed} check(s) failed` : '\nAll database checks passed');
 process.exit(failed ? 1 : 0);

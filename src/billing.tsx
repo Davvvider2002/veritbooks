@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { repo } from './data';
 import type { Billing, Checkout, PaymentRecord, PlanOffer, Workspace } from './data/repo';
-import { FOUNDING_PLACES, PRICE_HOLD_YEARS, TRIAL_DAYS, daysLeft, vatOn } from './engine/billing';
+import { FOUNDING_PLACES, PRICE_HOLD_YEARS, TRIAL_DAYS, daysLeft, priceText, vatOn } from './engine/billing';
 import { longDate } from './engine/report';
 import type { EngagementType } from './engine/types';
 import { ErrorNote, useAction } from './ui';
 
-export const naira = (kobo: number) => '₦' + Math.round(kobo / 100).toLocaleString('en-NG');
+/** A naira amount. Firms elsewhere see their own currency through priceText. */
+export const naira = (kobo: number) => priceText(kobo, 'NGN');
 const day = (iso: string | null) => (iso ? longDate(iso.slice(0, 10)) : '');
 const days = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
 
@@ -51,6 +52,7 @@ export function PlanStrip({ billing }: { billing: Billing }) {
 
 function PlanCard({ p, billing, partner, busy, blocked, onChoose }: { p: PlanOffer; billing: Billing; partner: boolean; busy: boolean; blocked: boolean; onChoose: () => void }) {
   const current = billing.state === 'active' && billing.plan === p.code;
+  const naira = (k: number) => priceText(k, billing.currency);
   const label = { new: `Choose ${p.name}`, renew: 'Renew for a year', upgrade: `Move up to ${p.name}`, switch: `Move to ${p.name}`, later: `Move to ${p.name}` }[p.mode];
   return (
     <section className="card stack" aria-label={`${p.name} plan`}>
@@ -78,7 +80,7 @@ function PlanCard({ p, billing, partner, busy, blocked, onChoose }: { p: PlanOff
       </div>
       {billing.vatPercent > 0 && (
         <div className="small">
-          Plus VAT at {billing.vatPercent}%: {naira(vatOn(p.amountKobo, billing.vatPercent))}. You pay <strong>{naira(p.amountKobo + vatOn(p.amountKobo, billing.vatPercent))}</strong>.
+          Plus {billing.taxLabel} at {billing.vatPercent}%: {naira(vatOn(p.amountKobo, billing.vatPercent))}. You pay <strong>{naira(p.amountKobo + vatOn(p.amountKobo, billing.vatPercent))}</strong>.
         </div>
       )}
       <ul className="small" style={{ margin: 0, paddingLeft: 18 }}>
@@ -103,6 +105,7 @@ function PlanCard({ p, billing, partner, busy, blocked, onChoose }: { p: PlanOff
 /** A receipt that prints on its own page. */
 function Receipt({ p, ws, onClose }: { p: PaymentRecord; ws: Workspace; onClose: () => void }) {
   const b = ws.billing;
+  const naira = (k: number) => priceText(k, p.currency);
   const planName = (code: string) => b.plans.find((x) => x.code === code)?.name ?? code;
   return (
     <div className="page stack">
@@ -149,17 +152,17 @@ function Receipt({ p, ws, onClose }: { p: PaymentRecord; ws: Workspace; onClose:
             {p.creditKobo > 0 && (
               <tr>
                 <td>Less credit for the unused part of the previous plan</td>
-                <td className="num">({naira(p.creditKobo).slice(1)})</td>
+                <td className="num">({naira(p.creditKobo).replace(/^[^\d]+/, '')})</td>
               </tr>
             )}
             {p.vatKobo > 0 && (
               <>
                 <tr>
-                  <td>Amount before VAT</td>
+                  <td>Amount before {b.taxLabel}</td>
                   <td className="num">{naira(p.amountKobo - p.vatKobo)}</td>
                 </tr>
                 <tr>
-                  <td>VAT at {Math.round((p.vatKobo / (p.amountKobo - p.vatKobo)) * 1000) / 10}%</td>
+                  <td>{b.taxLabel} at {Math.round((p.vatKobo / (p.amountKobo - p.vatKobo)) * 1000) / 10}%</td>
                   <td className="num">{naira(p.vatKobo)}</td>
                 </tr>
               </>
@@ -175,7 +178,7 @@ function Receipt({ p, ws, onClose }: { p: PaymentRecord; ws: Workspace; onClose:
           </tbody>
         </table>
         <div className="small muted">
-          Paid {p.source === 'manual' ? 'directly to VeritBooks' : 'through Flutterwave'}. Reference {p.reference}.{p.vatKobo > 0 ? '' : ' No VAT was charged on this payment.'}
+          Paid {p.source === 'manual' ? 'directly to VeritBooks' : 'through Flutterwave'}. Reference {p.reference}.{p.vatKobo > 0 ? '' : ` No ${b.taxLabel} was charged on this payment.`}
         </div>
       </section>
     </div>
@@ -184,6 +187,7 @@ function Receipt({ p, ws, onClose }: { p: PaymentRecord; ws: Workspace; onClose:
 
 function PerEngagement({ b, partner, busy, pay }: { b: Billing; partner: boolean; busy: boolean; pay: (c: Checkout) => void }) {
   const [group, setGroup] = useState(false);
+  const naira = (k: number) => priceText(k, b.currency);
   const price = (code: string) => b.engagementPrices.find((x) => x.code === code)?.priceKobo ?? 0;
   const types = b.engagementPrices.filter((x) => x.code !== 'group');
   // Files a plan does not cover: every unpaid one outside a plan, and none inside one.
@@ -269,7 +273,7 @@ function PerEngagement({ b, partner, busy, pay }: { b: Billing; partner: boolean
         <input type="checkbox" checked={group} onChange={(e) => setGroup(e.target.checked)} />
         <span>With group consolidation, for a parent with subsidiaries (adds {naira(price('group'))})</span>
       </label>
-      {b.vatPercent > 0 && <div className="small muted">These prices are before VAT. VAT at {b.vatPercent}% is added at checkout.</div>}
+      {b.vatPercent > 0 && <div className="small muted">These prices are before {b.taxLabel}. {b.taxLabel} at {b.vatPercent}% is added at checkout.</div>}
     </section>
   );
 }
@@ -392,7 +396,9 @@ export function BillingPage({ ws, onChanged }: { ws: Workspace; onChanged: () =>
           {founding && partner && !agreed && <p className="small muted" style={{ margin: 0 }}>Tick the founding firm commitment above to choose a plan at the founding price.</p>}
           <PerEngagement b={b} partner={partner} busy={busy} pay={pay} />
           <p className="small muted" style={{ margin: 0 }}>
-            {partner ? 'Prices are shown before VAT. Payment is taken in naira by Flutterwave, by card, bank transfer or USSD. VeritBooks never sees or stores your card details.' : 'Only a partner can make a payment.'} A plan runs for one year from the day it is paid. Renewing early adds a year to the end of the current one. Moving to a bigger plan starts a new year today, with credit for what is left of the old one.
+            {partner
+              ? `Prices are shown${b.vatPercent > 0 ? ` before ${b.taxLabel}` : ''}. Payment is taken in ${b.currency === 'USD' ? 'US dollars' : b.currency === 'GHS' ? 'cedis' : 'naira'} by Flutterwave, by card${b.currency === 'NGN' ? ', bank transfer or USSD' : b.currency === 'GHS' ? ', mobile money or bank transfer' : ''}. VeritBooks never sees or stores your card details.`
+              : 'Only a partner can make a payment.'} A plan runs for one year from the day it is paid. Renewing early adds a year to the end of the current one. Moving to a bigger plan starts a new year today, with credit for what is left of the old one.
           </p>
         </>
       )}
@@ -418,7 +424,7 @@ export function BillingPage({ ws, onChanged }: { ws: Workspace; onChanged: () =>
                   <td>{day(p.paidAt)}</td>
                   <td>{paidFor(p, planName)}</td>
                   <td>{day(p.coversUntil)}</td>
-                  <td className="num">{naira(p.amountKobo)}</td>
+                  <td className="num">{priceText(p.amountKobo, p.currency)}</td>
                   <td style={{ textAlign: 'right' }}>
                     <button className="link" aria-label={`Receipt ${p.receiptNo}`} onClick={() => setReceipt(p.id)}>
                       Receipt

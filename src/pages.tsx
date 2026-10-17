@@ -8,6 +8,7 @@ import type { Branding, Workspace } from './data/repo';
 import { longDate } from './engine/report';
 import type { EngagementType, Role } from './engine/types';
 import { ErrorNote, Field, message, useAction, useLoad } from './ui';
+import { chosenCountry, COUNTRY_CODES, CURRENCIES, JURISDICTIONS, jurisdictionOf, type CountryCode, type CurrencyCode } from './content/jurisdictions';
 
 export const TYPE_LABEL: Record<EngagementType, string> = {
   audit: 'Audit',
@@ -27,7 +28,7 @@ export function AuthPage({ start = 'in' }: { start?: 'in' | 'up' }) {
       <div>
         <h1>{mode === 'in' ? 'Sign in' : 'Create your account'}</h1>
         <p className="muted" style={{ marginTop: 6 }}>
-          Engagement files for Nigerian audit, review and compilation work.
+          Engagement files for audit, review and compilation work across English-speaking West Africa.
         </p>
       </div>
       <form
@@ -164,7 +165,9 @@ export function NewPasswordPage({ onDone }: { onDone: () => Promise<void> }) {
 }
 
 export function FirmSetup({ onDone }: { onDone: () => Promise<void> }) {
-  const [f, setF] = useState({ name: '', frcNumber: '', address: '', fullName: '', memberFrc: '' });
+  const [f, setF] = useState({ country: chosenCountry(), name: '', frcNumber: '', address: '', fullName: '', memberFrc: '' });
+  const offered = useLoad(() => repo.publicPrices().then((p) => p.countries.map((c) => c.code)).catch(() => COUNTRY_CODES), []);
+  const j = jurisdictionOf(f.country);
   const [join, setJoin] = useState({ fullName: '', frcNumber: '' });
   const { busy, error, run } = useAction();
   const joining = useAction();
@@ -186,7 +189,7 @@ export function FirmSetup({ onDone }: { onDone: () => Promise<void> }) {
               <Field label="Your full name">
                 <input type="text" value={join.fullName} onChange={(e) => setJoin({ ...join, fullName: e.target.value })} />
               </Field>
-              <Field label="Your FRC registration number" hint="Leave blank if you are not registered.">
+              <Field label="Your practising licence or registration number" hint="FRC in Nigeria, ICAG in Ghana, and so on. Leave blank if you hold none.">
                 <input type="text" value={join.frcNumber} onChange={(e) => setJoin({ ...join, frcNumber: e.target.value })} />
               </Field>
             </div>
@@ -217,7 +220,7 @@ export function FirmSetup({ onDone }: { onDone: () => Promise<void> }) {
       <div>
         {pending.length > 0 ? <h2>Or set up a new firm</h2> : <h1>Set up your firm</h1>}
         <p className="muted" style={{ marginTop: 6 }}>
-          You become the firm’s first engagement partner. FRC numbers are printed on every signed report, and a file cannot be signed without them.
+          You become the firm’s first engagement partner. Licence numbers are printed on every signed report, and a file cannot be signed without them.
           {pending.length === 0 && ' If a colleague has invited you instead, sign in with the email address they invited.'}
         </p>
       </div>
@@ -231,10 +234,17 @@ export function FirmSetup({ onDone }: { onDone: () => Promise<void> }) {
           });
         }}
       >
+        <Field label="Country where the firm practises" hint="Sets the law your reports cite, the licence you sign with, and your prices.">
+          <select value={f.country} onChange={(e) => setF({ ...f, country: e.target.value as CountryCode })}>
+            {(offered.data ?? COUNTRY_CODES).map((c) => (
+              <option key={c} value={c}>{JURISDICTIONS[c].name}</option>
+            ))}
+          </select>
+        </Field>
         <Field label="Firm name">
           <input type="text" required value={f.name} onChange={set('name')} />
         </Field>
-        <Field label="Firm FRC registration number" hint="You can add this later, but it is needed before sign-off.">
+        <Field label={`Firm ${j.licenceLabel}`} hint="You can add this later, but it is needed before sign-off.">
           <input type="text" value={f.frcNumber} onChange={set('frcNumber')} />
         </Field>
         <Field label="Office address">
@@ -244,7 +254,7 @@ export function FirmSetup({ onDone }: { onDone: () => Promise<void> }) {
           <Field label="Partner’s full name">
             <input type="text" required value={f.fullName} onChange={set('fullName')} />
           </Field>
-          <Field label="Partner’s FRC registration number">
+          <Field label={`Partner’s ${j.licenceLabel}`}>
             <input type="text" value={f.memberFrc} onChange={set('memberFrc')} />
           </Field>
         </div>
@@ -258,6 +268,43 @@ export function FirmSetup({ onDone }: { onDone: () => Promise<void> }) {
 }
 
 const ROLES: Role[] = ['partner', 'manager', 'staff'];
+
+/** Where the firm practises. A partner can change it until the firm has paid for anything. */
+function CountrySetting({ ws, onChanged }: { ws: Workspace; onChanged: () => Promise<void> }) {
+  const j = jurisdictionOf(ws.firm.country);
+  const [next, setNext] = useState<CountryCode>(j.code);
+  const { busy, error, run } = useAction();
+  const partner = ws.me.role === 'partner';
+  const canChange = partner && ws.billing.canChangeCountry;
+  return (
+    <section className="card stack" aria-label="Country">
+      <div className="between">
+        <h3>Country</h3>
+        <span className="tag">{j.name}</span>
+      </div>
+      <p style={{ margin: 0 }}>
+        Your reports follow {j.companiesAct ?? `the law of ${j.inName}`}, and partners sign with their {j.licenceLabel}. Your plan is priced in {ws.billing.currency === 'USD' ? 'US dollars' : ws.billing.currency === 'GHS' ? 'cedis' : 'naira'}.
+      </p>
+      {canChange ? (
+        <div className="row">
+          <select aria-label="Country" value={next} onChange={(e) => setNext(e.target.value as CountryCode)}>
+            {COUNTRY_CODES.map((c) => (
+              <option key={c} value={c}>{JURISDICTIONS[c].name}</option>
+            ))}
+          </select>
+          <button disabled={busy || next === j.code} onClick={() => void run(async () => { await repo.setFirmCountry(next); await onChanged(); })}>
+            Change country
+          </button>
+        </div>
+      ) : (
+        <span className="small muted">
+          {partner ? 'Your firm has paid in its current currency, so VeritBooks support changes the country for you.' : 'Only a partner can change this.'}
+        </span>
+      )}
+      <ErrorNote error={error} />
+    </section>
+  );
+}
 
 function Team({ ws, onChanged }: { ws: Workspace; onChanged: () => Promise<void> }) {
   const partner = ws.me.role === 'partner';
@@ -286,7 +333,7 @@ function Team({ ws, onChanged }: { ws: Workspace; onChanged: () => Promise<void>
             <tr>
               <th>Name</th>
               <th>Role</th>
-              <th>FRC number</th>
+              <th>{jurisdictionOf(ws.firm.country).licenceShort}</th>
               {partner && <th></th>}
             </tr>
           </thead>
@@ -589,7 +636,7 @@ function AssistSetting({ ws, onChanged }: { ws: Workspace; onChanged: () => Prom
       <ul className="small" style={{ margin: 0, paddingLeft: 18 }}>
         <li>Each request sends data outside VeritBooks to Anthropic, the maker of the Claude models, for processing. A mapping request sends account codes, names and balances. A journal request sends its date, description, the name of whoever posted it, the accounts and the amounts.</li>
         <li>Client and firm names are not sent. A journal description can still name a person or a company.</li>
-        <li>Check your engagement letters and your duties under the Nigeria Data Protection Act before turning this on. How the data is handled after it is sent is governed by the terms of the API account this installation uses.</li>
+        <li>Check your engagement letters and your duties under {jurisdictionOf(ws.firm.country).dataLaw} before turning this on. How the data is handled after it is sent is governed by the terms of the API account this installation uses.</li>
         <li>AI output can be wrong and can sound sure when it is. It has not seen your evidence. Treat it as a prompt for your own work, never as audit evidence.</li>
         <li>Each request is logged with who made it and when. The content is not kept in the log.</li>
       </ul>
@@ -627,6 +674,7 @@ export function FirmSettings({ ws, onSaved }: { ws: Workspace; onSaved: () => Pr
   const [saved, setSaved] = useState(false);
   const { busy, error, run } = useAction();
   const partner = ws.me.role === 'partner';
+  const j = jurisdictionOf(ws.firm.country);
 
   return (
     <div className="page stack" style={{ maxWidth: 760 }}>
@@ -649,7 +697,7 @@ export function FirmSettings({ ws, onSaved }: { ws: Workspace; onSaved: () => Pr
           <Field label="Firm name">
             <input type="text" required disabled={!partner} value={firm.name} onChange={(e) => setFirm({ ...firm, name: e.target.value })} />
           </Field>
-          <Field label="Firm FRC registration number">
+          <Field label={`Firm ${j.licenceLabel}`}>
             <input type="text" disabled={!partner} value={firm.frcNumber} onChange={(e) => setFirm({ ...firm, frcNumber: e.target.value })} />
           </Field>
         </div>
@@ -660,7 +708,7 @@ export function FirmSettings({ ws, onSaved }: { ws: Workspace; onSaved: () => Pr
           <Field label="Your full name">
             <input type="text" value={me.fullName} onChange={(e) => setMe({ ...me, fullName: e.target.value })} />
           </Field>
-          <Field label="Your FRC registration number">
+          <Field label={`Your ${j.licenceLabel}`}>
             <input type="text" value={me.frcNumber} onChange={(e) => setMe({ ...me, frcNumber: e.target.value })} />
           </Field>
         </div>
@@ -672,6 +720,7 @@ export function FirmSettings({ ws, onSaved }: { ws: Workspace; onSaved: () => Pr
           </button>
         </div>
       </form>
+      <CountrySetting ws={ws} onChanged={onSaved} />
       {ws.me.role === 'partner' && <TwoFactorSetting />}
       <BrandingSetting ws={ws} onChanged={onSaved} />
       <FileNumbering ws={ws} onChanged={onSaved} />
@@ -688,7 +737,8 @@ export function Dashboard({ ws }: { ws: Workspace }) {
     [],
   );
   const [client, setClient] = useState({ name: '', rcNumber: '' });
-  const [eng, setEng] = useState({ clientId: '', type: 'audit' as EngagementType, yearEnd: '', notPie: false, fileNo: '' });
+  const jur = jurisdictionOf(ws.firm.country);
+  const [eng, setEng] = useState({ clientId: '', type: 'audit' as EngagementType, yearEnd: '', notPie: false, fileNo: '', currency: jur.currencies[0] });
   const a1 = useAction();
   const a2 = useAction();
 
@@ -756,6 +806,7 @@ export function Dashboard({ ws }: { ws: Workspace }) {
                 yearEnd: eng.yearEnd,
                 programmeVersion: PROGRAMME_VERSION,
                 fileNo: eng.fileNo,
+                currency: eng.currency,
               });
               nav(`/engagements/${created.id}`);
             });
@@ -784,6 +835,13 @@ export function Dashboard({ ws }: { ws: Workspace }) {
               <input type="date" required value={eng.yearEnd} onChange={(e) => setEng({ ...eng, yearEnd: e.target.value })} />
             </Field>
           </div>
+          <Field label="Presentation currency" hint="The currency the financial statements are drawn up in.">
+            <select value={eng.currency} onChange={(e) => setEng({ ...eng, currency: e.target.value as CurrencyCode })}>
+              {[...jur.currencies, ...(Object.keys(CURRENCIES) as CurrencyCode[]).filter((c) => !jur.currencies.includes(c))].map((c) => (
+                <option key={c} value={c}>{CURRENCIES[c].name} ({CURRENCIES[c].symbol})</option>
+              ))}
+            </select>
+          </Field>
           <Field
             label="Audit file number"
             hint={ws.firm.fileNumbering.mode === 'auto' ? `Leave blank to number it automatically (${ws.firm.fileNumbering.pattern}).` : 'Optional. A partner can switch on automatic numbering in Firm details.'}
@@ -820,7 +878,7 @@ export function Dashboard({ ws }: { ws: Workspace }) {
           <Field label="Company name">
             <input type="text" required value={client.name} onChange={(e) => setClient({ ...client, name: e.target.value })} />
           </Field>
-          <Field label="RC number">
+          <Field label={jur.code === 'NG' ? 'RC number' : 'Company registration number'}>
             <input type="text" value={client.rcNumber} onChange={(e) => setClient({ ...client, rcNumber: e.target.value })} />
           </Field>
           <p className="small muted" style={{ margin: 0 }}>Sector template: general trading and services.</p>

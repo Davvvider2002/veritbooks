@@ -1,6 +1,7 @@
 import type { GlEntry } from '../engine/ledger';
-import { DEFAULT_VAT_PERCENT, ENGAGEMENT_PRICES, FOUNDING_PLACES, PLANS, PRICE_HOLD_YEARS, TRIAL_DAYS, addYears, firmState, planQuote, vatOn, vatWithin, type Plan, type Subscription } from '../engine/billing';
+import { COUNTRY_PRICING, DEFAULT_VAT_PERCENT, ENGAGEMENT_PRICES, FOUNDING_PLACES, PLANS, PRICE_HOLD_YEARS, TRIAL_DAYS, addYears, firmState, planQuote, vatOn, vatWithin, type CountryPricing, type Plan, type Subscription } from '../engine/billing';
 import { checkCode, newSecret } from '../totp';
+import { jurisdictionOf, type CountryCode } from '../content/jurisdictions';
 import { suggestMapping } from '../engine/mapping';
 import type { Adjustment, Nature, TbLine } from '../engine/types';
 import {
@@ -55,6 +56,8 @@ interface Platform {
   mfa?: Record<string, { secret: string; verified: boolean; backup?: string[] }>;
   log: AdminData['log'];
   receipt: number;
+  /** Each country's prices and tax. Added after the first stores were saved, so it may be missing. */
+  countries?: CountryPricing[];
 }
 export const DEMO_ADMIN = 'admin@veritbooks.demo';
 
@@ -154,6 +157,24 @@ export function createDemoRepo(): Repo {
       receipt: 1000,
     });
   const vatRate = () => platform().settings.vat_percent ?? DEFAULT_VAT_PERCENT;
+  /** The country price lists. A store saved before countries existed keeps its Nigerian prices. */
+  const countries = (): CountryPricing[] => {
+    const pl = platform();
+    if (!pl.countries) {
+      pl.countries = COUNTRY_PRICING.map((c) => ({ ...c, plans: { ...c.plans }, engagements: { ...c.engagements } }));
+      const ng = pl.countries[0];
+      ng.vatPercent = vatRate();
+      for (const x of pl.plans) if (x.code !== 'trial') ng.plans[x.code] = x.priceKobo;
+      for (const x of pl.prices) ng.engagements[x.code] = x.priceKobo;
+    }
+    return pl.countries;
+  };
+  const countryBy = (code: string | undefined): CountryPricing => countries().find((c) => c.code === (code ?? 'NG')) ?? countries()[0];
+  const countryOfFirm = (id: string): CountryPricing => countryBy(s.firms[id]?.firm.country);
+  const countryOfSub = (sub: DemoSub): CountryPricing => countryBy(Object.values(s.firms).find((f) => f.sub === sub)?.firm.country);
+  /** The plans with this country's prices. */
+  const plansFor = (c: CountryPricing): Plan[] => platform().plans.map((p) => ({ ...p, priceKobo: p.code === 'trial' ? 0 : c.plans[p.code] }));
+  const enginePrices = (c: CountryPricing) => platform().prices.map((p) => ({ code: p.code, name: p.name, priceKobo: c.engagements[p.code] }));
   const planBy = (code: string): Plan => platform().plans.find((p) => p.code === code) ?? platform().plans[0];
   /** The firm's trial and plan. Firms saved before plans existed start their trial now. */
   const subOf = (id: string): DemoSub =>
@@ -184,8 +205,14 @@ export function createDemoRepo(): Repo {
     const now = new Date();
     const plan = limitsOf(id);
     const pl = platform();
+    const c = countryOfFirm(id);
+    const plans = plansFor(c);
     return {
       state: stateOf(id),
+      country: c.code,
+      currency: c.currency,
+      taxLabel: c.taxLabel,
+      canChangeCountry: !sub.payments.length && !(sub.credits ?? []).length,
       suspendedReason: sub.suspendedReason ?? '',
       plan: plan.code,
       planName: plan.name,
@@ -200,13 +227,13 @@ export function createDemoRepo(): Repo {
       maxEngagements: plan.maxEngagements,
       users: s.firms[id].members.length,
       maxUsers: plan.maxUsers,
-      plans: pl.plans.filter((p) => p.code !== 'trial').map((p) => ({ code: p.code as PlanCode, name: p.name, maxUsers: p.maxUsers, maxEngagements: p.maxEngagements, ...planQuote(sub, p, pl.plans, foundingTaken(), planPayments(sub), now) })),
-      engagementPrices: pl.prices,
+      plans: plans.filter((p) => p.code !== 'trial').map((p) => ({ code: p.code as PlanCode, name: p.name, maxUsers: p.maxUsers, maxEngagements: p.maxEngagements, ...planQuote(sub, p, plans, foundingTaken(), planPayments(sub), now, c.minCharge) })),
+      engagementPrices: enginePrices(c),
       credits: sub.credits ?? [],
       openEngagements: s.engagements
         .filter((e) => e.firmId === id && e.status === 'in_progress')
         .map((e) => ({ id: e.id, client: s.clients.find((c) => c.id === e.clientId)?.name ?? '', type: e.type, yearEnd: e.yearEnd, payPer: !!(e as any).payPer, groupAddon: !!(e as any).groupAddon })),
-      vatPercent: vatRate(),
+      vatPercent: c.vatPercent,
       seller: { name: pl.settings.seller_name, address: pl.settings.seller_address, taxId: pl.settings.tax_id, supportEmail: pl.settings.support_email },
       payments: [...sub.payments].reverse(),
     };
@@ -229,15 +256,16 @@ export function createDemoRepo(): Repo {
   const isAdminUser = () => isAdminAccount() && verifiedNow();
 
   /** Records a payment. The amount given is before VAT, unless it was received another way, when it includes VAT. */
-  const receipt = (sub: DemoSub, p: Omit<PaymentRecord, 'id' | 'paidAt' | 'reference' | 'receiptNo' | 'source' | 'vatKobo'> & { source?: PaymentRecord['source']; reference?: string }) => {
-    const vatKobo = p.source === 'manual' ? vatWithin(p.amountKobo, vatRate()) : vatOn(p.amountKobo, vatRate());
-    sub.payments.push({ id: uid(), paidAt: new Date().toISOString(), reference: 'demo-' + uid().slice(0, 8), source: 'flutterwave', ...p, vatKobo, amountKobo: p.source === 'manual' ? p.amountKobo : p.amountKobo + vatKobo, receiptNo: ++platform().receipt });
+  const receipt = (sub: DemoSub, p: Omit<PaymentRecord, 'id' | 'paidAt' | 'reference' | 'receiptNo' | 'source' | 'vatKobo' | 'currency'> & { source?: PaymentRecord['source']; reference?: string }) => {
+    const c = countryOfSub(sub);
+    const vatKobo = p.source === 'manual' ? vatWithin(p.amountKobo, c.vatPercent) : vatOn(p.amountKobo, c.vatPercent);
+    sub.payments.push({ id: uid(), paidAt: new Date().toISOString(), reference: 'demo-' + uid().slice(0, 8), source: 'flutterwave', ...p, vatKobo, currency: c.currency, amountKobo: p.source === 'manual' ? p.amountKobo : p.amountKobo + vatKobo, receiptNo: ++platform().receipt });
   };
   const makeFounding = (sub: DemoSub) => {
     const now = new Date();
     sub.foundingNumber = nextFounding();
     sub.priceLockUntil = addYears(now, PRICE_HOLD_YEARS);
-    sub.lockedPrices = Object.fromEntries(platform().plans.filter((p) => p.code !== 'trial').map((p) => [p.code, p.priceKobo]));
+    sub.lockedPrices = { ...countryOfSub(sub).plans };
   };
   /** Puts a plan payment into effect. */
   const payPlan = (sub: DemoSub, code: PlanCode, amountKobo: number, opts: { creditKobo?: number; restart?: boolean; founding?: boolean; source?: PaymentRecord['source']; reference?: string } = {}) => {
@@ -342,13 +370,18 @@ export function createDemoRepo(): Repo {
       f.firm.branding ??= {};
       f.firm.fileNumbering ??= { mode: 'manual', pattern: '' };
       f.firm.nextFileNo ??= 1;
+      f.firm.country ??= 'NG';
       return { billing: billingOf(s.memberOf[s.user.id]), firm: f.firm, members: f.members, me: f.members.find((m) => m.userId === s.user!.id)! };
     },
     async createFirm(f) {
       if (s.memberOf[me().id]) throw new Error('You already belong to a firm.');
+      const countryForNew = (code: string) => {
+        if (!countries().some((c) => c.code === code && c.enabled)) throw new Error('Choose the country where your firm practises.');
+        return code as CountryCode;
+      };
       const id = uid();
       s.firms[id] = {
-        firm: { id, name: f.name.trim(), frcNumber: f.frcNumber.trim(), address: f.address.trim(), aiEnabled: false, branding: {}, fileNumbering: { mode: 'manual', pattern: '' }, nextFileNo: 1 },
+        firm: { id, name: f.name.trim(), frcNumber: f.frcNumber.trim(), address: f.address.trim(), country: countryForNew(f.country), aiEnabled: false, branding: {}, fileNumbering: { mode: 'manual', pattern: '' }, nextFileNo: 1 },
         members: [{ userId: me().id, role: 'partner', fullName: f.fullName.trim(), frcNumber: f.memberFrc.trim() }],
       };
       s.memberOf[me().id] = id;
@@ -477,6 +510,7 @@ export function createDemoRepo(): Repo {
         firmFrc: null,
         signedAt: null,
         fileNo: e.fileNo?.trim() || nextFileNo(e.yearEnd),
+        currency: e.currency ?? jurisdictionOf(s.firms[firmId()].firm.country).currencies[0],
         payPer,
         groupAddon,
       };
@@ -488,7 +522,7 @@ export function createDemoRepo(): Repo {
     async getEngagement(id) {
       if (!s.user || !s.memberOf[s.user.id]) return null;
       const e = s.engagements.find((x) => x.id === id && x.firmId === firmId());
-      return e ? ({ ...strip(e), testing: e.testing ?? {}, disclosures: e.disclosures ?? {} } as Engagement) : null;
+      return e ? ({ ...strip(e), testing: e.testing ?? {}, disclosures: e.disclosures ?? {}, currency: e.currency ?? 'NGN' } as Engagement) : null;
     },
     async updateClient(id, patch) {
       const c = s.clients.find((x) => x.id === id && x.firmId === firmId());
@@ -677,10 +711,11 @@ export function createDemoRepo(): Repo {
       if (m?.role !== 'partner') throw new Error('Only a partner can make a payment.');
       if (stateOf(firmId()) === 'suspended') throw new Error("This firm's account is suspended. Please contact VeritBooks support.");
       const sub = subOf(firmId());
-      const pl = platform();
+      const cp = countryOfFirm(firmId());
+      const plans = plansFor(cp);
       const done = { message: 'Demo mode: no money was taken. The payment is treated as made so you can see how it works.' };
       if (c.kind === 'plan') {
-        const q = planQuote(sub, planBy(c.plan), pl.plans, foundingTaken(), planPayments(sub), new Date());
+        const q = planQuote(sub, plans.find((x) => x.code === c.plan)!, plans, foundingTaken(), planPayments(sub), new Date(), cp.minCharge);
         if (q.mode === 'later') throw new Error('You can move to a smaller plan in the last 30 days of your paid year.');
         if (q.founding && !c.founding_agreed) throw new Error('Please confirm the founding firm commitment first.');
         if (q.founding) {
@@ -694,7 +729,7 @@ export function createDemoRepo(): Repo {
       }
       const target = c.engagement ? s.engagements.find((x) => x.id === c.engagement && x.firmId === firmId() && x.status === 'in_progress') : null;
       if (c.engagement && !target) throw new Error('That engagement cannot be paid for.');
-      const price = (code: string) => pl.prices.find((p) => p.code === code)!.priceKobo;
+      const price = (code: 'audit' | 'review' | 'compilation' | 'group') => cp.engagements[code];
       if (c.kind === 'group') {
         if (!target || !(target as any).payPer || (target as any).groupAddon) throw new Error('The consolidation add-on is for an engagement paid for on its own.');
         (target as any).groupAddon = true;
@@ -716,15 +751,31 @@ export function createDemoRepo(): Repo {
       return 'Demo mode: there is no payment to confirm.';
     },
 
-    async publicPrices() {
+    async publicPrices(country) {
       const pl = platform();
+      const c = countries().find((x) => x.code === (country ?? 'NG') && x.enabled);
+      if (!c) throw new Error('That country is not open for new firms yet.');
       return {
-        plans: pl.plans.filter((p) => p.code !== 'trial').map((p) => ({ code: p.code, name: p.name, priceKobo: p.priceKobo, maxUsers: p.maxUsers, maxEngagements: p.maxEngagements })),
-        engagementPrices: pl.prices.map((p) => ({ ...p })),
-        vatPercent: vatRate(),
+        country: c.code,
+        currency: c.currency,
+        taxLabel: c.taxLabel,
+        countries: countries().filter((x) => x.enabled).map((x) => ({ code: x.code, name: x.name, currency: x.currency })),
+        plans: plansFor(c).filter((p) => p.code !== 'trial').map((p) => ({ code: p.code, name: p.name, priceKobo: p.priceKobo, maxUsers: p.maxUsers, maxEngagements: p.maxEngagements })),
+        engagementPrices: enginePrices(c),
+        vatPercent: c.vatPercent,
         foundingLeft: Math.max(FOUNDING_PLACES - foundingTaken(), 0),
         supportEmail: pl.settings.support_email,
       };
+    },
+    async setFirmCountry(code) {
+      partner();
+      const sub = subOf(firmId());
+      if (sub.payments.length || (sub.credits ?? []).length)
+        throw new Error('Your firm has already paid in its current currency. Please contact VeritBooks support to change the country.');
+      const c = countries().find((x) => x.code === code && x.enabled);
+      if (!c) throw new Error('That country is not available.');
+      s.firms[firmId()].firm.country = c.code;
+      save();
     },
     async isAdmin() {
       return isAdminUser();
@@ -795,14 +846,14 @@ export function createDemoRepo(): Repo {
           id, name: f.firm.name, frc_number: f.firm.frcNumber, address: f.firm.address, created_at: sub.createdAt ?? sub.trialEndsAt,
           state: stateOf(id), plan: sub.plan, trial_ends_at: sub.trialEndsAt, paid_until: sub.paidUntil,
           founding_number: sub.foundingNumber, founding_agreed_at: sub.foundingAgreedAt ?? null, founding_agreed_by: sub.foundingAgreedBy ?? null,
-          suspended_reason: sub.suspendedReason ?? '', note: sub.note ?? '', ai_enabled: f.firm.aiEnabled,
+          suspended_reason: sub.suspendedReason ?? '', note: sub.note ?? '', ai_enabled: f.firm.aiEnabled, country: f.firm.country ?? 'NG',
           engagements: engs.length, signed: engs.filter((e) => e.status === 'locked').length, clients: s.clients.filter((c) => (c as any).firmId === id).length,
           credits: (sub.credits ?? []).length, paid_kobo: sub.payments.reduce((t, p) => t + p.amountKobo, 0), last_activity: null,
           members: f.members.map((m) => ({ name: m.fullName, role: m.role, email: emailOf(m.userId), joined: sub.createdAt ?? '' })),
         };
       });
       const payments = Object.entries(s.firms).flatMap(([id, f]) =>
-        subOf(id).payments.map((p) => ({ id: p.id, firm: f.firm.name, firm_id: id, kind: p.kind, plan: p.plan, engagement_type: p.engagementType, with_group: p.withGroup, amount_kobo: p.amountKobo, credit_kobo: p.creditKobo, founding: p.founding, status: 'paid', source: p.source, note: p.source === 'manual' ? p.reference : '', tx_ref: p.reference, provider_id: null, receipt_no: p.receiptNo, created_at: p.paidAt, paid_at: p.paidAt })),
+        subOf(id).payments.map((p) => ({ id: p.id, firm: f.firm.name, firm_id: id, kind: p.kind, plan: p.plan, engagement_type: p.engagementType, with_group: p.withGroup, amount_kobo: p.amountKobo, currency: p.currency ?? 'NGN', vat_kobo: p.vatKobo, credit_kobo: p.creditKobo, founding: p.founding, status: 'paid', source: p.source, note: p.source === 'manual' ? p.reference : '', tx_ref: p.reference, provider_id: null, receipt_no: p.receiptNo, created_at: p.paidAt, paid_at: p.paidAt })),
       ).sort((a, b) => b.created_at.localeCompare(a.created_at));
       const month = new Date().toISOString().slice(0, 7);
       const allPaid = Object.keys(s.firms).flatMap((id) => subOf(id).payments);
@@ -813,6 +864,20 @@ export function createDemoRepo(): Repo {
         vat_kobo: allPaid.reduce((t, p) => t + p.vatKobo, 0),
         vat_month_kobo: allPaid.filter((p) => p.paidAt.startsWith(month)).reduce((t, p) => t + p.vatKobo, 0),
         firms: firms.reverse(),
+        revenue: (['GHS', 'NGN', 'USD'] as const)
+          .map((currency) => {
+            const mine = allPaid.filter((p) => (p.currency ?? 'NGN') === currency);
+            const sum = (xs: PaymentRecord[], k: 'amountKobo' | 'vatKobo') => xs.reduce((t, p) => t + p[k], 0);
+            const thisMonth = mine.filter((p) => p.paidAt.startsWith(month));
+            return { currency, total_kobo: sum(mine, 'amountKobo'), month_kobo: sum(thisMonth, 'amountKobo'), vat_kobo: sum(mine, 'vatKobo'), vat_month_kobo: sum(thisMonth, 'vatKobo'), n: mine.length };
+          })
+          .filter((r) => r.n > 0)
+          .map(({ n: _n, ...r }) => r),
+        countries: countries().map((c) => ({
+          code: c.code, name: c.name, currency: c.currency, vat_percent: c.vatPercent, tax_label: c.taxLabel, min_charge: c.minCharge, enabled: c.enabled,
+          firms: Object.values(s.firms).filter((f) => (f.firm.country ?? 'NG') === c.code).length,
+          plans: { ...c.plans }, engagement_prices: { ...c.engagements },
+        })),
         users: Object.entries(s.accounts).map(([email, a]) => {
           const fid = s.memberOf[a.id];
           const m = fid ? s.firms[fid].members.find((x) => x.userId === a.id) : null;
@@ -835,7 +900,48 @@ export function createDemoRepo(): Repo {
         return sub;
       };
       const now = new Date();
-      if (action === 'extend_trial') {
+      const country = () => {
+        const c = countries().find((x) => x.code === String(p.country ?? '').toUpperCase());
+        if (!c) throw new Error('Country not found.');
+        return c;
+      };
+      const priceOf = () => {
+        const v = Math.round(Number(p.price) * 100);
+        if (!(v > 0)) throw new Error('Give a price above zero.');
+        return v;
+      };
+      if (action === 'country_price') {
+        const c = country();
+        if (!['solo', 'practice', 'firm'].includes(String(p.plan))) throw new Error('Plan not found.');
+        c.plans[p.plan as 'solo'] = priceOf();
+        if (c.code === 'NG') planBy(String(p.plan)).priceKobo = c.plans[p.plan as 'solo'];
+      } else if (action === 'country_engagement_price') {
+        const c = country();
+        const row = pl.prices.find((x) => x.code === p.code);
+        if (!row) throw new Error('Price not found.');
+        c.engagements[row.code] = priceOf();
+        if (c.code === 'NG') row.priceKobo = c.engagements[row.code];
+      } else if (action === 'country_settings') {
+        const c = country();
+        const rate = Number(p.vat_percent);
+        if (!(rate >= 0 && rate <= 50)) throw new Error('Give a tax rate between 0 and 50.');
+        const label = String(p.tax_label ?? '').trim();
+        if (!label || label.length > 30) throw new Error('Name the tax, for example VAT.');
+        if (c.code === 'NG' && p.enabled === false) throw new Error('Nigeria cannot be closed to new firms.');
+        Object.assign(c, { vatPercent: rate, taxLabel: label, enabled: p.enabled === undefined ? c.enabled : !!p.enabled });
+        if (c.code === 'NG') pl.settings.vat_percent = rate;
+      } else if (action === 'set_country') {
+        const c = country();
+        if (!firm) throw new Error('Firm not found.');
+        firm.firm.country = c.code;
+        if (need().foundingNumber != null) need().lockedPrices = { ...c.plans };
+      } else if (action === 'plan_limits') {
+        const plan = pl.plans.find((x) => x.code === p.plan && x.code !== 'trial');
+        if (!plan) throw new Error('Plan not found.');
+        const users = p.max_users === '' || p.max_users == null ? null : Number(p.max_users);
+        if (!(Number(p.max_engagements) >= 1) || (users !== null && !(users >= 1))) throw new Error('Give allowances above zero.');
+        Object.assign(plan, { maxEngagements: Number(p.max_engagements), maxUsers: users });
+      } else if (action === 'extend_trial') {
         const days = Number(p.days);
         if (!(days >= 1 && days <= 90)) throw new Error('Extend by 1 to 90 days.');
         need().trialEndsAt = new Date(Math.max(now.getTime(), new Date(need().trialEndsAt).getTime()) + days * 86_400_000).toISOString();
@@ -875,15 +981,18 @@ export function createDemoRepo(): Repo {
         if (!plan) throw new Error('Plan not found.');
         if (!(price > 0) || !(Number(p.max_engagements) >= 1)) throw new Error('Give a price and an engagement allowance above zero.');
         Object.assign(plan, { priceKobo: price, maxEngagements: Number(p.max_engagements), maxUsers: p.max_users === '' || p.max_users == null ? null : Number(p.max_users) });
+        countries()[0].plans[plan.code as 'solo'] = price;
       } else if (action === 'set_engagement_price') {
         const row = pl.prices.find((x) => x.code === p.code);
         const price = Math.round(Number(p.price_naira) * 100);
         if (!row) throw new Error('Price not found.');
         if (!(price > 0)) throw new Error('Give a price above zero.');
         row.priceKobo = price;
+        countries()[0].engagements[row.code] = price;
       } else if (action === 'settings') {
         const rate = p.vat_percent === undefined ? vatRate() : Number(p.vat_percent);
         if (!(rate >= 0 && rate <= 50)) throw new Error('Give a VAT rate between 0 and 50.');
+        countries()[0].vatPercent = rate;
         pl.settings = { vat_percent: rate, seller_name: String(p.seller_name ?? '').trim(), seller_address: String(p.seller_address ?? '').trim(), tax_id: String(p.tax_id ?? '').trim(), support_email: String(p.support_email ?? '').trim() };
       } else if (action === 'add_admin') {
         const email = String(p.email ?? '').trim().toLowerCase();
@@ -1092,8 +1201,9 @@ export function createDemoRepo(): Repo {
       if (m.role !== 'partner') throw new Error('Only an engagement partner can sign.');
       if (stateOf(firmId()) !== 'active' && !(e as any).payPer)
         throw new Error('A file can be signed once it is paid for. A partner can choose a plan, or pay for this one engagement, under Billing.');
-      if (!m.frcNumber.trim()) throw new Error('Your FRC registration number is missing.');
-      if (!f.firm.frcNumber.trim()) throw new Error("The firm's FRC registration number is missing.");
+      const licence = jurisdictionOf(f.firm.country).licenceLabel;
+      if (!m.frcNumber.trim()) throw new Error(`Your ${licence} is missing.`);
+      if (!f.firm.frcNumber.trim()) throw new Error(`The firm's ${licence} is missing.`);
       const lines = s.lines[id] ?? [];
       if (lines.length === 0) throw new Error('No trial balance has been imported.');
       const posted = (s.adjustments[id] ?? []).filter((a) => a.posted).flatMap((a) => a.lines);

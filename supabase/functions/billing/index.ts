@@ -42,7 +42,8 @@ const admin = () => createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SU
 
 
 const site = () => (Deno.env.get('SITE_URL') || 'https://veritbooks.netlify.app').replace(/\/+$/, '');
-const naira = (kobo: number) => 'NGN ' + (Math.round(kobo) / 100).toLocaleString('en-NG', { minimumFractionDigits: 2 });
+/** An amount in the payment's own currency: NGN, GHS or USD. Amounts are held in its minor unit. */
+const money = (minor: number, currency = 'NGN') => `${currency} ` + (Math.round(minor) / 100).toLocaleString('en-NG', { minimumFractionDigits: 2 });
 const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Lagos' });
 const esc = (v: unknown) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
@@ -78,6 +79,9 @@ async function sendReceipt(txRef: string) {
   const { data: r } = await admin().rpc('payment_receipt', { p_tx_ref: txRef });
   if (!r?.to) return;
   const s = r.seller ?? {};
+  const cur = String(r.currency ?? 'NGN');
+  const tax = String(r.tax_label ?? 'VAT');
+  const naira = (minor: number) => money(minor, cur);
   await mail([r.to], `Receipt ${r.receipt_no} from ${s.name || 'VeritBooks'}`, [
     `Thank you. We have received your payment.`,
     `Receipt number: ${r.receipt_no}`,
@@ -85,7 +89,7 @@ async function sendReceipt(txRef: string) {
     `Paid by: ${r.firm}`,
     `For: ${describe(r)}`,
     ...(r.credit_kobo > 0 ? [`Credit for the unused part of your previous plan: ${naira(r.credit_kobo)}`] : []),
-    ...(r.vat_kobo > 0 ? [`Amount before VAT: ${naira(r.amount_kobo - r.vat_kobo)}`, `VAT: ${naira(r.vat_kobo)}`] : []),
+    ...(r.vat_kobo > 0 ? [`Amount before ${tax}: ${naira(r.amount_kobo - r.vat_kobo)}`, `${tax}: ${naira(r.vat_kobo)}`] : []),
     `Amount paid: ${naira(r.amount_kobo)}`,
     ...(r.covers_until ? [`Your plan runs until ${day(r.covers_until)}.`] : []),
     `Payment reference: ${r.tx_ref}`,
@@ -207,7 +211,8 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         tx_ref: start.tx_ref,
         amount: start.amount_kobo / 100,
-        currency: 'NGN',
+        // The database chose the currency from the firm's country. Flutterwave collects it as given.
+        currency: String(start.currency ?? 'NGN'),
         redirect_url: `${site()}/billing`,
         customer: { email: who.user.email, name: start.firm },
         customizations: {
@@ -222,7 +227,7 @@ Deno.serve(async (req: Request) => {
       console.log('flutterwave refused:', res.status, out?.message);
       return refuse(`Flutterwave did not start the payment: ${String(out?.message ?? res.status).slice(0, 200)}`, 502);
     }
-    return json({ link: out.data.link, amountKobo: start.amount_kobo });
+    return json({ link: out.data.link, amountKobo: start.amount_kobo, currency: start.currency ?? 'NGN' });
   }
 
   // 2. Confirm a payment after the customer is sent back.

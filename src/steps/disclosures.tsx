@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { repo } from '../data';
 import { disclosureGaps, ppeSchedule, STANDARD_NOTES, taxReconciliation, type PpeRow } from '../engine/disclosures';
-import { fmt, fmt2, parseAmount } from '../engine/money';
+import { fmt, fmt2, parseAmount, cur } from '../engine/money';
 import type { Disclosures, EarlierYear } from '../engine/types';
 import { ErrorNote, Field, useAction } from '../ui';
 import type { Ctx } from '../workspace';
+import { currencyOf } from '../content/jurisdictions';
 
 const str = (k: number | undefined | null) => (k === undefined || k === null ? '' : String(k / 100));
 const num = (s: string) => parseAmount(s) ?? 0;
@@ -126,7 +127,7 @@ export function DisclosuresStep({ eng, lines, adjustments, statements: st, locke
       <div>
         <h2>Disclosures</h2>
         <p className="muted" style={{ marginTop: 4 }}>
-          The trial balance cannot supply everything the financial statements must say. Complete each section here and it flows into the notes and the directors’ pages. Amounts are in naira.
+          The trial balance cannot supply everything the financial statements must say. Complete each section here and it flows into the notes and the directors’ pages. Amounts are in {currencyOf(eng.currency).name}.
         </p>
       </div>
       {gaps.length === 0 ? (
@@ -158,10 +159,10 @@ export function DisclosuresStep({ eng, lines, adjustments, statements: st, locke
           </div>
         </div>
         <div className="grid2">
-          <Field label="Directors’ remuneration for the year, ₦" hint="Enter 0 if none was paid.">
+          <Field label={`Directors’ remuneration for the year, ${cur()}`} hint="Enter 0 if none was paid.">
             <input type="text" inputMode="decimal" disabled={locked} value={f.directorsRemuneration} onChange={(e) => set({ directorsRemuneration: e.target.value })} />
           </Field>
-          <Field label="Average number of employees" hint={`Staff costs in the accounts: ₦${fmt(st.cur.staff, { zero: '0' })}, from the staff tags in the mapping.`}>
+          <Field label="Average number of employees" hint={`Staff costs in the accounts: ${cur()}${fmt(st.cur.staff, { zero: '0' })}, from the staff tags in the mapping.`}>
             <input type="number" min="0" step="1" disabled={locked} value={f.employees} onChange={(e) => set({ employees: e.target.value })} />
           </Field>
         </div>
@@ -203,10 +204,10 @@ export function DisclosuresStep({ eng, lines, adjustments, statements: st, locke
               </table>
             </div>
             <div className={`banner ${ppe.chargeDifference === 0 ? 'info' : 'bad'}`}>
-              Charge per this schedule ₦{fmt(ppe.totalDepreciation.increase, { zero: '0' })}. Depreciation in profit or loss ₦{fmt(st.cur.depreciation, { zero: '0' })}.{' '}
+              Charge per this schedule {cur()}{fmt(ppe.totalDepreciation.increase, { zero: '0' })}. Depreciation in profit or loss {cur()}{fmt(st.cur.depreciation, { zero: '0' })}.{' '}
               {ppe.chargeDifference === 0
                 ? 'They agree.'
-                : `They differ by ₦${fmt(Math.abs(ppe.chargeDifference))}. Check the disposals, and that every depreciation account is tagged as depreciation in the mapping.`}
+                : `They differ by ${cur()}${fmt(Math.abs(ppe.chargeDifference))}. Check the disposals, and that every depreciation account is tagged as depreciation in the mapping.`}
             </div>
           </>
         )}

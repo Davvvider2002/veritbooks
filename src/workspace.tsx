@@ -21,6 +21,8 @@ import { repo } from './data';
 import type { Client, Engagement, Workspace } from './data/repo';
 import { validateTrialBalance } from './engine/checks';
 import { longDate } from './engine/report';
+import { setCur } from './engine/money';
+import { CURRENCIES, currencyOf, jurisdictionOf, type CurrencyCode, type Jurisdiction } from './content/jurisdictions';
 import { buildStatements, type Statements } from './engine/statements';
 import type { Adjustment, TbLine } from './engine/types';
 import { TYPE_LABEL } from './pages';
@@ -33,6 +35,8 @@ import { ManagementStep } from './steps/management';
 
 export interface Ctx {
   ws: Workspace;
+  /** The firm's country: the law its reports cite and the licence it signs with. */
+  jur: Jurisdiction;
   eng: Engagement;
   client: Client;
   lines: TbLine[];
@@ -221,6 +225,33 @@ function FileNo({ eng, locked, reload }: { eng: Engagement; locked: boolean; rel
   );
 }
 
+/** The currency the statements are presented in. It can be changed until the file is signed. */
+function CurrencyNote({ eng, jur, locked, reload }: { eng: Engagement; jur: Jurisdiction; locked: boolean; reload: () => void }) {
+  const { busy, error, run } = useAction();
+  const options = [...jur.currencies, ...(Object.keys(CURRENCIES) as CurrencyCode[]).filter((c) => !jur.currencies.includes(c))];
+  return (
+    <div className="small row" style={{ marginTop: 4, gap: 6 }}>
+      <span>Presented in</span>
+      {locked ? (
+        <strong>{currencyOf(eng.currency).name}</strong>
+      ) : (
+        <select
+          aria-label="Presentation currency"
+          disabled={busy}
+          value={eng.currency}
+          onChange={(e) => void run(async () => { await repo.updateEngagement(eng.id, { currency: e.target.value as CurrencyCode }); reload(); })}
+          style={{ padding: '2px 6px', width: 'auto' }}
+        >
+          {options.map((c) => (
+            <option key={c} value={c}>{CURRENCIES[c].name}</option>
+          ))}
+        </select>
+      )}
+      <ErrorNote error={error} />
+    </div>
+  );
+}
+
 export function EngagementPage({ ws }: { ws: Workspace }) {
   const { id = '', step } = useParams();
   const { data, error, reload } = useLoad(async () => {
@@ -317,8 +348,11 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
   });
   const current = steps.find((s) => s.slug === step) ?? steps[0];
   const Step = current.el;
+  // Every amount label in the steps below follows this engagement's currency.
+  setCur(currencyOf(data.eng.currency).symbol);
   const ctx: Ctx = {
     ws,
+    jur: jurisdictionOf(ws.firm.country),
     eng: data.eng,
     client: data.client,
     lines: data.lines,
@@ -355,6 +389,7 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
           <h1 style={{ marginTop: 4 }}>{data.client.name}</h1>
           <div className="muted">Year ended {longDate(data.eng.yearEnd)} · IFRS for SMEs{packOf(data.eng.planning) ? ` · ${packOf(data.eng.planning)!.name}` : ''}</div>
           <FileNo eng={data.eng} locked={ctx.locked} reload={reload} />
+          <CurrencyNote eng={data.eng} jur={ctx.jur} locked={ctx.locked} reload={reload} />
         </div>
         <div className="row">
           {data.lines.length > 0 && (

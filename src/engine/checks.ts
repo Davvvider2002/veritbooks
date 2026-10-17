@@ -1,3 +1,4 @@
+import { JURISDICTIONS, type Jurisdiction } from '../content/jurisdictions';
 import { ITEM, isBalanceSheet } from './chart';
 import { fmt2 } from './money';
 import { buildStatements, type Figures } from './statements';
@@ -136,6 +137,8 @@ export interface GateInput {
   firmFrc: string;
   signerRole: string;
   signerFrc: string;
+  /** The firm's country. Names the licence, and says whether officers sign with their own numbers. Nigeria when not given. */
+  jurisdiction?: Jurisdiction;
   /** What is still missing from the disclosures. Leave undefined to skip the check. */
   disclosureGaps?: string[];
   /** Result of journal testing, or null when no general ledger has been imported. */
@@ -413,12 +416,22 @@ export function signOffChecks(g: GateInput): Check[] {
       blocking: true,
     });
   }
-  checks.push({
-    id: 'directors',
-    label: 'Chief executive and chief financial officer are named with FRC numbers',
-    ok: !!(g.report.ceoName?.trim() && g.report.ceoFrc?.trim() && g.report.cfoName?.trim() && g.report.cfoFrc?.trim()),
-    blocking: g.type === 'audit',
-  });
+  const j = g.jurisdiction ?? JURISDICTIONS.NG;
+  checks.push(
+    j.officerNumbers
+      ? {
+          id: 'directors',
+          label: `Chief executive and chief financial officer are named with ${j.licenceShort}s`,
+          ok: !!(g.report.ceoName?.trim() && g.report.ceoFrc?.trim() && g.report.cfoName?.trim() && g.report.cfoFrc?.trim()),
+          blocking: g.type === 'audit',
+        }
+      : {
+          id: 'directors',
+          label: 'The directors who sign the statements are named',
+          ok: !!(g.report.ceoName?.trim() && g.report.cfoName?.trim()),
+          blocking: g.type === 'audit',
+        },
+  );
   if (g.independence) {
     checks.push({
       id: 'independence_signer',
@@ -438,13 +451,13 @@ export function signOffChecks(g: GateInput): Check[] {
   }
   checks.push({
     id: 'firm_frc',
-    label: 'The firm has an FRC registration number on file',
+    label: `The firm has its ${j.licenceLabel} on file`,
     ok: !!g.firmFrc.trim(),
     blocking: true,
   });
   checks.push({
     id: 'signer',
-    label: 'The person signing is an engagement partner with an FRC number',
+    label: `The person signing is an engagement partner with a ${j.licenceShort}`,
     ok: g.signerRole === 'partner' && !!g.signerFrc.trim(),
     blocking: true,
   });

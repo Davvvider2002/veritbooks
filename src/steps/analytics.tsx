@@ -7,7 +7,7 @@ import { balanceAt, parseBankStatement, type BankParse } from '../engine/bank';
 import { shortDate } from '../engine/dates';
 import type { DateOrder } from '../engine/dates';
 import { FLAG_LABEL, HIGH_RISK_SCORE, parseLedger, priorAgreement, resolveAccounts, type Flag, type Journal, type LedgerParse } from '../engine/ledger';
-import { fmt2, parseAmount } from '../engine/money';
+import { fmt2, parseAmount, cur } from '../engine/money';
 import { PdfPasswordError } from '../pdf';
 import { ErrorNote, Field, message, useAction } from '../ui';
 import { invalidateAnalytics, type Ctx, type Recon } from '../workspace';
@@ -820,7 +820,7 @@ export function BankStep(ctx: Ctx) {
                 <label className="field" style={{ maxWidth: 420 }}>
                   <span>Dates could be day first or month first. This file is written</span>
                   <select value={bankDates} onChange={(e) => setBankDates(e.target.value as DateOrder)}>
-                    <option value="auto">Day first (31/12/2025), the Nigerian convention</option>
+                    <option value="auto">Day first (31/12/2025), as written across West Africa</option>
                     <option value="month">Month first (12/31/2025)</option>
                   </select>
                 </label>
@@ -839,7 +839,7 @@ export function BankStep(ctx: Ctx) {
                 <div key={w} className="banner warn">{w}</div>
               ))}
               {closing === null && (
-                <Field label="Closing balance per statement at the year end, ₦">
+                <Field label={`Closing balance per statement at the year end, ${cur()}`}>
                   <input type="text" inputMode="decimal" value={manualClosing} onChange={(e) => setManualClosing(e.target.value)} style={{ maxWidth: 240 }} />
                 </Field>
               )}

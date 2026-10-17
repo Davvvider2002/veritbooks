@@ -34,7 +34,7 @@ function ClientEditor({ client, engagements, canEdit, onSaved }: { client: Clien
         <Field label="Company name">
           <input type="text" required disabled={!canEdit} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
         </Field>
-        <Field label="RC number">
+        <Field label="Registration number" hint="RC number in Nigeria.">
           <input type="text" disabled={!canEdit} value={f.rcNumber} onChange={(e) => setF({ ...f, rcNumber: e.target.value })} />
         </Field>
       </div>
@@ -112,7 +112,7 @@ export function ClientsPage({ ws }: { ws: Workspace }) {
           New client or engagement
         </Link>
       </div>
-      <input type="search" aria-label="Search clients" placeholder="Search by name or RC number" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 360 }} />
+      <input type="search" aria-label="Search clients" placeholder="Search by name or registration number" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 360 }} />
       {rows.length === 0 && <p className="muted">{data.clients.length ? 'No clients match.' : 'No clients yet. Add one from the Engagements page.'}</p>}
       {rows.map((c) => {
         const engs = data.engagements.filter((e) => e.clientId === c.id);
@@ -125,7 +125,7 @@ export function ClientsPage({ ws }: { ws: Workspace }) {
                 <div>
                   <h3 style={{ margin: 0 }}>{c.name}</h3>
                   <div className="small muted">
-                    {c.rcNumber ? `RC ${c.rcNumber} · ` : ''}
+                    {c.rcNumber ? `No. ${c.rcNumber} · ` : ''}
                     {engs.length} engagement{engs.length === 1 ? '' : 's'}
                   </div>
                 </div>

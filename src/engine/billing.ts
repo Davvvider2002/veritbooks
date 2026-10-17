@@ -104,14 +104,16 @@ export function planQuote(
   foundingTaken: number,
   payments: { valueKobo: Kobo; coversUntil: string }[],
   now: Date,
+  /** The least ever charged, in the minor unit of the firm's currency. */
+  minCharge: Kobo = 1_000_00,
 ): { amountKobo: Kobo; listKobo: Kobo; founding: boolean; creditKobo: Kobo; mode: PlanMode } {
   const q = quote(s, plan, foundingTaken, now);
   if (firmState(s, now) !== 'active') return { ...q, creditKobo: 0, mode: 'new' };
   if (s.plan === plan.code) return { ...q, creditKobo: 0, mode: 'renew' };
   const current = plans.find((p) => p.code === s.plan)?.priceKobo ?? 0;
   if (plan.priceKobo > current) {
-    // At least 1,000 naira is always payable.
-    const creditKobo = Math.max(Math.min(unusedCredit(payments, now), q.amountKobo - 1_000_00), 0);
+    // Something is always payable: 1,000 naira, 10 cedis or a dollar.
+    const creditKobo = Math.max(Math.min(unusedCredit(payments, now), q.amountKobo - minCharge), 0);
     return { ...q, amountKobo: q.amountKobo - creditKobo, creditKobo, mode: 'upgrade' };
   }
   return { ...q, creditKobo: 0, mode: daysLeft(s.paidUntil, now) > 30 ? 'later' : 'switch' };
@@ -123,3 +125,51 @@ export const DEFAULT_VAT_PERCENT = 7.5;
 export const vatOn = (netKobo: Kobo, percent: number): Kobo => Math.round((netKobo * percent) / 100);
 /** VAT inside an amount that already includes it. */
 export const vatWithin = (grossKobo: Kobo, percent: number): Kobo => grossKobo - Math.round(grossKobo / (1 + percent / 100));
+
+/**
+ * The price list for each country, as the database starts it (0016_west_africa.sql). Amounts
+ * are before tax, in the minor unit of the currency the firm is charged in. Flutterwave collects
+ * naira and cedis locally, so Sierra Leone, Liberia and The Gambia are charged in US dollars.
+ * Only Nigeria starts with a tax rate. The platform owner sets the others in the console.
+ */
+export type BillingCurrencyCode = 'NGN' | 'GHS' | 'USD';
+export interface CountryPricing {
+  code: 'NG' | 'GH' | 'SL' | 'LR' | 'GM';
+  name: string;
+  currency: BillingCurrencyCode;
+  vatPercent: number;
+  taxLabel: string;
+  minCharge: Kobo;
+  enabled: boolean;
+  plans: Record<'solo' | 'practice' | 'firm', Kobo>;
+  engagements: Record<'compilation' | 'review' | 'audit' | 'group', Kobo>;
+}
+const usd = (code: 'SL' | 'LR' | 'GM', name: string, taxLabel: string): CountryPricing => ({
+  code, name, currency: 'USD', vatPercent: 0, taxLabel, minCharge: 1_00, enabled: true,
+  plans: { solo: 99_00, practice: 279_00, firm: 699_00 },
+  engagements: { compilation: 7_00, review: 15_00, audit: 25_00, group: 12_00 },
+});
+export const COUNTRY_PRICING: CountryPricing[] = [
+  {
+    code: 'NG', name: 'Nigeria', currency: 'NGN', vatPercent: DEFAULT_VAT_PERCENT, taxLabel: 'VAT', minCharge: 1_000_00, enabled: true,
+    plans: { solo: 180_000_00, practice: 480_000_00, firm: 1_200_000_00 },
+    engagements: { compilation: 10_000_00, review: 25_000_00, audit: 40_000_00, group: 20_000_00 },
+  },
+  {
+    code: 'GH', name: 'Ghana', currency: 'GHS', vatPercent: 0, taxLabel: 'VAT', minCharge: 10_00, enabled: true,
+    plans: { solo: 1_500_00, practice: 4_000_00, firm: 10_000_00 },
+    engagements: { compilation: 90_00, review: 220_00, audit: 350_00, group: 180_00 },
+  },
+  usd('SL', 'Sierra Leone', 'GST'),
+  usd('LR', 'Liberia', 'GST'),
+  usd('GM', 'The Gambia', 'VAT'),
+];
+
+const SYMBOL: Record<BillingCurrencyCode, string> = { NGN: '₦', GHS: 'GH₵', USD: 'US$' };
+/** A price for people to read: ₦180,000, GH₵1,500, US$99. Pennies only when there are some. */
+export function priceText(minor: Kobo, currency: string = 'NGN'): string {
+  const symbol = SYMBOL[currency as BillingCurrencyCode] ?? currency + ' ';
+  const whole = minor % 100 === 0;
+  const body = (Math.abs(minor) / 100).toLocaleString('en-NG', { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2 });
+  return (minor < 0 ? '-' : '') + symbol + body;
+}

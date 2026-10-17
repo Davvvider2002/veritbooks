@@ -21,6 +21,7 @@ const toEngagement = (r: any): Engagement => ({
   firmFrc: r.firm_frc,
   signedAt: r.signed_at,
   fileNo: r.file_no ?? '',
+  currency: r.currency ?? 'NGN',
   payPer: !!r.pay_per,
   groupAddon: !!r.group_addon,
 });
@@ -185,6 +186,10 @@ export function createSupabaseRepo(url: string, key: string): Repo {
         billing: {
           state: b.state,
           vatPercent: Number(b.vat_percent ?? 0),
+          country: b.country ?? 'NG',
+          currency: b.currency ?? 'NGN',
+          taxLabel: b.tax_label ?? 'VAT',
+          canChangeCountry: b.can_change_country ?? false,
           suspendedReason: b.suspended_reason ?? '',
           foundingAgreedAt: b.founding_agreed_at ?? null,
           foundingAgreedBy: b.founding_agreed_by ?? null,
@@ -204,9 +209,9 @@ export function createSupabaseRepo(url: string, key: string): Repo {
           users: b.users,
           maxUsers: b.max_users,
           plans: (b.plans ?? []).map((p: any) => ({ code: p.code, name: p.name, maxUsers: p.max_users, maxEngagements: p.max_engagements, listKobo: p.list_kobo, amountKobo: p.amount_kobo, founding: p.founding, creditKobo: p.credit_kobo ?? 0, mode: p.mode ?? 'new' })),
-          payments: (b.payments ?? []).map((p: any) => ({ id: p.id, kind: p.kind ?? 'plan', plan: p.plan, engagementType: p.engagement_type ?? null, withGroup: !!p.with_group, amountKobo: p.amount_kobo, vatKobo: p.vat_kobo ?? 0, creditKobo: p.credit_kobo ?? 0, founding: p.founding, source: p.source ?? 'flutterwave', paidAt: p.paid_at, coversUntil: p.covers_until, reference: p.tx_ref, receiptNo: p.receipt_no ?? null })),
+          payments: (b.payments ?? []).map((p: any) => ({ id: p.id, kind: p.kind ?? 'plan', plan: p.plan, engagementType: p.engagement_type ?? null, withGroup: !!p.with_group, amountKobo: p.amount_kobo, vatKobo: p.vat_kobo ?? 0, currency: p.currency ?? 'NGN', creditKobo: p.credit_kobo ?? 0, founding: p.founding, source: p.source ?? 'flutterwave', paidAt: p.paid_at, coversUntil: p.covers_until, reference: p.tx_ref, receiptNo: p.receipt_no ?? null })),
         },
-        firm: { id: firm.id, name: firm.name, frcNumber: firm.frc_number, address: firm.address, aiEnabled: !!firm.ai_enabled, branding: firm.branding ?? {}, fileNumbering: { mode: firm.file_numbering?.mode === 'auto' ? 'auto' : 'manual', pattern: firm.file_numbering?.pattern ?? '' }, nextFileNo: firm.next_file_no ?? 1 },
+        firm: { id: firm.id, name: firm.name, frcNumber: firm.frc_number, address: firm.address, country: firm.country ?? 'NG', aiEnabled: !!firm.ai_enabled, branding: firm.branding ?? {}, fileNumbering: { mode: firm.file_numbering?.mode === 'auto' ? 'auto' : 'manual', pattern: firm.file_numbering?.pattern ?? '' }, nextFileNo: firm.next_file_no ?? 1 },
         me: toMember(mine),
         members: (members ?? []).filter((m) => m.firm_id === mine.firm_id).map(toMember),
       };
@@ -218,6 +223,7 @@ export function createSupabaseRepo(url: string, key: string): Repo {
         p_address: f.address,
         p_full_name: f.fullName,
         p_member_frc: f.memberFrc,
+        p_country: f.country,
       });
       fail(error);
     },
@@ -317,6 +323,7 @@ export function createSupabaseRepo(url: string, key: string): Repo {
           year_end: e.yearEnd,
           programme_version: e.programmeVersion,
           file_no: e.fileNo?.trim() ?? '',
+          ...(e.currency ? { currency: e.currency } : {}),
         })
         .select()
         .single();
@@ -600,10 +607,15 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       return inline ? `${data!.signedUrl}#page=${e.page}` : data!.signedUrl;
     },
 
-    async publicPrices() {
-      const { data, error } = await db.rpc('public_prices');
+    async publicPrices(country) {
+      const { data, error } = await db.rpc('public_prices', { p_country: country ?? 'NG' });
       fail(error);
+      if (!data) throw new Error('That country is not open for new firms yet.');
       return {
+        country: data.country ?? 'NG',
+        currency: data.currency ?? 'NGN',
+        taxLabel: data.tax_label ?? 'VAT',
+        countries: data.countries ?? [{ code: 'NG', name: 'Nigeria', currency: 'NGN' }],
         plans: (data.plans ?? []).map((p: any) => ({ code: p.code, name: p.name, priceKobo: p.price_kobo, maxUsers: p.max_users, maxEngagements: p.max_engagements })),
         engagementPrices: (data.engagement_prices ?? []).map((p: any) => ({ code: p.code, name: p.name, priceKobo: p.price_kobo })),
         vatPercent: Number(data.vat_percent ?? 0),
@@ -672,6 +684,10 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       const { data, error } = await db.rpc('is_platform_admin');
       if (error) return false;
       return data === true;
+    },
+    async setFirmCountry(country) {
+      const { error } = await db.rpc('set_firm_country', { p_country: country });
+      fail(error);
     },
     async adminOverview() {
       const { data, error } = await db.rpc('admin_overview');

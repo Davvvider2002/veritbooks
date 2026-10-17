@@ -8,8 +8,9 @@ import { canSign, computeMateriality, signOffChecks } from '../engine/checks';
 import { directorList, disclosureGaps, financialSummary, ppeSchedule, priorEquity, taxReconciliation, type PpeRow } from '../engine/disclosures';
 import type { EquityTable, Period, Source } from '../engine/statements';
 import { TracePanel } from './trace';
-import { fmt } from '../engine/money';
+import { fmt, cur } from '../engine/money';
 import { draftReport, longDate } from '../engine/report';
+import { booksLaw, currencyOf, frameworkText, upper } from '../content/jurisdictions';
 import type { ReportSettings } from '../engine/types';
 import { canOpen, ErrorNote, Field, StatementTable, useAction, useLoad, type OnTrace, type Opened } from '../ui';
 import { BrandedHead, ContentsSheet, CoverSheet, PageFoot } from './branding';
@@ -39,7 +40,7 @@ function EquityRows({ table, onTrace }: { table: EquityTable; onTrace: OnTrace }
           <tr>
             <th></th>
             {table.columns.map((c) => (
-              <th key={c} className="num">{c}<br />₦</th>
+              <th key={c} className="num">{c}<br />{cur()}</th>
             ))}
           </tr>
         </thead>
@@ -73,7 +74,9 @@ function EquityRows({ table, onTrace }: { table: EquityTable; onTrace: OnTrace }
 const TBC = '[To be completed in Disclosures.]';
 
 export function StatementsStep(ctx: Ctx) {
-  const { eng, client, ws, lines, adjustments, statements: st } = ctx;
+  const { eng, client, ws, lines, adjustments, statements: st, jur: j } = ctx;
+  const law = booksLaw(j);
+  const officer = (n: string | undefined) => (j.officerNumbers ? <><br />{n || `[${j.licenceShort}]`}</> : null);
   const d = eng.disclosures;
   const gaps = disclosureGaps(d, st, lines, adjustments, eng.yearEnd);
   const ppe = ppeSchedule(lines, adjustments, st.cur, d.ppeDisposals);
@@ -123,8 +126,12 @@ export function StatementsStep(ctx: Ctx) {
     { id: 'fs-equity', title: 'Statement of changes in equity' },
     ...(st.cashFlow ? [{ id: 'fs-cashflow', title: 'Statement of cash flows' }] : []),
     { id: 'fs-notes', title: 'Notes to the financial statements' },
-    { id: 'fs-value-added', title: 'Statement of value added' },
-    { id: 'fs-summary', title: 'Financial summary' },
+    ...(j.nationalStatements
+      ? [
+          { id: 'fs-value-added', title: 'Statement of value added' },
+          { id: 'fs-summary', title: 'Financial summary' },
+        ]
+      : []),
   ];
 
   return (
@@ -178,8 +185,8 @@ export function StatementsStep(ctx: Ctx) {
           <thead>
             <tr>
               <th></th>
-              <th className="num">{year}<br />₦</th>
-              {prior && <th className="num">{prior}<br />₦</th>}
+              <th className="num">{year}<br />{cur()}</th>
+              {prior && <th className="num">{prior}<br />{cur()}</th>}
             </tr>
           </thead>
           <tbody>
@@ -215,7 +222,7 @@ export function StatementsStep(ctx: Ctx) {
         <h3>Auditors</h3>
         <p>
           {eng.type === 'audit'
-            ? `${ws.firm.name} have indicated their willingness to continue in office as auditors, in accordance with the Companies and Allied Matters Act 2020.`
+            ? `${ws.firm.name} have indicated their willingness to continue in office as auditors${j.companiesAct ? `, in accordance with ${j.companiesAct}` : ''}.`
             : 'These financial statements have not been audited.'}
         </p>
         <div className="sign-grid">
@@ -235,11 +242,12 @@ export function StatementsStep(ctx: Ctx) {
       <section className={sheet} id="fs-responsibilities">
         <SheetHead ctx={ctx} title="Statement of directors’ responsibilities" sub={`in relation to the financial statements for the year ended ${longDate(eng.yearEnd)}`} />
         <p>
-          The Companies and Allied Matters Act 2020 requires the directors to prepare financial statements for each financial year that give a true and fair view of the state of affairs of the company at the end of the year and of its profit or loss for the year.
+          {j.companiesAct ? upper(`${j.companiesAct} requires`) : 'The directors are required'}
+          {j.companiesAct ? ' the directors' : ''} to prepare financial statements for each financial year that give a true and fair view of the state of affairs of the company at the end of the year and of its profit or loss for the year.
         </p>
         <p>In preparing these financial statements, the directors are responsible for:</p>
         <p>
-          (a) keeping proper accounting records that disclose, with reasonable accuracy, the financial position of the company and enable the financial statements to comply with the Companies and Allied Matters Act 2020 and the Financial Reporting Council of Nigeria Act 2011;
+          (a) keeping proper accounting records that disclose, with reasonable accuracy, the financial position of the company and enable the financial statements to comply with {law ?? frameworkText(j)};
         </p>
         <p>(b) establishing adequate internal controls to safeguard the company’s assets and to prevent and detect fraud and other irregularities;</p>
         <p>
@@ -247,19 +255,17 @@ export function StatementsStep(ctx: Ctx) {
         </p>
         <p>(d) preparing the financial statements on the going concern basis unless it is inappropriate to presume that the company will continue in business.</p>
         <p>
-          The directors accept responsibility for the financial statements, which have been prepared using appropriate accounting policies supported by reasonable and prudent judgments and estimates, in conformity with the IFRS for SMEs Accounting Standard and the requirements of the Companies and Allied Matters Act 2020.
+          The directors accept responsibility for the financial statements, which have been prepared using appropriate accounting policies supported by reasonable and prudent judgments and estimates, in conformity with the IFRS for SMEs Accounting Standard{j.companiesAct ? ` and the requirements of ${j.companiesAct}` : ''}.
         </p>
         <p>{d.goingConcern?.trim() || TBC}</p>
         <div className="sign-grid">
           <div className="sign-line">
             {r.ceoName || '[Director]'}
-            <br />
-            {r.ceoFrc || '[FRC number]'}
+            {officer(r.ceoFrc)}
           </div>
           <div className="sign-line">
             {r.cfoName || '[Director]'}
-            <br />
-            {r.cfoFrc || '[FRC number]'}
+            {officer(r.cfoFrc)}
           </div>
         </div>
         <PageFoot ctx={ctx} />
@@ -279,15 +285,13 @@ export function StatementsStep(ctx: Ctx) {
               {r.ceoName || '[Chief executive officer]'}
               <br />
               Chief Executive Officer
-              <br />
-              {r.ceoFrc || '[FRC number]'}
+              {officer(r.ceoFrc)}
             </div>
             <div className="sign-line">
               {r.cfoName || '[Chief financial officer]'}
               <br />
               Chief Financial Officer
-              <br />
-              {r.cfoFrc || '[FRC number]'}
+              {officer(r.cfoFrc)}
             </div>
           </div>
         </div>
@@ -326,12 +330,12 @@ export function StatementsStep(ctx: Ctx) {
         <h3>1. General information</h3>
         <p>
           {client.name}
-          {client.rcNumber ? ` (RC ${client.rcNumber})` : ''} is a company incorporated and domiciled in Nigeria under the Companies and Allied Matters Act 2020.{' '}
+          {client.rcNumber ? ` (${j.companyNumberLabel} ${client.rcNumber})` : ''} is a company incorporated and domiciled in {j.inName}{j.companiesAct ? ` under ${j.companiesAct}` : ''}.{' '}
           {r.principalActivity ? `Its principal activity is ${r.principalActivity}.` : '[Describe the principal activity.]'}
         </p>
         <h3>2. Basis of preparation and significant accounting policies</h3>
         <p>
-          These financial statements have been prepared in accordance with the IFRS for SMEs Accounting Standard issued by the International Accounting Standards Board, as adopted by the Financial Reporting Council of Nigeria, and the requirements of the Companies and Allied Matters Act 2020. They are presented in Nigerian naira, the company’s functional currency, and are prepared under the historical cost convention.
+          These financial statements have been prepared in accordance with the IFRS for SMEs Accounting Standard issued by the International Accounting Standards Board{j.adoptedBy ? `, as adopted by ${j.adoptedBy}` : ''}{j.companiesAct ? `, and the requirements of ${j.companiesAct}` : ''}. They are presented in {currencyOf(eng.currency).name}, the company’s functional currency, and are prepared under the historical cost convention.
         </p>
         {policies.map(([code, p]) => ({ code, title: p.title, text: d.policies?.[code]?.text || p.text })).map(({ code, ...p }) => (
           <p key={code}>
@@ -431,14 +435,14 @@ export function StatementsStep(ctx: Ctx) {
               <h3>{n++}. Employees and directors</h3>
               <p>
                 {d.employees !== undefined
-                  ? `The average number of persons employed by the company during the year was ${d.employees}. Staff costs for the year, including pension contributions, were ₦${fmt(st.cur.staff, { zero: 'nil' })}${st.prior ? ` (${prior}: ₦${fmt(st.prior.staff, { zero: 'nil' })})` : ''}.`
+                  ? `The average number of persons employed by the company during the year was ${d.employees}. Staff costs for the year, including pension contributions, were ${cur()}${fmt(st.cur.staff, { zero: 'nil' })}${st.prior ? ` (${prior}: ${cur()}${fmt(st.prior.staff, { zero: 'nil' })})` : ''}.`
                   : TBC}
               </p>
               <p>
                 {d.directorsRemuneration !== undefined
                   ? d.directorsRemuneration === 0
                     ? 'No remuneration was paid to the directors in the year.'
-                    : `Remuneration paid to the directors in the year was ₦${fmt(d.directorsRemuneration)}.`
+                    : `Remuneration paid to the directors in the year was ${cur()}${fmt(d.directorsRemuneration)}.`
                   : TBC}
               </p>
               <h3>{n++}. Related party transactions</h3>
@@ -450,8 +454,8 @@ export function StatementsStep(ctx: Ctx) {
                         <th>Related party</th>
                         <th>Relationship</th>
                         <th>Nature</th>
-                        <th className="num">Value in the year<br />₦</th>
-                        <th className="num">Balance at year end<br />₦</th>
+                        <th className="num">Value in the year<br />{cur()}</th>
+                        <th className="num">Balance at year end<br />{cur()}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -483,6 +487,7 @@ export function StatementsStep(ctx: Ctx) {
         <PageFoot ctx={ctx} />
       </section>
 
+      {j.nationalStatements && (
       <section className={sheet} id="fs-value-added">
         <SheetHead ctx={ctx} title="Statement of value added" />
         <StatementTable rows={st.valueAdded} curLabel={year} priorLabel={prior} onTrace={onTrace} />
@@ -492,6 +497,8 @@ export function StatementsStep(ctx: Ctx) {
         <PageFoot ctx={ctx} />
       </section>
 
+      )}
+      {j.nationalStatements && (
       <section className={sheet} id="fs-summary">
         <SheetHead ctx={ctx} title="Financial summary" sub="other national disclosure" />
         <div className="scroll-x">
@@ -500,7 +507,7 @@ export function StatementsStep(ctx: Ctx) {
               <tr>
                 <th></th>
                 {summary.years.map((y, i) => (
-                  <th key={i} className="num">{y}<br />₦</th>
+                  <th key={i} className="num">{y}<br />{cur()}</th>
                 ))}
               </tr>
             </thead>
@@ -523,6 +530,7 @@ export function StatementsStep(ctx: Ctx) {
         )}
         <PageFoot ctx={ctx} />
       </section>
+      )}
       {trace && <TracePanel key={`${trace.label}|${trace.period}`} ctx={ctx} opened={trace} onClose={() => setTrace(null)} />}
     </div>
   );
@@ -538,6 +546,7 @@ function draftFor(ctx: Ctx, settings: ReportSettings) {
     hasCashFlow: ctx.statements.cashFlow !== null,
     group: !!ctx.group && ctx.group.members.length > 0,
     groupCashFlow: !!ctx.group?.cashFlow,
+    jurisdiction: ctx.jur,
   });
 }
 
@@ -583,7 +592,7 @@ function ReportSheet({ ctx, draft, ready }: { ctx: Ctx; draft: ReturnType<typeof
             <>
               [Engagement partner]
               <br />
-              [FRC number]
+              [{ctx.jur.licenceShort}]
               <br />
               For: {ws.firm.name}
             </>
@@ -697,7 +706,7 @@ export function ReportStep(ctx: Ctx) {
                   </Field>
                   <Field
                     label="Misstatement of the other information"
-                    hint="The report always carries an Other information section covering the directors’ pages, the statement of value added and the financial summary. Leave this blank and it says there is nothing to report. Describe an uncorrected material misstatement here if you found one."
+                    hint={`The report always carries an Other information section covering the directors’ pages${ctx.jur.nationalStatements ? ', the statement of value added and the financial summary' : ''}. Leave this blank and it says there is nothing to report. Describe an uncorrected material misstatement here if you found one.`}
                   >
                     <textarea disabled={locked || !partner} value={r.otherInformation ?? ''} onChange={(e) => set({ otherInformation: e.target.value })} />
                   </Field>
@@ -712,15 +721,19 @@ export function ReportStep(ctx: Ctx) {
             <Field label="Chief executive officer">
               <input type="text" disabled={locked} value={r.ceoName ?? ''} onChange={(e) => set({ ceoName: e.target.value })} />
             </Field>
-            <Field label="CEO’s FRC number">
-              <input type="text" disabled={locked} value={r.ceoFrc ?? ''} onChange={(e) => set({ ceoFrc: e.target.value })} />
-            </Field>
+            {ctx.jur.officerNumbers && (
+              <Field label={`CEO’s ${ctx.jur.licenceShort}`}>
+                <input type="text" disabled={locked} value={r.ceoFrc ?? ''} onChange={(e) => set({ ceoFrc: e.target.value })} />
+              </Field>
+            )}
             <Field label="Chief financial officer">
               <input type="text" disabled={locked} value={r.cfoName ?? ''} onChange={(e) => set({ cfoName: e.target.value })} />
             </Field>
-            <Field label="CFO’s FRC number">
-              <input type="text" disabled={locked} value={r.cfoFrc ?? ''} onChange={(e) => set({ cfoFrc: e.target.value })} />
-            </Field>
+            {ctx.jur.officerNumbers && (
+              <Field label={`CFO’s ${ctx.jur.licenceShort}`}>
+                <input type="text" disabled={locked} value={r.cfoFrc ?? ''} onChange={(e) => set({ cfoFrc: e.target.value })} />
+              </Field>
+            )}
           </div>
           <ErrorNote error={error} />
           {saved && <div className="banner info">Saved.</div>}
@@ -767,6 +780,7 @@ export function SignOffStep(ctx: Ctx) {
     programmeItemIds: programmeFor(eng.type, eng.planning).map((i) => i.id),
     report: eng.report,
     firmFrc: signed ? (eng.firmFrc ?? '') : ws.firm.frcNumber,
+    jurisdiction: ctx.jur,
     signerRole: signed ? 'partner' : ws.me.role,
     signerFrc: signed ? (eng.signedByFrc ?? '') : ws.me.frcNumber,
     ledger: ledgerTest,
@@ -806,7 +820,7 @@ export function SignOffStep(ctx: Ctx) {
       <div>
         <h2>Sign-off</h2>
         <p className="muted" style={{ marginTop: 4 }}>
-          Signing records the engagement partner’s name and FRC number on the report and locks the file. A locked file cannot be changed.
+          Signing records the engagement partner’s name and {ctx.jur.licenceShort} on the report and locks the file. A locked file cannot be changed.
         </p>
       </div>
       {signed && (

@@ -1,10 +1,10 @@
 # VeritBooks: platform definition
 
-Version 0.13, 10 October 2026.
+Version 0.14, 17 October 2026.
 
 ## What it is
 
-VeritBooks is an engagement file for Nigerian accounting firms. A firm imports a client's trial balance, maps the accounts, plans and documents the work, and the software drafts the financial statements and the practitioner's report. An engagement partner registered with the Financial Reporting Council of Nigeria (FRC) signs, and the file locks.
+VeritBooks is an engagement file for accounting firms in English-speaking West Africa: Nigeria, Ghana, Sierra Leone, Liberia and The Gambia. A firm imports a client's trial balance, maps the accounts, plans and documents the work, and the software drafts the financial statements and the practitioner's report. An engagement partner holding the licence their country requires (FRC in Nigeria, ICAG in Ghana, ICASL in Sierra Leone, LICPA in Liberia, GICA in The Gambia) signs, and the file locks.
 
 ## What it is not
 
@@ -349,6 +349,23 @@ A visitor who is not signed in sees the landing page at the front door. Sign-in 
 4. Only a partner with an FRC number, in a firm with an FRC number, can sign. The database enforces this, not only the screen.
 5. A signed file cannot be edited or deleted by anyone, including the partner who signed it.
 6. Users cannot write to or delete from the audit trail.
+
+## Countries
+
+A firm chooses its country when it is set up. The country sets the law its reports cite, the licence its partners sign with, and the price list it pays from. French-speaking West Africa is left out: it runs on SYSCOHADA and needs a separate product. The country rules live in `src/content/jurisdictions.ts`, with their sources.
+
+| Country | Companies law cited | Licence to sign | Value added and five-year summary | Charged in |
+| --- | --- | --- | --- | --- |
+| Nigeria | Companies and Allied Matters Act 2020; FRC of Nigeria Act 2011 | FRC registration number, also for the CEO and CFO | Yes | NGN |
+| Ghana | Companies Act, 2019 (Act 992) | ICAG practising licence | No | GHS |
+| Sierra Leone | Companies Act 2009 | ICASL practising certificate | No | USD |
+| Liberia | None cited; framework as adopted by LICPA | LICPA licence | No | USD |
+| The Gambia | Companies Act, 2013; Financial Reporting Act 2013 | GICA practising certificate | No | USD |
+
+- **Report currency.** Each engagement has its own presentation currency, defaulting to the country's (US dollars in Liberia). Every amount label in the file follows it.
+- **Prices.** Each country has its own plan and single-engagement prices and its own tax rate and tax name, all set in the admin console's Prices tab. Plan allowances are the same everywhere. Ghana is charged in cedis. Sierra Leone, Liberia and The Gambia are charged in US dollars, because Flutterwave does not collect leones, Liberian dollars or dalasis locally. Only Nigeria starts with a tax rate (7.5% VAT).
+- **Changing country.** A partner can change it until the firm has paid for anything. After that the platform owner moves the firm, and a founding firm's held prices move to the new list.
+- **Founding offer.** The 20 places are shared across all countries.
 
 ## Nigerian content
 

@@ -2,10 +2,13 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { repo } from '../data';
 import type { PublicPrices } from '../data/repo';
+import { priceText } from '../engine/billing';
+import { chosenCountry, type CountryCode } from '../content/jurisdictions';
 import { CTA, FALLBACK_PRICING, FOUNDING_BADGE, FOUNDING_PERCENT_OF_PRICE, HERO, LINKS } from './config';
 import './landing.css';
 
-const naira = (n: number) => '₦' + Math.round(n).toLocaleString('en-NG');
+/** A price in major units of the shown currency: ₦180,000, GH₵1,500, US$99. */
+const shown = (n: number, currency: string) => priceText(Math.round(n * 100), currency);
 
 /** A button that goes to a route in the app, a section of this page, or another site. */
 function Go({ to, className, children }: { to: string; className?: string; children: ReactNode }) {
@@ -141,7 +144,7 @@ const TRUST = [
   ['Computed, not typed', 'Financial statement figures are computed from the trial balance and journals. They are not typed into statement lines.'],
   ['Traceable figures', 'Figures can be traced to the underlying accounts and supporting records.'],
   ['Checks before sign-off', 'The application checks engagement completion before a partner can sign.'],
-  ['Authorised signing', 'Only an authorised partner with the required FRC number can sign.'],
+  ['Authorised signing', 'Only an authorised partner with the practising licence their country requires can sign: FRC in Nigeria, ICAG in Ghana, ICASL in Sierra Leone, LICPA in Liberia, GICA in The Gambia.'],
   ['Locked when signed', 'Signed files are locked against further changes.'],
   ['Recorded changes', 'Changes made before signing are recorded in the audit trail.'],
   ['Separated firm data', "Each firm's data is separated from other firms' data."],
@@ -159,28 +162,37 @@ const ENGAGEMENT_COPY: Record<string, { name: string; text: string }> = {
 };
 
 interface Pricing {
+  currency: string;
+  countries: { code: string; name: string }[];
   plans: { code: string; name: string; price: number | null; users: number | null; engagements: number | null }[];
   engagements: { code: string; price: number | null }[];
   vatPercent: number | null;
+  taxLabel: string;
   foundingLeft: number;
   live: boolean;
 }
 const fallback = (): Pricing => ({
+  currency: 'NGN',
+  countries: [],
   plans: FALLBACK_PRICING.plans.map((p) => ({ code: p.code, name: p.name, price: p.priceNaira, users: p.users, engagements: p.engagements })),
   engagements: FALLBACK_PRICING.engagements.map((p) => ({ code: p.code, price: p.priceNaira })),
   vatPercent: null,
+  taxLabel: 'VAT',
   foundingLeft: 0,
   live: false,
 });
 const fromLive = (d: PublicPrices): Pricing => ({
+  currency: d.currency,
+  countries: d.countries,
   plans: d.plans.map((p) => ({ code: p.code, name: p.name, price: p.priceKobo > 0 ? p.priceKobo / 100 : null, users: p.maxUsers, engagements: p.maxEngagements })),
   engagements: d.engagementPrices.map((p) => ({ code: p.code, price: p.priceKobo > 0 ? p.priceKobo / 100 : null })),
   vatPercent: d.vatPercent,
+  taxLabel: d.taxLabel,
   foundingLeft: d.foundingLeft,
   live: true,
 });
 
-function PlanCard({ p, founding, featured }: { p: Pricing['plans'][number]; founding: boolean; featured: boolean }) {
+function PlanCard({ p, founding, featured, currency }: { p: Pricing['plans'][number]; founding: boolean; featured: boolean; currency: string }) {
   return (
     <article className={`lp-plan${featured ? ' featured' : ''}`} aria-label={`${p.name} plan`}>
       <header>
@@ -192,11 +204,11 @@ function PlanCard({ p, founding, featured }: { p: Pricing['plans'][number]; foun
       ) : (
         <div>
           <p className="lp-price">
-            {naira(p.price)} <span>a year</span>
+            {shown(p.price, currency)} <span>a year</span>
           </p>
           {founding && (
             <p className="lp-sub">
-              Founding firms pay {naira((p.price * FOUNDING_PERCENT_OF_PRICE) / 100)} in their first year.
+              Founding firms pay {shown((p.price * FOUNDING_PERCENT_OF_PRICE) / 100, currency)} in their first year.
             </p>
           )}
         </div>
@@ -230,11 +242,20 @@ export function Landing() {
   const [pricing, setPricing] = useState<Pricing>(fallback);
   const [contact, setContact] = useState<string | null>(LINKS.contactEmail);
   const [menu, setMenu] = useState(false);
+  const [country, setCountry] = useState<CountryCode>(chosenCountry);
+  const pick = (code: CountryCode) => {
+    setCountry(code);
+    try {
+      sessionStorage.setItem('veritbooks.country', code); // the sign-up form starts on this country
+    } catch {
+      // Storage unavailable: the sign-up form asks again.
+    }
+  };
 
   useEffect(() => {
     let live = true;
     repo
-      .publicPrices()
+      .publicPrices(country)
       .then((d) => {
         if (!live) return;
         if (d.plans.length) setPricing(fromLive(d));
@@ -244,7 +265,7 @@ export function Landing() {
     return () => {
       live = false;
     };
-  }, []);
+  }, [country]);
 
   const founding = pricing.live && pricing.foundingLeft > 0;
   const nav = [
@@ -320,7 +341,7 @@ export function Landing() {
               <ul className="lp-attrs">
                 <li>IFRS for SMEs</li>
                 <li>Audit | Review | Compilation</li>
-                <li>Built for Professional Accounting Firms</li>
+                <li>Nigeria, Ghana, Sierra Leone, Liberia and The Gambia</li>
               </ul>
             </div>
           </div>
@@ -445,10 +466,20 @@ export function Landing() {
                 Start Free Trial
               </Go>
             </aside>
+            {pricing.countries.length > 1 && (
+              <div className="lp-country" role="group" aria-label="Show prices for">
+                <span>Prices for</span>
+                {pricing.countries.map((c) => (
+                  <button key={c.code} type="button" aria-pressed={c.code === country} className={c.code === country ? 'on' : ''} onClick={() => pick(c.code as CountryCode)}>
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            )}
             <h3 className="lp-kicker">Yearly plans</h3>
             <div className="lp-plans">
               {pricing.plans.map((p, i) => (
-                <PlanCard key={p.code} p={p} founding={founding} featured={i === 1} />
+                <PlanCard key={p.code} p={p} founding={founding} featured={i === 1} currency={pricing.currency} />
               ))}
             </div>
             <h3 className="lp-kicker">Single engagements</h3>
@@ -460,7 +491,7 @@ export function Landing() {
                   <article key={e.code} className={`lp-single${e.code === 'group' ? ' addon' : ''}`}>
                     <h4>{copy.name}</h4>
                     <p>{copy.text}</p>
-                    <p className={`lp-price small${e.price === null ? ' none' : ''}`}>{e.price === null ? 'Contact us for pricing' : `${e.code === 'group' ? '+ ' : ''}${naira(e.price)}`}</p>
+                    <p className={`lp-price small${e.price === null ? ' none' : ''}`}>{e.price === null ? 'Contact us for pricing' : `${e.code === 'group' ? '+ ' : ''}${shown(e.price, pricing.currency)}`}</p>
                     <Go to={CTA.getStarted} className="lp-btn line small">
                       {e.code === 'group' ? 'Add to an engagement' : 'Get Started'}
                     </Go>
@@ -476,7 +507,7 @@ export function Landing() {
               {founding && <p className="lp-sub">{pricing.foundingLeft} of 20 founding places are open.</p>}
             </aside>
             <p className="lp-note">
-              {pricing.vatPercent ? `Prices are before VAT at ${pricing.vatPercent}%. ` : ''}Applicable taxes and payment terms are shown before checkout. You create an account first, then choose a plan or a single engagement inside the app. Nothing is charged when you sign up.
+              {pricing.vatPercent ? `Prices are before ${pricing.taxLabel} at ${pricing.vatPercent}%. ` : ''}{pricing.currency === 'USD' ? 'Firms in Sierra Leone, Liberia and The Gambia are charged in US dollars. ' : ''}Applicable taxes and payment terms are shown before checkout. You create an account first, then choose a plan or a single engagement inside the app. Nothing is charged when you sign up.
             </p>
           </div>
         </section>

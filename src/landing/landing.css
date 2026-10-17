@@ -231,3 +231,10 @@ html:has(.lp) { scroll-behavior: smooth; }
   .lp-strip-in { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 720px) { .lp-photo { height: 260px; } .lp-strip-in { grid-template-columns: 1fr; gap: 28px; } }
+
+/* Choosing the country whose prices are shown */
+.lp-country { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 28px; }
+.lp-country span { font-size: 14px; color: var(--grey); margin-right: 4px; }
+.lp-country button { font: inherit; font-size: 14px; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: inherit; cursor: pointer; }
+.lp-country button.on { background: var(--black); border-color: var(--black); color: var(--white); }
+.lp-country button:focus-visible { outline: 2px solid var(--black); outline-offset: 2px; }

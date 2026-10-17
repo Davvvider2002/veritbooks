@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { PACKS, PACK_VERSION, packOf, programmeFor } from '../content/packs';
 import { repo } from '../data';
 import { BENCHMARKS, benchmarkBase, computeMateriality, unadjustedEffect } from '../engine/checks';
-import { fmt, fmt2, parseAmount } from '../engine/money';
+import { fmt, fmt2, parseAmount, cur } from '../engine/money';
 import type { JournalLine, Planning, TbLine } from '../engine/types';
 import { ErrorNote, Field, useAction } from '../ui';
 import type { Ctx } from '../workspace';
@@ -57,7 +57,7 @@ export function PlanningStep({ eng, statements, locked, reload }: Ctx) {
               <option value="">Select a benchmark</option>
               {Object.entries(BENCHMARKS).map(([k, b]) => (
                 <option key={k} value={k}>
-                  {b.label}: ₦{fmt(benchmarkBase(statements.cur, k as keyof typeof BENCHMARKS), { zero: '0' })} (commonly {b.range})
+                  {b.label}: {cur()}{fmt(benchmarkBase(statements.cur, k as keyof typeof BENCHMARKS), { zero: '0' })} (commonly {b.range})
                 </option>
               ))}
             </select>
@@ -78,10 +78,10 @@ export function PlanningStep({ eng, statements, locked, reload }: Ctx) {
         {m && (
           <table className="data">
             <tbody>
-              <tr><td>Benchmark amount</td><td className="num">₦{fmt(m.base, { zero: '0' })}</td></tr>
-              <tr><td><strong>Overall materiality</strong></td><td className="num"><strong>₦{fmt(m.overall, { zero: '0' })}</strong></td></tr>
-              <tr><td>Performance materiality</td><td className="num">₦{fmt(m.performance, { zero: '0' })}</td></tr>
-              <tr><td>Clearly trivial threshold</td><td className="num">₦{fmt(m.trivial, { zero: '0' })}</td></tr>
+              <tr><td>Benchmark amount</td><td className="num">{cur()}{fmt(m.base, { zero: '0' })}</td></tr>
+              <tr><td><strong>Overall materiality</strong></td><td className="num"><strong>{cur()}{fmt(m.overall, { zero: '0' })}</strong></td></tr>
+              <tr><td>Performance materiality</td><td className="num">{cur()}{fmt(m.performance, { zero: '0' })}</td></tr>
+              <tr><td>Clearly trivial threshold</td><td className="num">{cur()}{fmt(m.trivial, { zero: '0' })}</td></tr>
             </tbody>
           </table>
         )}
@@ -97,7 +97,7 @@ export function PlanningStep({ eng, statements, locked, reload }: Ctx) {
   );
 }
 
-export function ProgrammeStep({ eng, ws, locked, reload, evidence }: Ctx) {
+export function ProgrammeStep({ eng, ws, jur, locked, reload, evidence }: Ctx) {
   const items = programmeFor(eng.type, eng.planning);
   const pack = packOf(eng.planning);
   const { error, run } = useAction();
@@ -130,7 +130,7 @@ export function ProgrammeStep({ eng, ws, locked, reload, evidence }: Ctx) {
         </p>
       </div>
       <div className="banner warn">
-        Starter content, version {eng.programmeVersion || 'unversioned'}. These steps show how the programme works. They are not a reviewed methodology and must be replaced by one written against the standards adopted by the FRC of Nigeria before live use.
+        Starter content, version {eng.programmeVersion || 'unversioned'}. These steps show how the programme works. They are not a reviewed methodology and must be replaced by one written against the standards adopted in your country ({jur.regulator === 'FRC' ? 'by the FRC of Nigeria' : `by ${jur.adoptedBy ?? 'the IAASB and IASB'}`}) before live use.
       </div>
       <div className="card stack">
         <h3>Industry pack</h3>
@@ -301,8 +301,8 @@ export function JournalsStep({ eng, lines, adjustments, statements, locked, relo
             </div>
           ))}
           <div className={`banner ${m && Math.abs(unadjusted) >= m.overall ? 'bad' : 'info'}`}>
-            Net effect of unadjusted differences on profit before tax: ₦{fmt(unadjusted, { zero: '0' })}.
-            {m ? ` Overall materiality is ₦${fmt(m.overall, { zero: '0' })}.` : eng.type === 'audit' ? ' Materiality has not been set.' : ''}
+            Net effect of unadjusted differences on profit before tax: {cur()}{fmt(unadjusted, { zero: '0' })}.
+            {m ? ` Overall materiality is ${cur()}${fmt(m.overall, { zero: '0' })}.` : eng.type === 'audit' ? ' Materiality has not been set.' : ''}
           </div>
         </div>
       )}
@@ -330,8 +330,8 @@ export function JournalsStep({ eng, lines, adjustments, statements, locked, relo
             <thead>
               <tr>
                 <th>Account</th>
-                <th className="num">Debit ₦</th>
-                <th className="num">Credit ₦</th>
+                <th className="num">Debit {cur()}</th>
+                <th className="num">Credit {cur()}</th>
               </tr>
             </thead>
             <tbody>
@@ -429,7 +429,7 @@ function JournalImport({ engagementId, lines, existing, reload }: { engagementId
                     <th>Journal</th>
                     <th>Lines</th>
                     <th>Treatment</th>
-                    <th className="num">Debits ₦</th>
+                    <th className="num">Debits {cur()}</th>
                   </tr>
                 </thead>
                 <tbody>
