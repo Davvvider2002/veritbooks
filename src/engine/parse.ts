@@ -13,7 +13,7 @@ export interface ParseResult {
   headerRow: number;
 }
 
-const txt = (c: unknown) => (c === null || c === undefined ? '' : String(c).trim());
+export const txt = (c: unknown) => (c === null || c === undefined ? '' : String(c).trim());
 
 export const slug = (name: string) =>
   name
@@ -28,7 +28,7 @@ export function splitAccount(cell: string): { code: string; name: string } {
   return m ? { code: m[1], name: m[2].trim() } : { code: '', name: cell.trim() };
 }
 
-function findHeader(rows: unknown[][]) {
+export function findHeader(rows: unknown[][]): Columns | null {
   // Debit and Credit headings are unmistakable. A lone Balance heading is accepted only when
   // no such row exists, so a title line reading "Trial Balance" is not taken for the header.
   for (const needPair of [true, false]) {
@@ -59,6 +59,16 @@ function findHeader(rows: unknown[][]) {
   return null;
 }
 
+/** Which column holds what. -1 when the file has no such column. */
+export interface Columns {
+  row: number;
+  debit: number;
+  credit: number;
+  balance: number;
+  code: number;
+  name: number;
+}
+
 /**
  * Turn the rows of a CSV or Excel sheet into trial balance lines.
  * Needs a header row naming either Debit and Credit columns or a single Balance column.
@@ -70,6 +80,11 @@ export function parseTrialBalance(rows: unknown[][]): ParseResult {
       'No header row found. The file needs a row naming the columns: an account name, and either Debit and Credit or a single Balance column.',
     );
   }
+  return parseColumns(rows, h);
+}
+
+/** Reads the account rows under a header whose columns are already known. */
+export function parseColumns(rows: unknown[][], h: Columns): ParseResult {
   const warnings: string[] = [];
   const byCode = new Map<string, ParsedLine>();
   let skippedZero = 0;

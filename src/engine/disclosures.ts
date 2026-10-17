@@ -163,7 +163,9 @@ export function financialSummary(st: Statements, yearEnd: string, earlier: Earli
   const y = Number(yearEnd.slice(0, 4));
   const cols: EarlierYear[] = [asYear(st.cur, String(y))];
   if (st.prior) cols.push(asYear(st.prior, String(y - 1)));
-  cols.push(...earlier.filter((e) => e.year.trim()).slice(0, 3));
+  // The year before, from its imported trial balance, takes the place of figures typed in for it.
+  if (st.prior && st.earlier) cols.push(asYear(st.earlier, String(y - 2)));
+  cols.push(...earlier.filter((e) => e.year.trim() && !cols.some((c) => c.year === e.year.trim())).slice(0, 5 - cols.length));
   const row = (label: string, f: (e: EarlierYear) => Kobo, style: 'line' | 'total' = 'line') => ({ label, values: cols.map(f), style });
   const head = (label: string) => ({ label, values: cols.map(() => null), style: 'heading' as const });
   return {

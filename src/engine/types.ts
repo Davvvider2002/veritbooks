@@ -13,6 +13,8 @@ export interface TbLine {
   name: string;
   balance: Kobo;
   prior: Kobo | null;
+  /** The year before the prior year, when it has been imported. Used for trends and the financial summary. */
+  prior2?: Kobo | null;
   mapCode: string | null;
   nature: Nature | null;
 }

@@ -318,7 +318,7 @@ export function DisclosuresStep({ eng, lines, adjustments, statements: st, locke
       <div className="card stack">
         <h3>Financial summary: earlier years</h3>
         <p className="small muted" style={{ margin: 0 }}>
-          The file holds {st.hasPrior ? 'two years' : 'one year'}. Enter the earlier years from the signed financial statements to complete the five-year summary. Enter liabilities and tax as positive figures.
+          The file holds {st.earlier && st.hasPrior ? `three years, so ${Number(eng.yearEnd.slice(0, 4)) - 2} comes from its imported trial balance` : st.hasPrior ? 'two years' : 'one year'}. Enter the earlier years from the signed financial statements to complete the five-year summary. Enter liabilities and tax as positive figures.
         </p>
         <div className="scroll-x">
           <table className="data">

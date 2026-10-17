@@ -113,7 +113,7 @@ Version 0.1-starter. Every step must be ticked before sign-off. Review for compl
 | a-jnl-1 | Journals | Test journal entries and other adjustments for evidence of management override. |
 | a-cmp-1 | Completion | Evaluate going concern and events after the reporting date. |
 | a-cmp-2 | Completion | Evaluate misstatements and conclude on the schedule of unadjusted differences. |
-| a-cmp-3 | Completion | Review the financial statements against the disclosure requirements of the framework and the Companies and Allied Matters Act 2020. |
+| a-cmp-3 | Completion | Review the financial statements against the disclosure requirements of the framework and the companies law of the client’s country. |
 | a-cmp-4 | Completion | Obtain the signed letter of representation and the directors’ approval of the financial statements. |
 | a-cmp-5 | Completion | Complete the engagement partner review of the file. |
 

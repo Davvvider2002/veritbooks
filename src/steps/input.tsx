@@ -7,9 +7,9 @@ import type { MappingSuggestion } from '../data/repo';
 import { CHART, ITEM, NATURE_CODES, SECTION_LABEL, type Section } from '../engine/chart';
 import { validateTrialBalance } from '../engine/checks';
 import { normaliseNature } from '../engine/mapping';
-import { mergeImport } from '../engine/merge';
+import { mergeYears } from '../engine/merge';
+import { MAX_YEARS, placementProblems, readYears, slotFor, SLOTS, yearOfSlot, type Slot, type YearSet } from '../engine/years';
 import { fmt2 } from '../engine/money';
-import { parseTrialBalance, type ParseResult } from '../engine/parse';
 import type { Nature } from '../engine/types';
 import { ErrorNote, message, useAction } from '../ui';
 import type { Ctx } from '../workspace';
@@ -100,34 +100,59 @@ export function ChecksList({ checks }: { checks: ReturnType<typeof validateTrial
   );
 }
 
+type Placed = YearSet & { slot: Slot | null };
+
+const SLOT_NAME: Record<Slot, string> = { current: 'current year', prior: 'prior year', prior2: 'year before' };
+
 export function ImportStep({ eng, client, lines, adjustments, locked, reload }: Ctx) {
-  const [period, setPeriod] = useState<'current' | 'prior'>('current');
-  const [parsed, setParsed] = useState<(ParseResult & { file: string }) | null>(null);
+  const [sets, setSets] = useState<Placed[] | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const { busy, error, run } = useAction();
   const year = Number(eng.yearEnd.slice(0, 4));
   const checks = validateTrialBalance(lines);
+  const withEarlier = lines.some((l) => l.prior2 !== null && l.prior2 !== undefined);
 
-  const onFile = async (file: File | undefined) => {
-    setParsed(null);
+  const onFiles = async (list: FileList | null) => {
+    setSets(null);
     setParseError(null);
-    if (!file) return;
+    setNotice(null);
+    const files = [...(list ?? [])];
+    if (!files.length) return;
     try {
-      setParsed({ ...parseTrialBalance(await readRows(file)), file: file.name });
+      const found: YearSet[] = [];
+      for (const f of files.slice(0, MAX_YEARS)) found.push(...readYears(await readRows(f), f.name));
+      const notes: string[] = [];
+      if (files.length > MAX_YEARS) notes.push(`Only the first ${MAX_YEARS} files were read. Import up to three years at a time.`);
+      if (found.length > MAX_YEARS) notes.push(`The files hold ${found.length} years. The latest ${MAX_YEARS} are shown.`);
+      const latest = found.sort((x, y) => (y.year ?? 0) - (x.year ?? 0)).slice(0, MAX_YEARS);
+      const taken = new Set<Slot>();
+      setSets(
+        latest.map((y) => {
+          const slot = slotFor(y.year, eng.yearEnd);
+          if (!slot || taken.has(slot)) return { ...y, slot: null };
+          taken.add(slot);
+          return { ...y, slot };
+        }),
+      );
+      setNotice(notes.join(' ') || null);
     } catch (e) {
       setParseError(message(e));
     }
   };
 
-  const debits = parsed?.lines.reduce((a, l) => a + Math.max(l.balance, 0), 0) ?? 0;
-  const credits = parsed?.lines.reduce((a, l) => a + Math.max(-l.balance, 0), 0) ?? 0;
+  const chosen = (sets ?? []).filter((x) => x.slot !== null);
+  const problems = sets ? placementProblems(sets.map((x) => x.slot)) : [];
+  const ONE: Record<Slot, string> = { current: 'Import as current year', prior: 'Import as prior year', prior2: 'Import as the year before' };
+  const label = chosen.length === 1 ? ONE[chosen[0].slot!] : `Import ${chosen.length} years`;
 
   const save = () =>
     run(async () => {
       const saved = await repo.savedMappings(client.id);
-      const merged = mergeImport(lines, parsed!.lines, period, saved, adjustments);
+      const merged = mergeYears(lines, chosen.map((x) => ({ slot: x.slot!, lines: x.lines })), saved, adjustments);
       await repo.replaceLines(eng.id, merged);
-      setParsed(null);
+      setSets(null);
+      setNotice(`Imported ${chosen.map((x) => yearOfSlot(x.slot!, eng.yearEnd)).sort().reverse().join(', ')}.`);
       reload();
     });
 
@@ -137,48 +162,106 @@ export function ImportStep({ eng, client, lines, adjustments, locked, reload }: 
         <h2>Trial balance</h2>
         <p className="muted" style={{ marginTop: 4 }}>
           Import the trial balance before closing entries, as CSV or Excel. The file needs a header row with the account name and either Debit and Credit columns or one Balance column.
+          You can bring in up to three years at once: choose several files, or one file with a column for each year.
         </p>
       </div>
 
       {!locked && (
         <div className="card stack">
           <SourceGuide kind="tb" />
-          <div className="grid2">
-            <label className="field">
-              <span>Which year is this file?</span>
-              <select value={period} onChange={(e) => setPeriod(e.target.value as 'current' | 'prior')}>
-                <option value="current">Current year ({year})</option>
-                <option value="prior">Prior year ({year - 1})</option>
-              </select>
-            </label>
-            <label className="field">
-              <span>File</span>
-              <input
-                type="file"
-                accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                onChange={(e) => void onFile(e.target.files?.[0])}
-                style={{ padding: '6px 0' }}
-              />
-            </label>
-          </div>
+          <label className="field">
+            <span>Trial balance files, up to three years</span>
+            <input
+              type="file"
+              multiple
+              aria-label="Trial balance files"
+              accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              onChange={(e) => {
+                void onFiles(e.target.files);
+                e.target.value = '';
+              }}
+              style={{ padding: '6px 0' }}
+            />
+          </label>
+          <p className="small muted" style={{ margin: 0 }}>
+            VeritBooks reads the year from a column heading, the title above the header, or the file name, and places it against this engagement’s year end of {year}: {year} is the current year, {year - 1} the prior year and {year - 2} the year before. Check each one before importing.
+          </p>
           <p className="small muted" style={{ margin: 0 }}>
             No file to hand? Try the sample company:{' '}
-            <a href="/samples/trial-balance-2025.csv" download>current year</a> and{' '}
-            <a href="/samples/trial-balance-2024.csv" download>prior year</a>.
+            <a href="/samples/trial-balance-2025.csv" download>2025</a>, <a href="/samples/trial-balance-2024.csv" download>2024</a> and{' '}
+            <a href="/samples/trial-balance-2023.csv" download>2023</a>, or <a href="/samples/trial-balance-3-years.csv" download>all three years in one file</a>.
           </p>
           <ErrorNote error={parseError ?? error} />
-          {parsed && (
+          {notice && <div className="banner info">{notice}</div>}
+          {sets && (
             <div className="stack">
-              <div className={`banner ${debits === credits ? 'info' : 'warn'}`}>
-                <strong>{parsed.file}</strong>: {parsed.lines.length} accounts. Debits {fmt2(debits)}, credits {fmt2(credits)}.{' '}
-                {debits === credits ? 'It foots.' : `It does not foot. Difference ${fmt2(Math.abs(debits - credits))}.`}
+              <div className="scroll-x">
+                <table className="data" aria-label="Years found">
+                  <thead>
+                    <tr>
+                      <th>File</th>
+                      <th>Year found</th>
+                      <th>Import as</th>
+                      <th className="num">Accounts</th>
+                      <th>Foots</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sets.map((x, i) => {
+                      const debits = x.lines.reduce((a, l) => a + Math.max(l.balance, 0), 0);
+                      const credits = x.lines.reduce((a, l) => a + Math.max(-l.balance, 0), 0);
+                      const what = `${x.file}${x.column ? `, ${x.column}` : ''}`;
+                      const differs = x.slot && x.year !== null && yearOfSlot(x.slot, eng.yearEnd) !== x.year;
+                      return (
+                        <tr key={what + i}>
+                          <td>
+                            {x.file}
+                            {x.column && <div className="small muted">Column {x.column}</div>}
+                          </td>
+                          <td>
+                            {x.year ?? <span className="muted">Not found</span>}
+                            {x.how && <div className="small muted">from the {x.how}</div>}
+                          </td>
+                          <td>
+                            <select
+                              aria-label={sets.length === 1 ? 'Which year is this file?' : `Which year is ${what}?`}
+                              value={x.slot ?? ''}
+                              onChange={(e) => setSets(sets.map((y, j) => (j === i ? { ...y, slot: (e.target.value || null) as Slot | null } : y)))}
+                            >
+                              <option value="">Leave out</option>
+                              {SLOTS.map((sl) => (
+                                <option key={sl} value={sl}>
+                                  {yearOfSlot(sl, eng.yearEnd)}, {SLOT_NAME[sl]}
+                                </option>
+                              ))}
+                            </select>
+                            {differs && <div className="small" style={{ color: 'var(--warn, #8a5a00)' }}>The file says {x.year}.</div>}
+                            {x.year !== null && !slotFor(x.year, eng.yearEnd) && !x.slot && (
+                              <div className="small muted">{x.year} is outside this engagement’s three years.</div>
+                            )}
+                          </td>
+                          <td className="num">{x.lines.length}</td>
+                          <td>
+                            {debits === credits ? <span className="tag ok">Foots</span> : <span className="tag warn">Out by {fmt2(Math.abs(debits - credits))}</span>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-              {parsed.warnings.map((w) => (
+              {sets.flatMap((x) => x.warnings.map((w) => `${x.file}${x.column ? ` (${x.column})` : ''}: ${w}`)).map((w) => (
                 <div key={w} className="banner warn">{w}</div>
               ))}
+              {problems.map((p) => (
+                <div key={p} className="banner bad">{p}</div>
+              ))}
+              {chosen.some((x) => x.slot !== 'current') && !chosen.some((x) => x.slot === 'current') && lines.length === 0 && (
+                <div className="banner warn">No current year is being imported. Earlier years can be brought in first, and the current year added later.</div>
+              )}
               <div>
-                <button className="primary" disabled={busy} onClick={() => void save()}>
-                  Import as {period === 'current' ? 'current' : 'prior'} year
+                <button className="primary" disabled={busy || problems.length > 0} onClick={() => void save()}>
+                  {label}
                 </button>
               </div>
             </div>
@@ -202,6 +285,7 @@ export function ImportStep({ eng, client, lines, adjustments, locked, reload }: 
                     <th>Account</th>
                     <th className="num">{year}</th>
                     <th className="num">{year - 1}</th>
+                    {withEarlier && <th className="num">{year - 2}</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -211,6 +295,7 @@ export function ImportStep({ eng, client, lines, adjustments, locked, reload }: 
                       <td>{l.name}</td>
                       <td className="num">{fmt2(l.balance)}</td>
                       <td className="num">{l.prior === null ? '' : fmt2(l.prior)}</td>
+                      {withEarlier && <td className="num">{l.prior2 === null || l.prior2 === undefined ? '' : fmt2(l.prior2)}</td>}
                     </tr>
                   ))}
                 </tbody>

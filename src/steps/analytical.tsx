@@ -17,6 +17,7 @@ export function AnalyticalStep(ctx: Ctx) {
   const { eng, statements, ws, locked, reload } = ctx;
   const m = eng.type === 'audit' ? computeMateriality(statements.cur, eng.planning) : null;
   const review = useMemo(() => analyticalReview(statements, m?.performance ?? null), [statements, m?.performance]);
+  const trend = !!review?.ratios.some((r) => r.earlier !== null) || !!review?.movements.some((x) => x.earlier !== null);
   const saved = eng.testing.movements ?? {};
   const [notes, setNotes] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(saved).map(([k, v]) => [k, v.note])));
   const [all, setAll] = useState(false);
@@ -77,6 +78,7 @@ export function AnalyticalStep(ctx: Ctx) {
                 <th></th>
                 <th className="num">{year}</th>
                 <th className="num">{Number(year) - 1}</th>
+                {trend && <th className="num">{Number(year) - 2}</th>}
               </tr>
             </thead>
             <tbody>
@@ -85,6 +87,7 @@ export function AnalyticalStep(ctx: Ctx) {
                   <td>{r.label}</td>
                   <td className="num">{ratioText(r.cur, r.unit)}</td>
                   <td className="num">{ratioText(r.prior, r.unit)}</td>
+                  {trend && <td className="num">{ratioText(r.earlier, r.unit)}</td>}
                 </tr>
               ))}
             </tbody>
@@ -181,6 +184,7 @@ function MovementRow({
           <div className="small muted">
             {fmt(x.cur)} against {fmt(x.prior)}: {x.change > 0 ? 'up' : 'down'} {fmt(Math.abs(x.change))}
             {x.percent === null ? ', from nil' : `, ${Math.abs(x.percent)}%`}
+            {x.earlier !== null && <>. The year before: {fmt(x.earlier, { zero: 'nil' })}</>}
           </div>
         </div>
         {x.significant ? <span className={`tag ${note.trim() ? 'ok' : 'warn'}`}>{note.trim() ? 'Explained' : 'Needs an explanation'}</span> : <span className="tag">Not significant</span>}

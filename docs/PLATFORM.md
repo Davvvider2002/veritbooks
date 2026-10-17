@@ -1,6 +1,6 @@
 # VeritBooks: platform definition
 
-Version 0.14, 17 October 2026.
+Version 0.15, 17 October 2026.
 
 ## What it is
 
@@ -349,6 +349,12 @@ A visitor who is not signed in sees the landing page at the front door. Sign-in 
 4. Only a partner with an FRC number, in a firm with an FRC number, can sign. The database enforces this, not only the screen.
 5. A signed file cannot be edited or deleted by anyone, including the partner who signed it.
 6. Users cannot write to or delete from the audit trail.
+
+## Importing several years
+
+The Trial balance step takes up to three years at once: several files, one file with a column for each year, or both. VeritBooks reads each year from a column heading ("31 Dec 2024", "Debit 2023"), the title above the header ("Trial balance as at 31 December 2025"), or the file name ("TB FY2024.xlsx"), in that order of trust. It places each year against the engagement's year end: the same year is the current year, one before is the prior year, two before is the year before that. The accountant sees each file, the year found, where it came from, and whether it foots, and can change any placement or leave a file out. Two files in one year are refused.
+
+The third year is held on each account. It adds a third column to the analytical review and its ratios, and fills that year of the financial summary in place of figures typed in. It is never printed as a comparative. Samples: `public/samples/trial-balance-2023.csv` and `trial-balance-3-years.csv`.
 
 ## Countries
 

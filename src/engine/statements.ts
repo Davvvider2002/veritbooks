@@ -170,11 +170,18 @@ export function figures(lines: TbLine[], adjustments: Adjustment[], period: Peri
 }
 
 export const hasPrior = (lines: TbLine[]) => lines.some((l) => l.prior !== null);
+/** True when the year before the prior year has been imported. */
+export const hasEarlier = (lines: TbLine[]) => lines.some((l) => l.prior2 !== null && l.prior2 !== undefined);
+/** The year before the prior year, as figures. No journals are posted to it. */
+export const earlierFigures = (lines: TbLine[]): Figures | null =>
+  hasEarlier(lines) ? figures(lines.map((l) => ({ ...l, prior: l.prior2 ?? 0 })), [], 'prior') : null;
 
 export interface Statements {
   hasPrior: boolean;
   cur: Figures;
   prior: Figures | null;
+  /** The year before the prior year, when imported. Used for trends, never printed as a comparative. */
+  earlier?: Figures | null;
   notes: Map<string, number>;
   position: Row[];
   income: Row[];
@@ -567,6 +574,7 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[]): Sta
 
   return {
     hasPrior: withPrior,
+    earlier: earlierFigures(lines),
     cur,
     prior,
     notes,

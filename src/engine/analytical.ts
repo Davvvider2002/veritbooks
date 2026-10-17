@@ -9,6 +9,8 @@ export interface Movement {
   section: Section;
   cur: Kobo;
   prior: Kobo;
+  /** The year before the prior year, when imported. */
+  earlier: Kobo | null;
   change: Kobo;
   /** Change as a percentage of last year. Null when last year was nil. */
   percent: number | null;
@@ -21,6 +23,7 @@ export interface Ratio {
   label: string;
   cur: number | null;
   prior: number | null;
+  earlier: number | null;
   unit: '%' | 'days' | 'times';
 }
 
@@ -44,6 +47,7 @@ const PERCENT = 10;
 export function analyticalReview(st: Statements, performance: Kobo | null): AnalyticalReview | null {
   if (!st.prior) return null;
   const { cur, prior } = st;
+  const before = st.earlier ?? null;
   const byRevenue = Math.round(Math.abs(cur.v.revenue) / 100);
   const byAssets = Math.round(Math.abs(cur.totalAssets) / 100);
   const [threshold, basis]: [Kobo, AnalyticalReview['basis']] =
@@ -53,18 +57,19 @@ export function analyticalReview(st: Statements, performance: Kobo | null): Anal
   for (const i of CHART) {
     const c = cur.v[i.code];
     const p = prior.v[i.code];
-    if (c === 0 && p === 0) continue;
+    const e = before ? before.v[i.code] : null;
+    if (c === 0 && p === 0 && !e) continue;
     const change = c - p;
     const percent = p === 0 ? null : Math.round((change / Math.abs(p)) * 1000) / 10;
     // Retained earnings brought forward moves by last year's profit and dividends, which needs no explaining.
     const significant = i.code !== 'retained_earnings' && Math.abs(change) >= threshold && threshold > 0 && (percent === null || Math.abs(percent) >= PERCENT);
-    movements.push({ code: i.code, label: i.label, section: i.section, cur: c, prior: p, change, percent, significant });
+    movements.push({ code: i.code, label: i.label, section: i.section, cur: c, prior: p, earlier: e, change, percent, significant });
   }
 
   const pct = (n: Kobo, d: Kobo) => (d === 0 ? null : Math.round((n / d) * 1000) / 10);
   const days = (balance: Kobo, flow: Kobo) => (flow <= 0 ? null : Math.round((balance / flow) * 365));
   const times = (n: Kobo, d: Kobo) => (d === 0 ? null : Math.round((n / d) * 100) / 100);
-  const ratio = (id: string, label: string, unit: Ratio['unit'], f: (x: typeof cur) => number | null): Ratio => ({ id, label, unit, cur: f(cur), prior: f(prior) });
+  const ratio = (id: string, label: string, unit: Ratio['unit'], f: (x: typeof cur) => number | null): Ratio => ({ id, label, unit, cur: f(cur), prior: f(prior), earlier: before ? f(before) : null });
   const ratios = [
     ratio('gross_margin', 'Gross margin', '%', (x) => pct(x.grossProfit, x.v.revenue)),
     ratio('operating_margin', 'Operating margin', '%', (x) => pct(x.operatingProfit, x.v.revenue)),

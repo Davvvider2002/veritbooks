@@ -40,6 +40,7 @@ await db.exec(readFileSync('supabase/migrations/0013_branding_and_file_numbers.s
 await db.exec(readFileSync('supabase/migrations/0014_admin_two_factor.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0015_two_factor_for_firms.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0016_west_africa.sql', 'utf8'));
+await db.exec(readFileSync('supabase/migrations/0017_three_years.sql', 'utf8'));
 // The checks written before VAT run at a zero rate. VAT has its own checks at the end.
 await db.exec(`update platform_settings set vat_percent = 0; update countries set vat_percent = 0`);
 
@@ -591,6 +592,8 @@ const [cg] = await as(GH1, `insert into clients (firm_id, name) values ($1, 'Kum
 const [eg] = await as(GH1, `insert into engagements (firm_id, client_id, type, year_end, currency) values ($1, $2, 'audit', '2025-12-31', 'GHS') returning *`, [fg.id, cg.id]);
 ok('an engagement records its currency', eg.currency === 'GHS');
 await denied('an engagement currency must be one we know', () => as(GH1, `insert into engagements (firm_id, client_id, type, year_end, currency) values ($1, $2, 'audit', '2024-12-31', 'XYZ')`, [fg.id, cg.id]), /check/);
+const [tl] = await as(GH1, `insert into tb_lines (engagement_id, code, name, balance, prior_balance, prior2_balance) values ($1, '1400', 'Bank', 100, 80, 60) returning *`, [eg.id]);
+ok('an account holds a third year', Number(tl.prior2_balance) === 60);
 await denied('a Ghanaian partner is asked for an ICAG licence', () => as(GH1, `select sign_engagement($1)`, [eg.id]), /ICAG practising licence number is missing/);
 
 console.log(failed ? `\n${failed} check(s) failed` : '\nAll database checks passed');
