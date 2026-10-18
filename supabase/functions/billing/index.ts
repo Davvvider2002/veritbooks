@@ -13,6 +13,7 @@
 //   2. { action: 'confirm', transactionId }    from a signed-in member, after Flutterwave sends them back.
 //   3. Flutterwave's own webhook, recognised by its verif-hash header.
 //   4. The daily reminder run, started by the database scheduler, recognised by its x-cron-token header.
+//   5. { action: 'rate', price, charge }       from a platform admin. Flutterwave's exchange rate today.
 // A plan is only ever activated after this function has asked Flutterwave directly
 // whether the payment succeeded, and the amount, currency and reference all match.
 // Nothing the browser says about a payment is trusted.
@@ -89,8 +90,16 @@ async function sendReceipt(txRef: string) {
     `Paid by: ${r.firm}`,
     `For: ${describe(r)}`,
     ...(r.credit_kobo > 0 ? [`Credit for the unused part of your previous plan: ${naira(r.credit_kobo)}`] : []),
-    ...(r.vat_kobo > 0 ? [`Amount before ${tax}: ${naira(r.amount_kobo - r.vat_kobo)}`, `${tax}: ${naira(r.vat_kobo)}`] : []),
-    `Amount paid: ${naira(r.amount_kobo)}`,
+    ...(r.quoted_currency
+      ? [
+          ...(r.quoted_vat_kobo > 0 ? [`Amount before ${tax}: ${money(r.quoted_kobo - r.quoted_vat_kobo, r.quoted_currency)}`, `${tax}: ${money(r.quoted_vat_kobo, r.quoted_currency)}`] : []),
+          `Total: ${money(r.quoted_kobo, r.quoted_currency)}`,
+          `Amount paid: ${naira(r.amount_kobo)}, at ${r.fx_rate} ${cur} to 1 ${r.quoted_currency}`,
+        ]
+      : [
+          ...(r.vat_kobo > 0 ? [`Amount before ${tax}: ${naira(r.amount_kobo - r.vat_kobo)}`, `${tax}: ${naira(r.vat_kobo)}`] : []),
+          `Amount paid: ${naira(r.amount_kobo)}`,
+        ]),
     ...(r.covers_until ? [`Your plan runs until ${day(r.covers_until)}.`] : []),
     `Payment reference: ${r.tx_ref}`,
     '',
@@ -228,6 +237,23 @@ Deno.serve(async (req: Request) => {
       return refuse(`Flutterwave did not start the payment: ${String(out?.message ?? res.status).slice(0, 200)}`, 502);
     }
     return json({ link: out.data.link, amountKobo: start.amount_kobo, currency: start.currency ?? 'NGN' });
+  }
+
+  // 5. Today's rate, for the platform owner setting a collection currency. Read only.
+  if (body?.action === 'rate') {
+    const { data: isAdmin } = await asUser.rpc('is_platform_admin');
+    if (isAdmin !== true) return refuse('Not found.', 404);
+    const price = String(body.price ?? '').toUpperCase();
+    const charge = String(body.charge ?? '').toUpperCase();
+    const ok = ['NGN', 'GHS', 'USD', 'ZAR'];
+    if (!ok.includes(price) || !ok.includes(charge) || price === charge) return refuse('Choose two different currencies.');
+    // How much of the collected currency it takes to deliver 100 of the price currency.
+    const res = await fetch(`${FLW}/transfers/rates?amount=100&destination_currency=${price}&source_currency=${charge}`, { headers: { Authorization: `Bearer ${secret}` } });
+    const out = await res.json().catch(() => null);
+    const src = Number(out?.data?.source?.amount);
+    const dst = Number(out?.data?.destination?.amount);
+    if (!res.ok || out?.status !== 'success' || !(src > 0) || !(dst > 0)) return refuse(`Flutterwave did not give a rate: ${String(out?.message ?? res.status).slice(0, 200)}`, 502);
+    return json({ rate: src / dst });
   }
 
   // 2. Confirm a payment after the customer is sent back.

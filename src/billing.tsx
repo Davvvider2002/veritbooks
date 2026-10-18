@@ -9,6 +9,7 @@ import { ErrorNote, useAction } from './ui';
 
 /** A naira amount. Firms elsewhere see their own currency through priceText. */
 export const naira = (kobo: number) => priceText(kobo, 'NGN');
+const CURRENCY_WORD: Record<string, string> = { NGN: 'naira', GHS: 'cedis', USD: 'US dollars', ZAR: 'rand' };
 const day = (iso: string | null) => (iso ? longDate(iso.slice(0, 10)) : '');
 const days = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
 
@@ -83,6 +84,7 @@ function PlanCard({ p, billing, partner, busy, blocked, onChoose }: { p: PlanOff
           Plus {billing.taxLabel} at {billing.vatPercent}%: {naira(vatOn(p.amountKobo, billing.vatPercent))}. You pay <strong>{naira(p.amountKobo + vatOn(p.amountKobo, billing.vatPercent))}</strong>.
         </div>
       )}
+      <Converted b={billing} net={p.amountKobo} />
       <ul className="small" style={{ margin: 0, paddingLeft: 18 }}>
         <li>{p.maxUsers === null ? 'Any number of users' : `Up to ${p.maxUsers} users`}</li>
         <li>{p.maxEngagements} new engagements a year</li>
@@ -102,10 +104,29 @@ function PlanCard({ p, billing, partner, busy, blocked, onChoose }: { p: PlanOff
   );
 }
 
+/** What a price is collected as, when the country pays in another currency. */
+export function converted(b: Pick<Billing, 'currency' | 'chargeCurrency' | 'chargeRate' | 'vatPercent'>, net: number): number | null {
+  if (b.chargeCurrency === b.currency) return null;
+  const vat = vatOn(net, b.vatPercent);
+  return Math.round(net * b.chargeRate) + Math.round(vat * b.chargeRate);
+}
+
+function Converted({ b, net }: { b: Billing; net: number }) {
+  const amount = converted(b, net);
+  if (amount === null) return null;
+  return (
+    <div className="small">
+      Collected in {b.chargeCurrency}: <strong>{priceText(amount, b.chargeCurrency)}</strong>, at {priceText(100, b.currency)} = {b.chargeRate} {b.chargeCurrency}.
+    </div>
+  );
+}
+
 /** A receipt that prints on its own page. */
 function Receipt({ p, ws, onClose }: { p: PaymentRecord; ws: Workspace; onClose: () => void }) {
   const b = ws.billing;
-  const naira = (k: number) => priceText(k, p.currency);
+  // A converted payment is shown in the firm's own currency, then as collected.
+  const q = p.quotedCurrency && p.quotedKobo != null ? { cur: p.quotedCurrency, total: p.quotedKobo, vat: p.quotedVatKobo ?? 0 } : { cur: p.currency, total: p.amountKobo, vat: p.vatKobo };
+  const naira = (k: number) => priceText(k, q.cur);
   const planName = (code: string) => b.plans.find((x) => x.code === code)?.name ?? code;
   return (
     <div className="page stack">
@@ -147,7 +168,7 @@ function Receipt({ p, ws, onClose }: { p: PaymentRecord; ws: Workspace; onClose:
                 {paidFor(p, planName)}
                 {p.coversUntil ? `, to ${day(p.coversUntil)}` : ''}
               </td>
-              <td className="num">{naira(p.amountKobo - p.vatKobo + p.creditKobo)}</td>
+              <td className="num">{naira(q.total - q.vat + p.creditKobo)}</td>
             </tr>
             {p.creditKobo > 0 && (
               <tr>
@@ -155,30 +176,36 @@ function Receipt({ p, ws, onClose }: { p: PaymentRecord; ws: Workspace; onClose:
                 <td className="num">({naira(p.creditKobo).replace(/^[^\d]+/, '')})</td>
               </tr>
             )}
-            {p.vatKobo > 0 && (
+            {q.vat > 0 && (
               <>
                 <tr>
                   <td>Amount before {b.taxLabel}</td>
-                  <td className="num">{naira(p.amountKobo - p.vatKobo)}</td>
+                  <td className="num">{naira(q.total - q.vat)}</td>
                 </tr>
                 <tr>
-                  <td>{b.taxLabel} at {Math.round((p.vatKobo / (p.amountKobo - p.vatKobo)) * 1000) / 10}%</td>
-                  <td className="num">{naira(p.vatKobo)}</td>
+                  <td>{b.taxLabel} at {Math.round((q.vat / (q.total - q.vat)) * 1000) / 10}%</td>
+                  <td className="num">{naira(q.vat)}</td>
                 </tr>
               </>
             )}
+            {p.quotedCurrency && (
+              <tr>
+                <td>Total in {p.quotedCurrency}</td>
+                <td className="num">{naira(q.total)}</td>
+              </tr>
+            )}
             <tr>
               <td>
-                <strong>Amount paid</strong>
+                <strong>Amount paid{p.quotedCurrency ? `, in ${p.currency} at ${p.fxRate} ${p.currency} to 1 ${p.quotedCurrency}` : ''}</strong>
               </td>
               <td className="num">
-                <strong>{naira(p.amountKobo)}</strong>
+                <strong>{priceText(p.amountKobo, p.currency)}</strong>
               </td>
             </tr>
           </tbody>
         </table>
         <div className="small muted">
-          Paid {p.source === 'manual' ? 'directly to VeritBooks' : 'through Flutterwave'}. Reference {p.reference}.{p.vatKobo > 0 ? '' : ` No ${b.taxLabel} was charged on this payment.`}
+          Paid {p.source === 'manual' ? 'directly to VeritBooks' : 'through Flutterwave'}. Reference {p.reference}.{q.vat > 0 ? '' : ` No ${b.taxLabel} was charged on this payment.`}
         </div>
       </section>
     </div>
@@ -274,6 +301,11 @@ function PerEngagement({ b, partner, busy, pay }: { b: Billing; partner: boolean
         <span>With group consolidation, for a parent with subsidiaries (adds {naira(price('group'))})</span>
       </label>
       {b.vatPercent > 0 && <div className="small muted">These prices are before {b.taxLabel}. {b.taxLabel} at {b.vatPercent}% is added at checkout.</div>}
+      {b.chargeCurrency !== b.currency && (
+        <div className="small muted">
+          Collected in {b.chargeCurrency} at {b.chargeRate} to 1 {b.currency}. One audit, for example, is collected as {priceText(converted(b, price('audit')) ?? 0, b.chargeCurrency)}{b.vatPercent > 0 ? `, ${b.taxLabel} included` : ''}.
+        </div>
+      )}
     </section>
   );
 }
@@ -397,7 +429,7 @@ export function BillingPage({ ws, onChanged }: { ws: Workspace; onChanged: () =>
           <PerEngagement b={b} partner={partner} busy={busy} pay={pay} />
           <p className="small muted" style={{ margin: 0 }}>
             {partner
-              ? `Prices are shown${b.vatPercent > 0 ? ` before ${b.taxLabel}` : ''}. Payment is taken in ${b.currency === 'USD' ? 'US dollars' : b.currency === 'GHS' ? 'cedis' : 'naira'} by Flutterwave, by card${b.currency === 'NGN' ? ', bank transfer or USSD' : b.currency === 'GHS' ? ', mobile money or bank transfer' : ''}. VeritBooks never sees or stores your card details.`
+              ? `Prices are shown${b.vatPercent > 0 ? ` before ${b.taxLabel}` : ''}. Payment is taken in ${CURRENCY_WORD[b.chargeCurrency]}${b.chargeCurrency !== b.currency ? `, converted from ${CURRENCY_WORD[b.currency]} at ${b.chargeRate} to 1` : ''} by Flutterwave, by card${b.chargeCurrency === 'NGN' ? ', bank transfer or USSD' : b.chargeCurrency === 'GHS' ? ', mobile money or bank transfer' : b.chargeCurrency === 'ZAR' ? ', bank account or 1Voucher' : ''}. VeritBooks never sees or stores your card details.`
               : 'Only a partner can make a payment.'} A plan runs for one year from the day it is paid. Renewing early adds a year to the end of the current one. Moving to a bigger plan starts a new year today, with credit for what is left of the old one.
           </p>
         </>

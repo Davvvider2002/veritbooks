@@ -28,7 +28,7 @@ export function AuthPage({ start = 'in' }: { start?: 'in' | 'up' }) {
       <div>
         <h1>{mode === 'in' ? 'Sign in' : 'Create your account'}</h1>
         <p className="muted" style={{ marginTop: 6 }}>
-          Engagement files for audit, review and compilation work across English-speaking West Africa.
+          Engagement files for audit, review and compilation work in Nigeria, Ghana, Sierra Leone, Liberia, The Gambia and South Africa.
         </p>
       </div>
       <form

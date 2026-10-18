@@ -15,14 +15,17 @@
  * - Liberia: LICPA Act 2011; LICPA Regulation 1 (2015) requires full IFRS or the IFRS for SMEs
  *   and adopts the ISAs. https://ifrs.org/use-around-the-world/use-of-ifrs-standards-by-jurisdiction/view-jurisdiction/liberia
  * - The Gambia: Companies Act, 2013; Financial Reporting Act 2013, which established GICA.
+ * - South Africa: Companies Act 71 of 2008; registered auditors under the Auditing Profession Act
+ *   and the IRBA Code. Report wording follows IRBA's SAAPS 3 illustrative reports.
+ *   https://www.irba.co.za/upload/SAAPS%203%20(Revised%20May%202019%20Updated)(1).pdf
  *   https://www.cliffedekkerhofmeyr.com/guides/africa-corporate/gambia/entity-setup/what-is-the-legislation-that-governs-companies-in-your-jurisdiction.html
  *
  * Every phrase here is starter wording for the engagement partner, who must check it against
  * the law in force before issue, as with the rest of the report.
  */
 
-export type CountryCode = 'NG' | 'GH' | 'SL' | 'LR' | 'GM';
-export type CurrencyCode = 'NGN' | 'GHS' | 'SLE' | 'LRD' | 'GMD' | 'USD';
+export type CountryCode = 'NG' | 'GH' | 'SL' | 'LR' | 'GM' | 'ZA';
+export type CurrencyCode = 'NGN' | 'GHS' | 'SLE' | 'LRD' | 'GMD' | 'ZAR' | 'USD';
 
 export interface Currency {
   code: CurrencyCode;
@@ -37,6 +40,7 @@ export const CURRENCIES: Record<CurrencyCode, Currency> = {
   SLE: { code: 'SLE', symbol: 'Le', name: 'Sierra Leonean leones' },
   LRD: { code: 'LRD', symbol: 'L$', name: 'Liberian dollars' },
   GMD: { code: 'GMD', symbol: 'D', name: 'Gambian dalasis' },
+  ZAR: { code: 'ZAR', symbol: 'R', name: 'South African rand' },
   USD: { code: 'USD', symbol: 'US$', name: 'United States dollars' },
 };
 
@@ -69,6 +73,12 @@ export interface Jurisdiction {
   currencies: CurrencyCode[];
   /** The data protection law named where AI assistance is explained. */
   dataLaw: string;
+  /** The framework sentence, where local reports word it their own way. */
+  framework?: string;
+  /** The independence sentence of an audit report, where a local code is named. */
+  independence?: string;
+  /** Printed under the signing partner's name, such as "Registered Auditor". */
+  signerTitle?: string;
 }
 
 export const JURISDICTIONS: Record<CountryCode, Jurisdiction> = {
@@ -157,6 +167,28 @@ export const JURISDICTIONS: Record<CountryCode, Jurisdiction> = {
     currencies: ['GMD', 'USD'],
     dataLaw: 'the data protection law of The Gambia',
   },
+  ZA: {
+    code: 'ZA',
+    name: 'South Africa',
+    inName: 'South Africa',
+    companiesAct: 'the Companies Act of South Africa',
+    otherLaws: [],
+    adoptedBy: null,
+    regulator: 'IRBA',
+    licenceLabel: 'IRBA registration number',
+    licenceShort: 'IRBA number',
+    officerNumbers: false,
+    nationalStatements: false,
+    statutoryConfirmations: false,
+    companyNumberLabel: 'Registration No.',
+    currencies: ['ZAR', 'USD'],
+    dataLaw: 'the Protection of Personal Information Act, 2013 (POPIA)',
+    // As in IRBA's illustrative reports (SAAPS 3, revised May 2019).
+    framework: 'the IFRS for SMEs Accounting Standard and the requirements of the Companies Act of South Africa',
+    independence:
+      'We are independent of the company in accordance with the Independent Regulatory Board for Auditors’ Code of Professional Conduct for Registered Auditors (IRBA Code) and other independence requirements applicable to performing audits of financial statements in South Africa. We have fulfilled our other ethical responsibilities in accordance with the IRBA Code and in accordance with other ethical requirements applicable to performing audits in South Africa.',
+    signerTitle: 'Registered Auditor',
+  },
 };
 
 export const COUNTRY_CODES = Object.keys(JURISDICTIONS) as CountryCode[];
@@ -171,6 +203,7 @@ const and = (xs: string[]) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).
 
 /** The framework, as the report and the directors' pages name it. */
 export function frameworkText(j: Jurisdiction): string {
+  if (j.framework) return j.framework;
   if (!j.companiesAct) return `the IFRS for SMEs Accounting Standard${j.adoptedBy ? `, as adopted by ${j.adoptedBy}` : ''}`;
   return and(['the IFRS for SMEs Accounting Standard', j.companiesAct, ...j.otherLaws]);
 }

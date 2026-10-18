@@ -1,5 +1,5 @@
 import type { GlEntry } from '../engine/ledger';
-import { COUNTRY_PRICING, DEFAULT_VAT_PERCENT, ENGAGEMENT_PRICES, FOUNDING_PLACES, PLANS, PRICE_HOLD_YEARS, TRIAL_DAYS, addYears, firmState, planQuote, vatOn, vatWithin, type CountryPricing, type Plan, type Subscription } from '../engine/billing';
+import { chargeOf, COUNTRY_PRICING, DEFAULT_VAT_PERCENT, ENGAGEMENT_PRICES, FOUNDING_PLACES, PLANS, PRICE_HOLD_YEARS, TRIAL_DAYS, addYears, firmState, planQuote, vatOn, vatWithin, type CountryPricing, type Plan, type Subscription } from '../engine/billing';
 import { checkCode, newSecret } from '../totp';
 import { jurisdictionOf, type CountryCode } from '../content/jurisdictions';
 import { suggestMapping } from '../engine/mapping';
@@ -167,6 +167,8 @@ export function createDemoRepo(): Repo {
       for (const x of pl.plans) if (x.code !== 'trial') ng.plans[x.code] = x.priceKobo;
       for (const x of pl.prices) ng.engagements[x.code] = x.priceKobo;
     }
+    // Countries added since this browser's store was made.
+    for (const c of COUNTRY_PRICING) if (!pl.countries.some((x) => x.code === c.code)) pl.countries.push({ ...c, plans: { ...c.plans }, engagements: { ...c.engagements } });
     return pl.countries;
   };
   const countryBy = (code: string | undefined): CountryPricing => countries().find((c) => c.code === (code ?? 'NG')) ?? countries()[0];
@@ -212,6 +214,8 @@ export function createDemoRepo(): Repo {
       country: c.code,
       currency: c.currency,
       taxLabel: c.taxLabel,
+      chargeCurrency: chargeOf(c).currency,
+      chargeRate: chargeOf(c).rate,
       canChangeCountry: !sub.payments.length && !(sub.credits ?? []).length,
       suspendedReason: sub.suspendedReason ?? '',
       plan: plan.code,
@@ -258,8 +262,18 @@ export function createDemoRepo(): Repo {
   /** Records a payment. The amount given is before VAT, unless it was received another way, when it includes VAT. */
   const receipt = (sub: DemoSub, p: Omit<PaymentRecord, 'id' | 'paidAt' | 'reference' | 'receiptNo' | 'source' | 'vatKobo' | 'currency'> & { source?: PaymentRecord['source']; reference?: string }) => {
     const c = countryOfSub(sub);
-    const vatKobo = p.source === 'manual' ? vatWithin(p.amountKobo, c.vatPercent) : vatOn(p.amountKobo, c.vatPercent);
-    sub.payments.push({ id: uid(), paidAt: new Date().toISOString(), reference: 'demo-' + uid().slice(0, 8), source: 'flutterwave', ...p, vatKobo, currency: c.currency, amountKobo: p.source === 'manual' ? p.amountKobo : p.amountKobo + vatKobo, receiptNo: ++platform().receipt });
+    const ch = chargeOf(c);
+    const converted = ch.currency !== c.currency;
+    // A recorded transfer is what was received, in the collected currency, tax included. A checkout amount is the price before tax.
+    const gross = p.source === 'manual' ? (converted ? Math.round(p.amountKobo / ch.rate) : p.amountKobo) : p.amountKobo + vatOn(p.amountKobo, c.vatPercent);
+    const vat = p.source === 'manual' ? vatWithin(gross, c.vatPercent) : vatOn(p.amountKobo, c.vatPercent);
+    const amountKobo = p.source === 'manual' ? p.amountKobo : converted ? Math.round((gross - vat) * ch.rate) + Math.round(vat * ch.rate) : gross;
+    const vatKobo = converted ? Math.round(vat * ch.rate) : vat;
+    sub.payments.push({
+      id: uid(), paidAt: new Date().toISOString(), reference: 'demo-' + uid().slice(0, 8), source: 'flutterwave', ...p,
+      vatKobo, currency: ch.currency, amountKobo, receiptNo: ++platform().receipt,
+      ...(converted ? { quotedCurrency: c.currency, quotedKobo: gross, quotedVatKobo: vat, fxRate: ch.rate } : {}),
+    });
   };
   const makeFounding = (sub: DemoSub) => {
     const now = new Date();
@@ -758,6 +772,7 @@ export function createDemoRepo(): Repo {
       return {
         country: c.code,
         currency: c.currency,
+        chargeCurrency: chargeOf(c).currency,
         taxLabel: c.taxLabel,
         countries: countries().filter((x) => x.enabled).map((x) => ({ code: x.code, name: x.name, currency: x.currency })),
         plans: plansFor(c).filter((p) => p.code !== 'trial').map((p) => ({ code: p.code, name: p.name, priceKobo: p.priceKobo, maxUsers: p.maxUsers, maxEngagements: p.maxEngagements })),
@@ -853,7 +868,7 @@ export function createDemoRepo(): Repo {
         };
       });
       const payments = Object.entries(s.firms).flatMap(([id, f]) =>
-        subOf(id).payments.map((p) => ({ id: p.id, firm: f.firm.name, firm_id: id, kind: p.kind, plan: p.plan, engagement_type: p.engagementType, with_group: p.withGroup, amount_kobo: p.amountKobo, currency: p.currency ?? 'NGN', vat_kobo: p.vatKobo, credit_kobo: p.creditKobo, founding: p.founding, status: 'paid', source: p.source, note: p.source === 'manual' ? p.reference : '', tx_ref: p.reference, provider_id: null, receipt_no: p.receiptNo, created_at: p.paidAt, paid_at: p.paidAt })),
+        subOf(id).payments.map((p) => ({ id: p.id, firm: f.firm.name, firm_id: id, kind: p.kind, plan: p.plan, engagement_type: p.engagementType, with_group: p.withGroup, amount_kobo: p.amountKobo, currency: p.currency ?? 'NGN', vat_kobo: p.vatKobo, quoted_currency: p.quotedCurrency ?? null, quoted_kobo: p.quotedKobo ?? null, fx_rate: p.fxRate ?? null, credit_kobo: p.creditKobo, founding: p.founding, status: 'paid', source: p.source, note: p.source === 'manual' ? p.reference : '', tx_ref: p.reference, provider_id: null, receipt_no: p.receiptNo, created_at: p.paidAt, paid_at: p.paidAt })),
       ).sort((a, b) => b.created_at.localeCompare(a.created_at));
       const month = new Date().toISOString().slice(0, 7);
       const allPaid = Object.keys(s.firms).flatMap((id) => subOf(id).payments);
@@ -875,6 +890,7 @@ export function createDemoRepo(): Repo {
           .map(({ n: _n, ...r }) => r),
         countries: countries().map((c) => ({
           code: c.code, name: c.name, currency: c.currency, vat_percent: c.vatPercent, tax_label: c.taxLabel, min_charge: c.minCharge, enabled: c.enabled,
+          charge_currency: chargeOf(c).currency, charge_rate: c.chargeRate ?? null, rate_set_at: (c as { rateSetAt?: string }).rateSetAt ?? null,
           firms: Object.values(s.firms).filter((f) => (f.firm.country ?? 'NG') === c.code).length,
           plans: { ...c.plans }, engagement_prices: { ...c.engagements },
         })),
@@ -889,6 +905,10 @@ export function createDemoRepo(): Repo {
         settings: { ...pl.settings, vat_percent: vatRate() },
         log: [...pl.log].reverse(),
       };
+    },
+    async adminFxRate() {
+      if (!isAdminUser()) throw new Error('Not found.');
+      throw new Error('Demo mode has no Flutterwave connection. Enter the rate yourself.');
     },
     async adminAct(action, p) {
       if (!isAdminUser()) throw new Error('Not found.');
@@ -930,6 +950,16 @@ export function createDemoRepo(): Repo {
         if (c.code === 'NG' && p.enabled === false) throw new Error('Nigeria cannot be closed to new firms.');
         Object.assign(c, { vatPercent: rate, taxLabel: label, enabled: p.enabled === undefined ? c.enabled : !!p.enabled });
         if (c.code === 'NG') pl.settings.vat_percent = rate;
+      } else if (action === 'country_charge') {
+        const c = country();
+        const cur = String(p.charge_currency ?? '').toUpperCase();
+        if (!['NGN', 'GHS', 'USD', 'ZAR'].includes(cur)) throw new Error('Choose naira, cedis, US dollars or rand.');
+        if (cur === c.currency) Object.assign(c, { chargeCurrency: null, chargeRate: null, rateSetAt: null });
+        else {
+          const rate = Number(p.rate);
+          if (!(rate > 0 && rate <= 1_000_000)) throw new Error('Give the exchange rate: how many of the collected currency make one of the price currency.');
+          Object.assign(c, { chargeCurrency: cur, chargeRate: rate, rateSetAt: now.toISOString() });
+        }
       } else if (action === 'set_country') {
         const c = country();
         if (!firm) throw new Error('Firm not found.');

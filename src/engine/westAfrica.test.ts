@@ -113,3 +113,27 @@ describe('amounts in other currencies', () => {
     expect(parseAmount('₦1,234')).toBe(123400);
   });
 });
+
+describe('South Africa', () => {
+  it('words the audit report as IRBA’s illustrative reports do', () => {
+    const t = text(audit('ZA'));
+    expect(t).toContain('in accordance with the IFRS for SMEs Accounting Standard and the requirements of the Companies Act of South Africa');
+    expect(t).toContain('Code of Professional Conduct for Registered Auditors (IRBA Code)');
+    expect(t).not.toContain('Report on other legal and regulatory requirements');
+    expect(t).not.toMatch(/Nigeria|value added/);
+  });
+
+  it('is priced in rand, as the database starts it', () => {
+    const sql = readFileSync('supabase/migrations/0018_south_africa.sql', 'utf8');
+    const za = COUNTRY_PRICING.find((c) => c.code === 'ZA')!;
+    expect(za.currency).toBe('ZAR');
+    expect(sql).toContain(`('ZA', 'solo', ${za.plans.solo}), ('ZA', 'practice', ${za.plans.practice}), ('ZA', 'firm', ${za.plans.firm})`);
+    expect(sql).toContain(`('ZA', 'compilation', ${za.engagements.compilation}), ('ZA', 'review', ${za.engagements.review}), ('ZA', 'audit', ${za.engagements.audit}), ('ZA', 'group', ${za.engagements.group})`);
+    expect(priceText(za.plans.solo, 'ZAR')).toBe('R3,500');
+  });
+
+  it('reads rand amounts from a trial balance', () => {
+    expect(parseAmount('R1,234.50')).toBe(123450);
+    expect(parseAmount('ZAR 2,000')).toBe(200000);
+  });
+});

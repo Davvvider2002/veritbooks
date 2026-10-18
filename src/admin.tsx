@@ -463,7 +463,10 @@ function Payments({ d }: { d: AdminData }) {
                 <td>
                   <span className={`tag ${p.status === 'paid' ? 'ok' : p.status === 'failed' ? 'bad' : ''}`}>{p.status === 'pending' ? 'not finished' : p.status}</span>
                 </td>
-                <td className="num">{priceText(p.amount_kobo, p.currency ?? 'NGN')}</td>
+                <td className="num">
+                  {priceText(p.amount_kobo, p.currency ?? 'NGN')}
+                  {p.quoted_currency && p.quoted_kobo != null && <div className="small muted">{priceText(p.quoted_kobo, p.quoted_currency)} at {p.fx_rate}</div>}
+                </td>
               </tr>
             ))}
             {rows.length === 0 && (
@@ -495,7 +498,10 @@ function PriceCell({ label, minor, onSave, busy }: { label: string; minor: numbe
 
 function CountryPrices({ c, d, act, busy }: { c: AdminCountry; d: AdminData; act: Act; busy: boolean }) {
   const [tax, setTax] = useState({ vat_percent: c.vat_percent, tax_label: c.tax_label, enabled: c.enabled });
+  const [charge, setCharge] = useState({ currency: c.charge_currency ?? c.currency, rate: c.charge_rate ? String(c.charge_rate) : '' });
+  const fetchRate = useAction();
   const plans = d.plans.filter((p) => p.code !== 'trial');
+  const foreign = charge.currency !== c.currency;
   return (
     <section className="card stack" aria-label={`${c.name} prices`}>
       <div className="between">
@@ -547,9 +553,54 @@ function CountryPrices({ c, d, act, busy }: { c: AdminCountry; d: AdminData; act
           Save tax
         </button>
       </div>
+      <fieldset className="stack" aria-label={`${c.name} collection`}>
+        <legend>Payment collection</legend>
+        <div className="row" style={{ alignItems: 'flex-end' }}>
+          <Field label="Flutterwave collects in">
+            <select aria-label={`${c.name} collection currency`} value={charge.currency} onChange={(e) => setCharge({ ...charge, currency: e.target.value as typeof charge.currency })}>
+              {[c.currency, ...(['ZAR', 'NGN', 'USD', 'GHS'] as const).filter((x) => x !== c.currency)].map((x) => (
+                <option key={x} value={x}>{x === c.currency ? `${x}, the price currency` : `${x}, converted`}</option>
+              ))}
+            </select>
+          </Field>
+          {foreign && (
+            <Field label={`${charge.currency} for 1 ${c.currency}`}>
+              <input type="number" aria-label={`${c.name} exchange rate`} min={0} step="any" value={charge.rate} onChange={(e) => setCharge({ ...charge, rate: e.target.value })} style={{ width: 140 }} />
+            </Field>
+          )}
+          {foreign && (
+            <button
+              type="button"
+              disabled={fetchRate.busy}
+              style={{ marginBottom: 4 }}
+              onClick={() => void fetchRate.run(async () => setCharge({ ...charge, rate: String(Math.round((await repo.adminFxRate(c.currency, charge.currency)) * 1e6) / 1e6) }))}
+            >
+              Get Flutterwave’s rate
+            </button>
+          )}
+          <button
+            disabled={busy || (foreign && !(Number(charge.rate) > 0))}
+            aria-label={`Save ${c.name} collection`}
+            style={{ marginBottom: 4 }}
+            onClick={() => act('country_charge', { country: c.code, charge_currency: charge.currency, ...(foreign ? { rate: Number(charge.rate) } : {}) })}
+          >
+            Save collection
+          </button>
+        </div>
+        <ErrorNote error={fetchRate.error} />
+        <span className="small muted">
+          Firms in {c.name} always see their prices in {c.currency}.{' '}
+          {c.charge_currency && c.charge_currency !== c.currency
+            ? `Payments are collected in ${c.charge_currency} at ${c.charge_rate} to 1 ${c.currency}, set ${day(c.rate_set_at)}. Update the rate as it moves.`
+            : `Payments are collected in ${c.currency}.`}{' '}
+          Flutterwave pays out in the currency of your settlement account, converting if it must. Check that the collected currency is enabled on your Flutterwave account.
+        </span>
+      </fieldset>
       <span className="small muted">
         {c.code === 'NG'
           ? 'Nigerian VAT is 7.5%.'
+          : c.code === 'ZA'
+          ? 'South African VAT is 15%. Set it once VeritBooks is registered for VAT there; until then nothing is added.'
           : 'Set the rate once VeritBooks is registered for tax here, or once advised none is due. Until then nothing is added.'}{' '}
         The tax is added on top of each price at checkout and shown on the receipt.
       </span>
@@ -668,7 +719,7 @@ const ACTION: Record<string, string> = {
   extend_trial: 'Extended trial', set_plan: 'Gave a plan', end_plan: 'Ended plan', record_payment: 'Recorded a payment', suspend: 'Suspended', unsuspend: 'Lifted suspension',
   founding: 'Changed founding status', grant_credit: 'Granted an engagement', note: 'Changed note', set_price: 'Changed a plan price', set_engagement_price: 'Changed an engagement price',
   country_price: 'Changed a country plan price', country_engagement_price: 'Changed a country engagement price', country_settings: 'Changed a country’s tax', set_country: 'Moved a firm to another country', plan_limits: 'Changed plan allowances',
-  settings: 'Changed seller details', add_admin: 'Added an admin', remove_admin: 'Removed an admin', reset_two_factor: 'Reset an admin’s two-factor',
+  settings: 'Changed seller details', country_charge: 'Changed a country’s collection currency', add_admin: 'Added an admin', remove_admin: 'Removed an admin', reset_two_factor: 'Reset an admin’s two-factor',
 };
 
 function Log({ d }: { d: AdminData }) {

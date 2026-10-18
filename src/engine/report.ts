@@ -179,8 +179,10 @@ function companyReport(i: ReportInput): DraftReport {
       ? `We were engaged to audit the financial statements of ${i.clientName}, which comprise ${list}.`
       : `We have audited the financial statements of ${i.clientName}, which comprise ${list}.`;
 
-  const standards =
-    `We conducted our audit in accordance with International Standards on Auditing. Our responsibilities under those standards are described in the Auditor’s responsibilities section of our report. We are independent of the company in accordance with the ethical requirements relevant to our audit of the financial statements in ${j.inName}, and we have fulfilled our other ethical responsibilities in accordance with those requirements.`;
+  const independent =
+    j.independence ??
+    `We are independent of the company in accordance with the ethical requirements relevant to our audit of the financial statements in ${j.inName}, and we have fulfilled our other ethical responsibilities in accordance with those requirements.`;
+  const standards = `We conducted our audit in accordance with International Standards on Auditing. Our responsibilities under those standards are described in the Auditor’s responsibilities section of our report. ${independent}`;
 
   const basisParagraphs = {
     unmodified: [standards, 'We believe that the audit evidence we have obtained is sufficient and appropriate to provide a basis for our opinion.'],
@@ -226,7 +228,7 @@ function companyReport(i: ReportInput): DraftReport {
         opinion === 'disclaimer'
           ? [
               'Our responsibility is to conduct an audit of the company’s financial statements in accordance with International Standards on Auditing and to issue an auditor’s report. However, because of the matter described in the Basis for disclaimer of opinion section, we were not able to obtain sufficient appropriate audit evidence to provide a basis for an audit opinion.',
-              `We are independent of the company in accordance with the ethical requirements relevant to our audit of the financial statements in ${j.inName}, and we have fulfilled our other ethical responsibilities in accordance with those requirements.`,
+              independent,
             ]
           : [
               'Our objectives are to obtain reasonable assurance about whether the financial statements as a whole are free from material misstatement, whether due to fraud or error, and to issue an auditor’s report that includes our opinion. Reasonable assurance is a high level of assurance, but it is not a guarantee that an audit conducted in accordance with International Standards on Auditing will always detect a material misstatement when it exists.',

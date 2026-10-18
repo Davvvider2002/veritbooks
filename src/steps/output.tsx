@@ -555,6 +555,7 @@ function draftFor(ctx: Ctx, settings: ReportSettings) {
 function ReportSheet({ ctx, draft, ready }: { ctx: Ctx; draft: ReturnType<typeof draftFor>; ready: boolean }) {
   const { eng, ws } = ctx;
   const signed = eng.status === 'locked';
+  const title = eng.type === 'audit' ? ctx.jur.signerTitle : undefined;
   return (
     <section className={`sheet${ws.firm.branding.font === 'sans' ? ' sans' : ''}`} id="fs-report">
       <DraftMark locked={signed} />
@@ -579,6 +580,7 @@ function ReportSheet({ ctx, draft, ready }: { ctx: Ctx; draft: ReturnType<typeof
           {signed ? (
             <>
               {eng.signedByName}
+              {title && <><br />{title}</>}
               <br />
               {eng.signedByFrc}
               <br />
@@ -591,6 +593,7 @@ function ReportSheet({ ctx, draft, ready }: { ctx: Ctx; draft: ReturnType<typeof
           ) : (
             <>
               [Engagement partner]
+              {title && <><br />{title}</>}
               <br />
               [{ctx.jur.licenceShort}]
               <br />

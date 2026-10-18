@@ -190,6 +190,8 @@ export function createSupabaseRepo(url: string, key: string): Repo {
           country: b.country ?? 'NG',
           currency: b.currency ?? 'NGN',
           taxLabel: b.tax_label ?? 'VAT',
+          chargeCurrency: b.charge_currency ?? b.currency ?? 'NGN',
+          chargeRate: Number(b.charge_rate ?? 1),
           canChangeCountry: b.can_change_country ?? false,
           suspendedReason: b.suspended_reason ?? '',
           foundingAgreedAt: b.founding_agreed_at ?? null,
@@ -210,7 +212,7 @@ export function createSupabaseRepo(url: string, key: string): Repo {
           users: b.users,
           maxUsers: b.max_users,
           plans: (b.plans ?? []).map((p: any) => ({ code: p.code, name: p.name, maxUsers: p.max_users, maxEngagements: p.max_engagements, listKobo: p.list_kobo, amountKobo: p.amount_kobo, founding: p.founding, creditKobo: p.credit_kobo ?? 0, mode: p.mode ?? 'new' })),
-          payments: (b.payments ?? []).map((p: any) => ({ id: p.id, kind: p.kind ?? 'plan', plan: p.plan, engagementType: p.engagement_type ?? null, withGroup: !!p.with_group, amountKobo: p.amount_kobo, vatKobo: p.vat_kobo ?? 0, currency: p.currency ?? 'NGN', creditKobo: p.credit_kobo ?? 0, founding: p.founding, source: p.source ?? 'flutterwave', paidAt: p.paid_at, coversUntil: p.covers_until, reference: p.tx_ref, receiptNo: p.receipt_no ?? null })),
+          payments: (b.payments ?? []).map((p: any) => ({ id: p.id, kind: p.kind ?? 'plan', plan: p.plan, engagementType: p.engagement_type ?? null, withGroup: !!p.with_group, amountKobo: p.amount_kobo, vatKobo: p.vat_kobo ?? 0, currency: p.currency ?? 'NGN', quotedCurrency: p.quoted_currency ?? null, quotedKobo: p.quoted_kobo ?? null, quotedVatKobo: p.quoted_vat_kobo ?? null, fxRate: p.fx_rate === null || p.fx_rate === undefined ? null : Number(p.fx_rate), creditKobo: p.credit_kobo ?? 0, founding: p.founding, source: p.source ?? 'flutterwave', paidAt: p.paid_at, coversUntil: p.covers_until, reference: p.tx_ref, receiptNo: p.receipt_no ?? null })),
         },
         firm: { id: firm.id, name: firm.name, frcNumber: firm.frc_number, address: firm.address, country: firm.country ?? 'NG', aiEnabled: !!firm.ai_enabled, branding: firm.branding ?? {}, fileNumbering: { mode: firm.file_numbering?.mode === 'auto' ? 'auto' : 'manual', pattern: firm.file_numbering?.pattern ?? '' }, nextFileNo: firm.next_file_no ?? 1 },
         me: toMember(mine),
@@ -616,6 +618,7 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       return {
         country: data.country ?? 'NG',
         currency: data.currency ?? 'NGN',
+        chargeCurrency: data.charge_currency ?? data.currency ?? 'NGN',
         taxLabel: data.tax_label ?? 'VAT',
         countries: data.countries ?? [{ code: 'NG', name: 'Nigeria', currency: 'NGN' }],
         plans: (data.plans ?? []).map((p: any) => ({ code: p.code, name: p.name, priceKobo: p.price_kobo, maxUsers: p.max_users, maxEngagements: p.max_engagements })),
@@ -695,6 +698,10 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       const { data, error } = await db.rpc('admin_overview');
       fail(error);
       return data as AdminData;
+    },
+    async adminFxRate(price, charge) {
+      const d = await billing({ action: 'rate', price, charge });
+      return Number(d.rate);
     },
     async adminAct(action, args) {
       const { error } = await db.rpc('admin_act', { p_action: action, p: args });

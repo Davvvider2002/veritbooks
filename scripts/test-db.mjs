@@ -41,6 +41,7 @@ await db.exec(readFileSync('supabase/migrations/0014_admin_two_factor.sql', 'utf
 await db.exec(readFileSync('supabase/migrations/0015_two_factor_for_firms.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0016_west_africa.sql', 'utf8'));
 await db.exec(readFileSync('supabase/migrations/0017_three_years.sql', 'utf8'));
+await db.exec(readFileSync('supabase/migrations/0018_south_africa.sql', 'utf8'));
 // The checks written before VAT run at a zero rate. VAT has its own checks at the end.
 await db.exec(`update platform_settings set vat_percent = 0; update countries set vat_percent = 0`);
 
@@ -541,7 +542,7 @@ await denied('anonymous visitors cannot create a firm', () => db.query(`select c
 // --- West Africa: a firm's country sets its prices, currency and tax --------
 await db.exec(`reset role`);
 const pubGh = (await db.query(`select public_prices('gh') as p`)).rows[0].p;
-ok('each country has its own price list, in its own currency', pubGh.currency === 'GHS' && pubGh.plans.find((p) => p.code === 'solo').price_kobo === 150000 && pubGh.countries.length === 5);
+ok('each country has its own price list, in its own currency', pubGh.currency === 'GHS' && pubGh.plans.find((p) => p.code === 'solo').price_kobo === 150000 && pubGh.countries.length === 6);
 ok('Sierra Leone, Liberia and The Gambia are charged in US dollars', (await db.query(`select public_prices('LR') as p`)).rows[0].p.currency === 'USD');
 const GH1 = '00000000-0000-0000-0000-000000000021';
 const LR1 = '00000000-0000-0000-0000-000000000022';
@@ -577,12 +578,12 @@ ok('the admin sets prices for one country without touching another', pubGh2.plan
 await denied('a partner cannot set country prices', () => act(GH1, 'country_price', { country: 'GH', plan: 'solo', price: 1 }), /Not found/);
 await denied('Nigeria cannot be closed', () => act(Z, 'country_settings', { country: 'NG', vat_percent: 7.5, tax_label: 'VAT', enabled: false }), /cannot be closed/);
 await act(Z, 'country_settings', { country: 'GM', vat_percent: 0, tax_label: 'VAT', enabled: false });
-ok('a country can be closed to new firms', (await db.query(`select public_prices('GM') as p`)).rows[0].p === null && (await db.query(`select public_prices('NG') as p`)).rows[0].p.countries.length === 4);
+ok('a country can be closed to new firms', (await db.query(`select public_prices('GM') as p`)).rows[0].p === null && (await db.query(`select public_prices('NG') as p`)).rows[0].p.countries.length === 5);
 const [fl] = await as(LR1, `select * from create_firm('Monrovia CPAs', '', 'Monrovia', 'Musu Kollie', '', 'LR')`);
 await act(Z, 'record_payment', { firm: fl.id, plan: 'solo', amount_naira: 99, reference: 'Wire' });
 ok('a recorded payment takes the firm currency', (await as(LR1, `select billing_overview() as b`))[0].b.payments[0].currency === 'USD');
 ov = (await as2(Z, `select admin_overview() as o`))[0].o;
-ok('the admin sees revenue for each currency, and each firm country', ov.revenue.some((r) => r.currency === 'GHS' && r.total_kobo > 0) && ov.revenue.some((r) => r.currency === 'USD' && r.total_kobo === 9900) && ov.firms.find((f) => f.id === fg.id).country === 'GH' && ov.countries.length === 5);
+ok('the admin sees revenue for each currency, and each firm country', ov.revenue.some((r) => r.currency === 'GHS' && r.total_kobo > 0) && ov.revenue.some((r) => r.currency === 'USD' && r.total_kobo === 9900) && ov.firms.find((f) => f.id === fg.id).country === 'GH' && ov.countries.length === 6);
 await act(Z, 'set_country', { firm: fl.id, country: 'SL' });
 ok('the admin can move a firm to another country', (await db.query(`select country from firms where id = $1`, [fl.id])).rows[0].country === 'SL');
 await act(Z, 'plan_limits', { plan: 'solo', max_users: 5, max_engagements: 25 });
@@ -595,6 +596,36 @@ await denied('an engagement currency must be one we know', () => as(GH1, `insert
 const [tl] = await as(GH1, `insert into tb_lines (engagement_id, code, name, balance, prior_balance, prior2_balance) values ($1, '1400', 'Bank', 100, 80, 60) returning *`, [eg.id]);
 ok('an account holds a third year', Number(tl.prior2_balance) === 60);
 await denied('a Ghanaian partner is asked for an ICAG licence', () => as(GH1, `select sign_engagement($1)`, [eg.id]), /ICAG practising licence number is missing/);
+
+// --- South Africa: rand prices, collected in rand or converted ----------------
+const ZA1 = '00000000-0000-0000-0000-000000000031';
+await db.exec(`insert into auth.users (id, email, email_confirmed_at) values ('${ZA1}', 'thandi@joburg.za', now())`);
+ok('South Africa is priced in rand', (await db.query(`select public_prices('ZA') as p`)).rows[0].p.plans.find((p) => p.code === 'solo').price_kobo === 350000);
+const [fz] = await as(ZA1, `select * from create_firm('Nkosi Inc', '', 'Johannesburg', 'Thandi Nkosi', '', 'ZA')`);
+const zq = await co(ZA1, { kind: 'engagement', type: 'audit' });
+ok('by default a rand price is charged in rand', zq.currency === 'ZAR' && zq.amount_kobo === 95000 && zq.fx_rate === 1);
+ok('a rand payment settles in rand', (await svc(`select apply_payment($1,'z1',95000,'ZAR') as r`, [zq.tx_ref]))[0].r === 'paid');
+await denied('a converted charge needs a rate', () => act(Z, 'country_charge', { country: 'ZA', charge_currency: 'USD' }), /exchange rate/);
+await denied('only the platform owner sets the collection currency', () => act(ZA1, 'country_charge', { country: 'ZA', charge_currency: 'USD', rate: 0.055 }), /Not found/);
+await act(Z, 'country_charge', { country: 'ZA', charge_currency: 'USD', rate: 0.055 });
+await act(Z, 'country_settings', { country: 'ZA', vat_percent: 15, tax_label: 'VAT' });
+const zu = await co(ZA1, { kind: 'engagement', type: 'review' });
+ok('converted: charged in dollars, quoted in rand, tax included', zu.currency === 'USD' && zu.quoted_currency === 'ZAR' && zu.quoted_kobo === 69000 && zu.amount_kobo === Math.round(60000 * 0.055) + Math.round(9000 * 0.055));
+await denied('a converted payment cannot be settled in rand', () => svc(`select apply_payment($1,'z2',69000,'ZAR')`, [zu.tx_ref]), /does not match/);
+ok('it settles in dollars', (await svc(`select apply_payment($1,'z2',$2,'USD') as r`, [zu.tx_ref, zu.amount_kobo]))[0].r === 'paid');
+const zr = (await svc(`select payment_receipt($1) as r`, [zu.tx_ref]))[0].r;
+ok('the receipt shows both currencies and the rate', zr.currency === 'USD' && zr.quoted_currency === 'ZAR' && zr.quoted_kobo === 69000 && Number(zr.fx_rate) === 0.055);
+const zb = (await as(ZA1, `select billing_overview() as b`))[0].b;
+ok('the firm sees prices in rand and is told it pays in dollars', zb.currency === 'ZAR' && zb.charge_currency === 'USD' && Number(zb.charge_rate) === 0.055 && zb.plans.find((p) => p.code === 'solo').list_kobo === 350000);
+await act(Z, 'country_charge', { country: 'ZA', charge_currency: 'NGN', rate: 85 });
+ok('the platform owner can collect in naira instead', (await co(ZA1, { kind: 'engagement', type: 'compilation' })).currency === 'NGN');
+await act(Z, 'country_charge', { country: 'ZA', charge_currency: 'ZAR' });
+ok('and back to rand', (await co(ZA1, { kind: 'engagement', type: 'compilation' })).currency === 'ZAR');
+ov = (await as2(Z, `select admin_overview() as o`))[0].o;
+ok('the console shows each country’s collection currency', ov.countries.find((c) => c.code === 'ZA').charge_currency === 'ZAR' && ov.countries.length === 6);
+const [cz] = await as(ZA1, `insert into clients (firm_id, name) values ($1, 'Soweto Traders (Pty) Ltd') returning *`, [fz.id]);
+const [ez] = await as(ZA1, `insert into engagements (firm_id, client_id, type, year_end, currency) values ($1, $2, 'compilation', '2025-02-28', 'ZAR') returning *`, [fz.id, cz.id]);
+ok('an engagement can be presented in rand', ez.currency === 'ZAR');
 
 console.log(failed ? `\n${failed} check(s) failed` : '\nAll database checks passed');
 process.exit(failed ? 1 : 0);

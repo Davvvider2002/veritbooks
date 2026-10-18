@@ -33,7 +33,7 @@ export function parseAmount(raw: unknown): Kobo | null {
   } else if (/dr\.?$/i.test(s)) {
     s = s.replace(/dr\.?$/i, '');
   }
-  s = s.replace(/GH[₵¢]|GHS|SLE|LRD|GMD|USD|US\$|L\$|NGN|Le(?=\s*\d)|D(?=\s*\d)|N(?=\s*\d)|[₦$,\s]/gi, '');
+  s = s.replace(/GH[₵¢]|GHS|SLE|LRD|GMD|USD|ZAR|US\$|L\$|NGN|R(?=\s*\d)|Le(?=\s*\d)|D(?=\s*\d)|N(?=\s*\d)|[₦$,\s]/gi, '');
   if (s.startsWith('-')) {
     negative = !negative;
     s = s.slice(1);

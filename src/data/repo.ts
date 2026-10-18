@@ -147,6 +147,11 @@ export interface PaymentRecord {
   /** The VAT inside amountKobo. */
   vatKobo: number;
   currency: BillingCurrency;
+  /** When collected in another currency: the price in the firm's own currency, its tax, and the rate used. */
+  quotedCurrency?: BillingCurrency | null;
+  quotedKobo?: number | null;
+  quotedVatKobo?: number | null;
+  fxRate?: number | null;
   creditKobo: number;
   founding: boolean;
   source: 'flutterwave' | 'manual';
@@ -185,6 +190,9 @@ export interface Billing {
   /** The firm's country, and the currency and tax it is charged in. */
   country: CountryCode;
   currency: BillingCurrency;
+  /** The currency Flutterwave collects in, and how many of it make one unit of the price. Rate 1 when it is the price currency. */
+  chargeCurrency: BillingCurrency;
+  chargeRate: number;
   taxLabel: string;
   /** True until the firm has paid for anything. After that the platform owner changes the country. */
   canChangeCountry: boolean;
@@ -192,12 +200,14 @@ export interface Billing {
 }
 
 /** The currencies firms are charged in. Flutterwave collects naira and cedis locally, and US dollars elsewhere. */
-export type BillingCurrency = 'NGN' | 'GHS' | 'USD';
+export type BillingCurrency = 'NGN' | 'GHS' | 'USD' | 'ZAR';
 
 /** The price list shown to visitors, for one country. Prices are before tax. */
 export interface PublicPrices {
   country: CountryCode;
   currency: BillingCurrency;
+  /** The currency Flutterwave collects in. */
+  chargeCurrency: BillingCurrency;
   taxLabel: string;
   /** The countries a firm can sign up in. */
   countries: { code: CountryCode; name: string; currency: BillingCurrency }[];
@@ -227,7 +237,7 @@ export interface AdminData {
   users: { id: string; email: string; created_at: string; confirmed: boolean; last_sign_in_at: string | null; firm: string | null; role: string | null; name: string | null; admin: boolean }[];
   revenue: { currency: BillingCurrency; total_kobo: number; month_kobo: number | null; vat_kobo: number; vat_month_kobo: number | null }[];
   countries: AdminCountry[];
-  payments: { id: string; firm: string; firm_id: string; kind: string; currency: BillingCurrency; vat_kobo: number; plan: string | null; engagement_type: string | null; with_group: boolean; amount_kobo: number; credit_kobo: number; founding: boolean; status: string; source: string; note: string; tx_ref: string; provider_id: string | null; receipt_no: number | null; created_at: string; paid_at: string | null }[];
+  payments: { id: string; firm: string; firm_id: string; kind: string; currency: BillingCurrency; vat_kobo: number; quoted_currency?: BillingCurrency | null; quoted_kobo?: number | null; fx_rate?: number | null; plan: string | null; engagement_type: string | null; with_group: boolean; amount_kobo: number; credit_kobo: number; founding: boolean; status: string; source: string; note: string; tx_ref: string; provider_id: string | null; receipt_no: number | null; created_at: string; paid_at: string | null }[];
   plans: { code: string; name: string; price_kobo: number; max_users: number | null; max_engagements: number }[];
   engagement_prices: { code: string; name: string; price_kobo: number }[];
   settings: { seller_name: string; seller_address: string; tax_id: string; support_email: string; vat_percent: number };
@@ -238,6 +248,7 @@ export interface AdminData {
 export interface AdminCountry {
   code: CountryCode; name: string; currency: BillingCurrency; vat_percent: number; tax_label: string;
   min_charge: number; enabled: boolean; firms: number;
+  charge_currency: BillingCurrency; charge_rate: number | null; rate_set_at: string | null;
   plans: Record<string, number>; engagement_prices: Record<string, number>;
 }
 
@@ -476,6 +487,8 @@ export interface Repo {
   isAdmin(): Promise<boolean>;
   adminOverview(): Promise<AdminData>;
   adminAct(action: string, args: Record<string, unknown>): Promise<void>;
+  /** Flutterwave's rate today: how many of `charge` it takes to make one of `price`. Admins only. */
+  adminFxRate(price: BillingCurrency, charge: BillingCurrency): Promise<number>;
 
   /** Turns AI assistance on or off for the firm. Partners only. */
   setAssist(enabled: boolean): Promise<void>;

@@ -132,9 +132,9 @@ export const vatWithin = (grossKobo: Kobo, percent: number): Kobo => grossKobo -
  * naira and cedis locally, so Sierra Leone, Liberia and The Gambia are charged in US dollars.
  * Only Nigeria starts with a tax rate. The platform owner sets the others in the console.
  */
-export type BillingCurrencyCode = 'NGN' | 'GHS' | 'USD';
+export type BillingCurrencyCode = 'NGN' | 'GHS' | 'USD' | 'ZAR';
 export interface CountryPricing {
-  code: 'NG' | 'GH' | 'SL' | 'LR' | 'GM';
+  code: 'NG' | 'GH' | 'SL' | 'LR' | 'GM' | 'ZA';
   name: string;
   currency: BillingCurrencyCode;
   vatPercent: number;
@@ -143,6 +143,9 @@ export interface CountryPricing {
   enabled: boolean;
   plans: Record<'solo' | 'practice' | 'firm', Kobo>;
   engagements: Record<'compilation' | 'review' | 'audit' | 'group', Kobo>;
+  /** The currency Flutterwave collects, when not the price currency, and how many of it make one unit of the price. */
+  chargeCurrency?: BillingCurrencyCode | null;
+  chargeRate?: number | null;
 }
 const usd = (code: 'SL' | 'LR' | 'GM', name: string, taxLabel: string): CountryPricing => ({
   code, name, currency: 'USD', vatPercent: 0, taxLabel, minCharge: 1_00, enabled: true,
@@ -163,9 +166,18 @@ export const COUNTRY_PRICING: CountryPricing[] = [
   usd('SL', 'Sierra Leone', 'GST'),
   usd('LR', 'Liberia', 'GST'),
   usd('GM', 'The Gambia', 'VAT'),
+  {
+    code: 'ZA', name: 'South Africa', currency: 'ZAR', vatPercent: 0, taxLabel: 'VAT', minCharge: 20_00, enabled: true,
+    plans: { solo: 3_500_00, practice: 9_500_00, firm: 24_000_00 },
+    engagements: { compilation: 250_00, review: 600_00, audit: 950_00, group: 450_00 },
+  },
 ];
 
-const SYMBOL: Record<BillingCurrencyCode, string> = { NGN: '₦', GHS: 'GH₵', USD: 'US$' };
+/** The currency a country's payments are collected in, and the rate from its price currency. */
+export const chargeOf = (c: Pick<CountryPricing, 'currency' | 'chargeCurrency' | 'chargeRate'>): { currency: BillingCurrencyCode; rate: number } =>
+  c.chargeCurrency && c.chargeCurrency !== c.currency && c.chargeRate ? { currency: c.chargeCurrency, rate: c.chargeRate } : { currency: c.currency, rate: 1 };
+
+const SYMBOL: Record<BillingCurrencyCode, string> = { NGN: '₦', GHS: 'GH₵', USD: 'US$', ZAR: 'R' };
 /** A price for people to read: ₦180,000, GH₵1,500, US$99. Pennies only when there are some. */
 export function priceText(minor: Kobo, currency: string = 'NGN'): string {
   const symbol = SYMBOL[currency as BillingCurrencyCode] ?? currency + ' ';

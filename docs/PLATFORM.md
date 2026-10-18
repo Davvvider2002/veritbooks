@@ -1,6 +1,6 @@
 # VeritBooks: platform definition
 
-Version 0.15, 17 October 2026.
+Version 0.16, 18 October 2026.
 
 ## What it is
 
@@ -367,9 +367,11 @@ A firm chooses its country when it is set up. The country sets the law its repor
 | Sierra Leone | Companies Act 2009 | ICASL practising certificate | No | USD |
 | Liberia | None cited; framework as adopted by LICPA | LICPA licence | No | USD |
 | The Gambia | Companies Act, 2013; Financial Reporting Act 2013 | GICA practising certificate | No | USD |
+| South Africa | Companies Act of South Africa (71 of 2008); independence under the IRBA Code; signed as Registered Auditor | IRBA registration number | No | ZAR, or converted |
 
 - **Report currency.** Each engagement has its own presentation currency, defaulting to the country's (US dollars in Liberia). Every amount label in the file follows it.
 - **Prices.** Each country has its own plan and single-engagement prices and its own tax rate and tax name, all set in the admin console's Prices tab. Plan allowances are the same everywhere. Ghana is charged in cedis. Sierra Leone, Liberia and The Gambia are charged in US dollars, because Flutterwave does not collect leones, Liberian dollars or dalasis locally. Only Nigeria starts with a tax rate (7.5% VAT).
+- **Collecting in another currency.** For each country the platform owner chooses the currency Flutterwave collects: the price currency, or naira, cedis, US dollars or rand at a rate the owner sets (the console can fetch Flutterwave's rate). The firm always sees its prices in its own currency and is told what it will be charged. Tax is worked out in the price currency, then converted. The receipt shows both, with the rate. Credit for an unused plan is worked out from the quoted amount. Flutterwave pays out in the settlement account's currency.
 - **Changing country.** A partner can change it until the firm has paid for anything. After that the platform owner moves the firm, and a founding firm's held prices move to the new list.
 - **Founding offer.** The 20 places are shared across all countries.
 

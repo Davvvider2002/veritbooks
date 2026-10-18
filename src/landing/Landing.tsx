@@ -144,7 +144,7 @@ const TRUST = [
   ['Computed, not typed', 'Financial statement figures are computed from the trial balance and journals. They are not typed into statement lines.'],
   ['Traceable figures', 'Figures can be traced to the underlying accounts and supporting records.'],
   ['Checks before sign-off', 'The application checks engagement completion before a partner can sign.'],
-  ['Authorised signing', 'Only an authorised partner with the practising licence their country requires can sign: FRC in Nigeria, ICAG in Ghana, ICASL in Sierra Leone, LICPA in Liberia, GICA in The Gambia.'],
+  ['Authorised signing', 'Only an authorised partner with the practising licence their country requires can sign: FRC in Nigeria, ICAG in Ghana, ICASL in Sierra Leone, LICPA in Liberia, GICA in The Gambia, IRBA in South Africa.'],
   ['Locked when signed', 'Signed files are locked against further changes.'],
   ['Recorded changes', 'Changes made before signing are recorded in the audit trail.'],
   ['Separated firm data', "Each firm's data is separated from other firms' data."],
@@ -341,7 +341,7 @@ export function Landing() {
               <ul className="lp-attrs">
                 <li>IFRS for SMEs</li>
                 <li>Audit | Review | Compilation</li>
-                <li>Nigeria, Ghana, Sierra Leone, Liberia and The Gambia</li>
+                <li>West Africa and South Africa</li>
               </ul>
             </div>
           </div>
