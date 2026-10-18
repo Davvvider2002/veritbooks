@@ -457,7 +457,7 @@ export function signOffChecks(g: GateInput): Check[] {
   });
   checks.push({
     id: 'signer',
-    label: `The person signing is an engagement partner with a ${j.licenceShort}`,
+    label: `The person signing is an engagement partner with ${/^[AEIOU]/.test(j.licenceShort) ? 'an' : 'a'} ${j.licenceShort}`,
     ok: g.signerRole === 'partner' && !!g.signerFrc.trim(),
     blocking: true,
   });
