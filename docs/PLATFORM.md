@@ -1,6 +1,6 @@
 # VeritBooks: platform definition
 
-Version 0.16, 18 October 2026.
+Version 0.17, 18 October 2026.
 
 ## What it is
 
@@ -375,6 +375,20 @@ A firm chooses its country when it is set up. The country sets the law its repor
 - **Changing country.** A partner can change it until the firm has paid for anything. After that the platform owner moves the firm, and a founding firm's held prices move to the new list.
 - **Founding offer.** The 20 places are shared across all countries.
 
+## South African tax and CIPC filing
+
+Two steps appear only for a South African firm. The rules and their sources live in `src/engine/tax.ts` and `src/engine/ixbrl.ts`.
+
+**Income tax.** Starts from profit before tax. The preparer lists items added back and allowances, deductions and exempt income; depreciation is added back to start with. An assessed loss brought forward is set off up to the greater of R1 million and 80% of taxable income (section 20(1)(a)); a loss for the year adds to the balance carried forward. Tax is at the company rate SARS publishes for the year end (27% from years ending 31 March 2023, 28% before), which the preparer can change, or on the small business corporation table for the year (tables held from years ending 1 April 2022 to 31 March 2027).
+
+**Deferred tax.** Section 29 of the IFRS for SMEs. Carrying amount against tax base, line by line; property, plant and equipment and provisions follow the statements. A deferred tax asset on the assessed loss is recognised only when the preparer ticks it. The deferred tax rate defaults to the company rate.
+
+**Journals.** Current tax and the deferred tax movement are posted as TAX1 and TAX2, each for the difference between what the computation requires and what the accounts hold, so they never double up. Where the trial balance has no account for one, the step adds it with a nil balance. The tax rate is also carried into the tax reconciliation note when that note has none.
+
+**Provisional tax (IRP6).** First payment half the tax on the estimate, due at the end of the sixth month; second payment the tax on the estimate less the first, due at year end; a voluntary third payment six months after a February year end, seven otherwise. The basic amount rises 8% a year when the last assessment is more than 18 months old. The paragraph 20 test is applied to the second estimate (90% of taxable income or the basic amount up to R1 million, 80% above), with the 20% penalty. A payment made late carries the 10% penalty. Interest under section 89quat is worked out only at a rate the preparer enters.
+
+**CIPC filing.** Works out the public interest score (employees, a point per R1 million or part of third party liabilities and of turnover, and individuals with a beneficial interest) and says what it means for audit or review. It collects the annual return details CIPC requires, lists any still blank, and downloads one XHTML file in Inline XBRL 1.1 against the IFRS for SMEs entry point of CIPC's 2024 taxonomy. The statements of financial position, profit or loss and cash flows are tagged figure by figure, each fact with its concept's sign; the directors' report, directors' responsibilities, the independent report, the accounting policies, the notes and the directors are tagged as blocks; nil turnover, third party liabilities, revenue and liabilities carry an English footnote. The file passes Arelle's Inline XBRL 1.1 checks against a stand-in taxonomy. The element names follow CIPC's naming rule but could not be checked against the taxonomy package, so the file is marked as a draft to be validated with CIPC before its first filing. The entry point can be changed on the step.
+
 ## Nigerian content
 
 | Requirement | Where it appears |
@@ -390,7 +404,7 @@ The work programmes, accounting policy wording and report wording are starter co
 
 ## Known gaps in phase 1
 
-- Disclosures not produced: deferred tax workings, a detailed directors' interests table, financial instruments and leases notes, and segment or industry-specific notes. The prior year statement of changes in equity assumes share capital and other reserves did not move in that year. The tax reconciliation and notes carry no prior year comparatives.
+- Disclosures not produced: deferred tax workings outside South Africa, a detailed directors' interests table, financial instruments and leases notes, and segment or industry-specific notes. The prior year statement of changes in equity assumes share capital and other reserves did not move in that year. The tax reconciliation and notes carry no prior year comparatives.
 - Cash flow: purchases and disposals of assets are shown net, and interest and tax paid are derived from balance movements.
 - Team: invitations are not emailed. Managers and staff have the same data rights; only the partner role is distinct.
 - Sign-off gates: partner role, FRC numbers, a footing and fully mapped trial balance and balanced journals are enforced in the database. Materiality, programme completion, opinion selection, journal conclusions and bank reconciliation are enforced in the application only.

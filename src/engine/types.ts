@@ -1,4 +1,6 @@
 import type { GroupSetup } from './consolidation';
+import type { CipcDetails } from './ixbrl';
+import type { TaxWorking } from './tax';
 
 /** All amounts are integer kobo. Balances are debit-positive (debit minus credit). */
 export type Kobo = number;
@@ -144,6 +146,10 @@ export interface Disclosures {
   policies?: Record<string, { text: string; by: string; at: string }>;
   /** The preparer's answer to each item of the disclosure checklist, by item id. */
   checklist?: Record<string, ChecklistAnswer>;
+  /** South Africa: the income tax computation, provisional tax and deferred tax working. */
+  tax?: TaxWorking;
+  /** South Africa: what the CIPC annual financial statements filing needs beyond the statements. */
+  cipc?: CipcDetails;
 }
 
 export interface ChecklistAnswer {

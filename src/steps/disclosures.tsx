@@ -357,8 +357,8 @@ export function DisclosuresStep({ eng, lines, adjustments, statements: st, locke
             disabled={busy}
             onClick={() =>
               void run(async () => {
-                // The checklist is kept in the same record and is edited on its own step.
-                await repo.updateEngagement(eng.id, { disclosures: { ...d, checklist: eng.disclosures.checklist, policies: eng.disclosures.policies } });
+                // The checklist, policies and tax working share this record and are edited on their own steps.
+                await repo.updateEngagement(eng.id, { disclosures: { ...eng.disclosures, ...d } });
                 setSaved(true);
                 reload();
               })

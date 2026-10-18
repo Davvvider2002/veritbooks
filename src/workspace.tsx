@@ -12,6 +12,8 @@ import { ChecklistStep } from './steps/checklist';
 import { PoliciesStep } from './steps/policies';
 import { AnalyticalStep } from './steps/analytical';
 import { ConsolidationStep } from './steps/consolidation';
+import { TaxStep } from './steps/tax';
+import { CipcStep } from './steps/cipc';
 import { cashFlowBlocker, consolidate, groupCashFlow, groupEquity, unitOf, unitOfGroup, type Consolidated, type GroupEquity, type GroupSetup, type Unit } from './engine/consolidation';
 import type { Row } from './engine/statements';
 import { figures, hasPrior } from './engine/statements';
@@ -173,6 +175,7 @@ const STEPS = [
   { slug: 'ledger', label: 'Journal testing', el: LedgerStep },
   { slug: 'bank', label: 'Bank', el: BankStep },
   { slug: 'journals', label: 'Journals', el: JournalsStep },
+  { slug: 'tax', label: 'Income tax', el: TaxStep },
   { slug: 'evidence', label: 'Evidence', el: EvidenceStep },
   { slug: 'disclosures', label: 'Disclosures', el: DisclosuresStep },
   { slug: 'policies', label: 'Accounting policies', el: PoliciesStep },
@@ -182,6 +185,7 @@ const STEPS = [
   { slug: 'report', label: 'Report', el: ReportStep },
   { slug: 'management', label: 'Management letter', el: ManagementStep },
   { slug: 'sign-off', label: 'Sign-off', el: SignOffStep },
+  { slug: 'cipc', label: 'CIPC filing', el: CipcStep },
   { slug: 'trail', label: 'Audit trail', el: TrailStep },
 ] as const;
 
@@ -341,7 +345,10 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
     );
 
   // Review and compilation engagements have no materiality step in this version.
+  const jur = jurisdictionOf(ws.firm.country);
   const steps = STEPS.filter((s) => {
+    // The SARS tax working and the CIPC filing are South African.
+    if (s.slug === 'tax' || s.slug === 'cipc') return jur.code === 'ZA';
     if (s.slug === 'planning' || s.slug === 'analytical' || s.slug === 'opening' || s.slug === 'management') return data.eng.type !== 'compilation';
     if (s.slug === 'ledger' || s.slug === 'bank') return data.eng.type === 'audit';
     return true;
@@ -352,7 +359,7 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
   setCur(currencyOf(data.eng.currency).symbol);
   const ctx: Ctx = {
     ws,
-    jur: jurisdictionOf(ws.firm.country),
+    jur,
     eng: data.eng,
     client: data.client,
     lines: data.lines,
