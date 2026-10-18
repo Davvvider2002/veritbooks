@@ -429,7 +429,7 @@ export function BillingPage({ ws, onChanged }: { ws: Workspace; onChanged: () =>
           <PerEngagement b={b} partner={partner} busy={busy} pay={pay} />
           <p className="small muted" style={{ margin: 0 }}>
             {partner
-              ? `Prices are shown${b.vatPercent > 0 ? ` before ${b.taxLabel}` : ''}. Payment is taken in ${CURRENCY_WORD[b.chargeCurrency]}${b.chargeCurrency !== b.currency ? `, converted from ${CURRENCY_WORD[b.currency]} at ${b.chargeRate} to 1` : ''} by Flutterwave, by card${b.chargeCurrency === 'NGN' ? ', bank transfer or USSD' : b.chargeCurrency === 'GHS' ? ', mobile money or bank transfer' : b.chargeCurrency === 'ZAR' ? ', bank account or 1Voucher' : ''}. VeritBooks never sees or stores your card details.`
+              ? `${b.vatPercent > 0 ? `Prices are shown before ${b.taxLabel}. ` : ''}Payment is taken in ${CURRENCY_WORD[b.chargeCurrency]}${b.chargeCurrency !== b.currency ? `, converted from ${CURRENCY_WORD[b.currency]} at ${b.chargeRate} to 1` : ''} by Flutterwave, by card${b.chargeCurrency === 'NGN' ? ', bank transfer or USSD' : b.chargeCurrency === 'GHS' ? ', mobile money or bank transfer' : b.chargeCurrency === 'ZAR' ? ', bank account or 1Voucher' : ''}. VeritBooks never sees or stores your card details.`
               : 'Only a partner can make a payment.'} A plan runs for one year from the day it is paid. Renewing early adds a year to the end of the current one. Moving to a bigger plan starts a new year today, with credit for what is left of the old one.
           </p>
         </>

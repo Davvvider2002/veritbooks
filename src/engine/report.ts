@@ -203,7 +203,7 @@ function companyReport(i: ReportInput): DraftReport {
     added.push({
       heading: 'Other information',
       paragraphs: [
-        `The directors are responsible for the other information. The other information comprises the report of the directors, the statement of directors’ responsibilities${j.nationalStatements ? ', the statement of value added and the financial summary' : ''}, which we obtained before the date of this report. It does not include the financial statements and our auditor’s report on them.`,
+        `The directors are responsible for the other information. The other information comprises ${j.nationalStatements ? 'the report of the directors, the statement of directors’ responsibilities, the statement of value added and the financial summary' : 'the report of the directors and the statement of directors’ responsibilities'}, which we obtained before the date of this report. It does not include the financial statements and our auditor’s report on them.`,
         'Our opinion on the financial statements does not cover the other information and we do not express any form of assurance conclusion on it.',
         'In connection with our audit of the financial statements, our responsibility is to read the other information and, in doing so, consider whether it is materially inconsistent with the financial statements or our knowledge obtained in the audit, or otherwise appears to be materially misstated. If, based on the work we have performed, we conclude that there is a material misstatement of the other information, we are required to report that fact.',
         s.otherInformation?.trim() ? s.otherInformation.trim() : 'We have nothing to report in this regard.',
