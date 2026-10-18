@@ -27,6 +27,8 @@ const txt = (c: unknown) => (c === null || c === undefined ? '' : String(c).trim
  * Debit and Credit (or Withdrawal and Deposit) columns or one signed Amount column.
  * On a bank statement, a debit is money out.
  */
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
 export function parseBankStatement(rows: unknown[][], dateOrder: DateOrder = 'auto'): BankParse {
   let h: { row: number; date: number; desc: number; out: number; in: number; amount: number; balance: number } | null = null;
   for (let r = 0; r < Math.min(rows.length, 40) && !h; r++) {
@@ -53,6 +55,44 @@ export function parseBankStatement(rows: unknown[][], dateOrder: DateOrder = 'au
     );
   }
 
+  // Dates printed without a year, as "03 Jan" on FNB and other South African statements, take it
+  // from the statement period above the table, moving on a year when the months turn back.
+  const yearMatch = rows
+    .slice(0, h.row)
+    .map((r) => (r ?? []).map(txt).join(' '))
+    .join(' ')
+    .match(/\b(19|20)\d{2}\b/);
+  let year = yearMatch ? Number(yearMatch[0]) : null;
+  let lastMonth = 0;
+  let yearless = 0;
+  rows = rows.map((r, i) => {
+    if (i <= h!.row || !r) return r;
+    const m = /^(\d{1,2})\s*([A-Za-z]{3,9})\.?$/.exec(txt(r[h!.date]));
+    const mon = m ? MONTHS.indexOf(m[2].slice(0, 3).toLowerCase()) + 1 : 0;
+    if (!m || !mon) return r;
+    yearless++;
+    if (year === null) return r;
+    if (mon < lastMonth) year++;
+    lastMonth = mon;
+    const out = [...r];
+    out[h!.date] = `${m[1]} ${m[2].slice(0, 3)} ${year}`;
+    return out;
+  });
+
+  // Statements that print one Amount column mark money in with Cr and money out with no mark or Dr,
+  // and balances in credit with Cr and overdrawn ones with Dr.
+  const marked = (col: number) => col >= 0 && rows.slice(h.row + 1).some((r) => /\d\s*(cr|dr)\.?$/i.test(txt(r?.[col])));
+  const amountMarked = h.out < 0 || h.in < 0 ? marked(h.amount) : false;
+  const balanceMarked = marked(h.balance);
+  const bankAmount = (raw: unknown, isBalance: boolean): Kobo | null => {
+    const s = txt(raw);
+    const v = parseAmount(s.replace(/(cr|dr)\.?$/i, ''));
+    if (v === null) return null;
+    if (/cr\.?$/i.test(s)) return Math.abs(v);
+    if (/dr\.?$/i.test(s)) return -Math.abs(v);
+    return isBalance ? v : -Math.abs(v);
+  };
+
   const order = resolveDateOrder(dateOrder, rows.slice(h.row + 1).map((r) => r?.[h!.date]));
   const lines: BankLine[] = [];
   const warnings: string[] = [];
@@ -66,14 +106,14 @@ export function parseBankStatement(rows: unknown[][], dateOrder: DateOrder = 'au
     const row = rows[r];
     if (!row) continue;
     const date = parseDate(row[h.date], order.monthFirst);
-    const balance = h.balance >= 0 ? parseAmount(row[h.balance]) : null;
+    const balance = h.balance < 0 ? null : balanceMarked ? bankAmount(row[h.balance], true) : parseAmount(row[h.balance]);
     let amount: Kobo | null;
     if (h.out >= 0 && h.in >= 0) {
       const o = parseAmount(row[h.out]);
       const i = parseAmount(row[h.in]);
       amount = o === null && i === null ? null : (i ?? 0) - (o ?? 0);
     } else {
-      amount = parseAmount(row[h.amount]);
+      amount = amountMarked ? bankAmount(row[h.amount], false) : parseAmount(row[h.amount]);
     }
     if (!date) {
       if (row.some((x) => txt(x) !== '')) skipped++;
@@ -99,6 +139,7 @@ export function parseBankStatement(rows: unknown[][], dateOrder: DateOrder = 'au
   }
 
   if (lines.length === 0) throw new Error('No transactions with a date and an amount were found under the header row.');
+  if (yearless && year === null) warnings.push('The dates have no year and no statement period was found above the table, so those rows were left out.');
   if (skipped) warnings.push(`${skipped} row(s) had no readable date and were left out.`);
   if (h.balance < 0) warnings.push('The statement has no balance column, so the closing balance must be entered by hand and the running balance cannot be checked.');
   for (let i = 1; i < lines.length; i++) {

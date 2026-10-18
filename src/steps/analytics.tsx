@@ -766,7 +766,7 @@ export function BankStep(ctx: Ctx) {
           <h3>Add a statement</h3>
           <div className="grid3">
             <Field label="Account name">
-              <input type="text" value={name} placeholder="GTBank current 4471" onChange={(e) => setName(e.target.value)} />
+              <input type="text" value={name} placeholder={ctx.jur.code === 'ZA' ? 'Business cheque 44471' : 'GTBank current 4471'} onChange={(e) => setName(e.target.value)} />
             </Field>
             <Field label="Ledger account">
               <select value={code} onChange={(e) => setCode(e.target.value)}>
@@ -782,8 +782,16 @@ export function BankStep(ctx: Ctx) {
             </label>
           </div>
           <p className="small muted" style={{ margin: 0 }}>
-            Needs a line of column headings with a date and Debit and Credit, or one signed Amount column. A Balance column lets the running balance be checked. Running the statement into January shows which outstanding items cleared. A PDF must be the bank’s electronic statement, not a scan, and is read in your browser without being uploaded. Try the sample statement as{' '}
-            <a href="/samples/bank-statement-2025.pdf" download>PDF</a> or <a href="/samples/bank-statement-2025.csv" download>CSV</a>.
+            Needs a line of column headings with a date and Debit and Credit, or one Amount column, signed or marked Cr for money in. A Balance column lets the running balance be checked. Dates printed without a year take it from the statement period. Running the statement into January shows which outstanding items cleared. A PDF must be the bank’s electronic statement, not a scan, and is read in your browser without being uploaded. Try the sample statement as{' '}
+            {ctx.jur.code === 'ZA' ? (
+              <>
+                <a href="/samples/za-bank-statement-2025.pdf" download>PDF</a> or <a href="/samples/za-bank-statement-2025.csv" download>CSV</a>, laid out as South African banks export them.
+              </>
+            ) : (
+              <>
+                <a href="/samples/bank-statement-2025.pdf" download>PDF</a> or <a href="/samples/bank-statement-2025.csv" download>CSV</a>.
+              </>
+            )}
           </p>
           {opening && <div className="banner info">Reading the PDF…</div>}
           {pdf && (

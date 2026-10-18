@@ -84,3 +84,57 @@ describe('table rebuilt from positioned text', () => {
     expect(pdfToRows([[]]).textItems).toBe(0);
   });
 });
+
+describe('South African bank statement', () => {
+  const csvRows = () => Papa.parse<string[]>(readFileSync('public/samples/za-bank-statement-2025.csv', 'utf8'), { skipEmptyLines: true }).data;
+  const ledger = () => parseLedger(Papa.parse<string[]>(readFileSync('public/samples/general-ledger-2025.csv', 'utf8'), { skipEmptyLines: true }).data).entries.filter((e) => e.accountCode === '1400');
+  const general = () => parseBankStatement(Papa.parse<string[]>(readFileSync('public/samples/bank-statement-2025.csv', 'utf8'), { skipEmptyLines: true }).data);
+
+  it('reads the CSV export: yyyy/mm/dd dates and one signed Amount column', () => {
+    const p = parseBankStatement(csvRows());
+    expect(p.lines).toHaveLength(759);
+    expect(p.breaks).toBe(0);
+    expect(p.warnings).toEqual([]);
+    expect(p.opening).toBe(N(1_790_000));
+    expect(p.lines[3]).toMatchObject({ date: '2025-01-03', amount: -N(703_162.99), description: 'INTERNET PMT TO SUPPLIER 700202' });
+    expect(p.lines.map((l) => [l.date, l.amount, l.balance])).toEqual(general().lines.map((l) => [l.date, l.amount, l.balance]));
+  });
+
+  it('reads the PDF: dates without a year, Cr for money in, and an accrued charges column', async () => {
+    const t = pdfToRows(await readPdfText(lib, file('za-bank-statement-2025.pdf')));
+    expect(t.preamble.join(' ')).toContain('Statement Period : 01 January 2025 to 31 December 2025');
+    const p = parseBankStatement([...t.preamble.map((l) => [l]), ...t.rows]);
+    expect(p.warnings).toEqual([]);
+    expect(p.breaks).toBe(0);
+    expect(p.opening).toBe(N(1_790_000));
+    expect(balanceAt(p, '2025-12-31')).toBe(N(9_985_874.34));
+    expect(p.lines.map((l) => [l.date, l.amount, l.balance])).toEqual(general().lines.map((l) => [l.date, l.amount, l.balance]));
+  });
+
+  it('reconciles to the ledger with the two items the client has not booked', async () => {
+    const t = pdfToRows(await readPdfText(lib, file('za-bank-statement-2025.pdf')));
+    for (const p of [parseBankStatement(csvRows()), parseBankStatement([...t.preamble.map((l) => [l]), ...t.rows])]) {
+      const r = reconcile({ bank: p.lines, ledger: ledger(), bankClosing: balanceAt(p, '2025-12-31')!, ledgerBalance: N(9_860_000), yearEnd: '2025-12-31' });
+      expect(r.matched).toBe(757);
+      expect(r.bankOnly.map((b) => b.description)).toEqual(['MAGTAPE CREDIT NAMAQUA STORES', '#NOTIFIC FEE SMS']);
+      expect(r.difference).toBe(0);
+    }
+  });
+
+  it('moves to the next year when the months turn back', () => {
+    const p = parseBankStatement([
+      ['Statement Period : 01 December 2025 to 31 January 2026'],
+      ['Date', 'Description', 'Amount', 'Balance'],
+      ['30 Dec', 'Opening Balance', '', '1,000.00Cr'],
+      ['31 Dec', 'FEE', '10.00', '990.00Cr'],
+      ['02 Jan', 'DEPOSIT', '20.00Cr', '1,010.00Cr'],
+      ['03 Jan', 'PAYMENT', '1,500.00', '490.00Dr'],
+    ]);
+    expect(p.lines.map((l) => [l.date, l.amount, l.balance])).toEqual([
+      ['2025-12-31', -N(10), N(990)],
+      ['2026-01-02', N(20), N(1_010)],
+      ['2026-01-03', -N(1_500), -N(490)],
+    ]);
+    expect(p.breaks).toBe(0);
+  });
+});

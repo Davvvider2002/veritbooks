@@ -1,6 +1,6 @@
 # VeritBooks: platform definition
 
-Version 0.17, 18 October 2026.
+Version 0.18, 18 October 2026.
 
 ## What it is
 
@@ -387,6 +387,8 @@ Two steps appear only for a South African firm. The rules and their sources live
 
 **Provisional tax (IRP6).** First payment half the tax on the estimate, due at the end of the sixth month; second payment the tax on the estimate less the first, due at year end; a voluntary third payment six months after a February year end, seven otherwise. The basic amount rises 8% a year when the last assessment is more than 18 months old. The paragraph 20 test is applied to the second estimate (90% of taxable income or the basic amount up to R1 million, 80% above), with the 20% penalty. A payment made late carries the 10% penalty. Interest under section 89quat is worked out only at a rate the preparer enters.
 
+**South African bank statements.** The bank reader takes the layout South African banks use: one Amount column, signed in a CSV export or marked Cr for money in on a PDF; balances marked Cr or Dr; dates written yyyy/mm/dd, or printed as "03 Jan" with the year taken from the statement period and moved on when the months turn back. A charges column is kept apart from the amounts. Samples: `public/samples/za-bank-statement-2025.csv` and `.pdf`, made by `scripts/make-za-bank.mjs` and `scripts/make-za-bank-pdf.py` from the same transactions as the general sample, so they reconcile to `general-ledger-2025.csv` with the same two items for a journal. A South African firm's Bank step links to them.
+
 **CIPC filing.** Works out the public interest score (employees, a point per R1 million or part of third party liabilities and of turnover, and individuals with a beneficial interest) and says what it means for audit or review. It collects the annual return details CIPC requires, lists any still blank, and downloads one XHTML file in Inline XBRL 1.1 against the IFRS for SMEs entry point of CIPC's 2024 taxonomy. The statements of financial position, profit or loss and cash flows are tagged figure by figure, each fact with its concept's sign; the directors' report, directors' responsibilities, the independent report, the accounting policies, the notes and the directors are tagged as blocks; nil turnover, third party liabilities, revenue and liabilities carry an English footnote. The file passes Arelle's Inline XBRL 1.1 checks against a stand-in taxonomy. The element names follow CIPC's naming rule but could not be checked against the taxonomy package, so the file is marked as a draft to be validated with CIPC before its first filing. The entry point can be changed on the step.
 
 ## Nigerian content
@@ -410,7 +412,7 @@ The work programmes, accounting policy wording and report wording are starter co
 - Sign-off gates: partner role, FRC numbers, a footing and fully mapped trial balance and balanced journals are enforced in the database. Materiality, programme completion, opinion selection, journal conclusions and bank reconciliation are enforced in the application only.
 - Journal testing uses fixed rules. The thresholds are not yet configurable per firm, and Nigerian public holidays are not flagged.
 - Package imports: the Sage 50, QuickBooks Desktop and Tally layouts were tested on files modelled on each package's exports, not on real exports. Tally has had the least testing. No direct connection to any accounting system exists yet.
-- PDF statements: the reader was built and tested on a statement drawn to resemble a Nigerian bank e-statement, and on a second synthetic layout, not on real statements from each bank. Column headings split over two lines, and statements with no balance column, are the likeliest to need work. Scans are not read.
+- PDF statements: the reader was built and tested on a statement drawn to resemble a Nigerian bank e-statement, a South African business cheque account statement (one Amount column marked Cr for money in, balances marked Cr or Dr, dates printed without a year, an accrued bank charges column) and a second synthetic layout, not on real statements from each bank. South African banks do not publish their export layouts, so the South African sample is modelled on the common layout, not copied from a real export. Column headings split over two lines, and statements with no balance column, are the likeliest to need work. Scans are not read.
 - Bank matching is on exact amount only. One ledger posting covering several bank lines, or the reverse, is left unmatched for the auditor.
 - Trial balance import is not a single database transaction.
 - Evidence files are not scanned for viruses and are not previewed in the app.

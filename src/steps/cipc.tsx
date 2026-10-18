@@ -11,7 +11,7 @@ import type { Ctx } from '../workspace';
 import { StatementsStep } from './output';
 
 /** The version written into the filing as the software that produced it. */
-export const SOFTWARE_VERSION = '0.17';
+export const SOFTWARE_VERSION = '0.18';
 
 const str = (k: number | undefined | null) => (k === undefined || k === null ? '' : (k / 100).toLocaleString('en-US', { maximumFractionDigits: 2 }));
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

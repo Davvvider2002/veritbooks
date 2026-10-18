@@ -20,7 +20,8 @@ interface Column {
 }
 
 const MONEY = /^\(?-?[₦N]?\d{1,3}(,\d{3})*\.\d{2}\)?(\s?(cr|dr)\.?)?$|^\(?-?[₦N]?\d+\.\d{2}\)?(\s?(cr|dr)\.?)?$/i;
-const MONEY_HEAD = /debit|credit|withdraw|deposit|lodg|amount|balance|money|paid|^dr\.?$|^cr\.?$/i;
+// Bank charges columns, such as FNB's accrued charges, are money columns of their own so their figures do not land under Amount.
+const MONEY_HEAD = /debit|credit|withdraw|deposit|lodg|amount|balance|money|paid|charges|^fees?$|^dr\.?$|^cr\.?$/i;
 const NARRATION = /narration|description|remark|detail|particular|transaction$/i;
 
 /** Group a page's text into lines, top to bottom, and join pieces that sit right beside each other. */
@@ -69,6 +70,8 @@ function asHeader(line: Token[]): Column[] | null {
 export interface PdfTable {
   /** Header row first, then one row per transaction, ready for the statement parser. */
   rows: string[][];
+  /** Lines of text above the first column headings, such as the account and the statement period. */
+  preamble: string[];
   /** Pages on which the column headings were found. */
   pagesWithHeader: number;
   textItems: number;
@@ -86,6 +89,7 @@ export function pdfToRows(pages: PdfItem[][]): PdfTable {
   let narration = -1;
   let pagesWithHeader = 0;
   let textItems = 0;
+  const preamble: string[] = [];
 
   for (const page of pages) {
     textItems += page.length;
@@ -106,6 +110,7 @@ export function pdfToRows(pages: PdfItem[][]): PdfTable {
         continue;
       }
       // Everything above the headings on a page is the bank's letterhead and account details.
+      if (!columns && preamble.length < 30) preamble.push(line.map((k) => k.text).join(' '));
       if (!columns || !headerSeen) continue;
 
       const cells = columns.map(() => '');
@@ -152,5 +157,5 @@ export function pdfToRows(pages: PdfItem[][]): PdfTable {
       }
     }
   }
-  return { rows, pagesWithHeader, textItems };
+  return { rows, preamble, pagesWithHeader, textItems };
 }

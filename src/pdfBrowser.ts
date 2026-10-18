@@ -23,5 +23,6 @@ export async function pdfStatementRows(file: File, password?: string): Promise<s
       'No transaction table was found in this PDF. It needs one line of column headings with a date and Debit and Credit, or Amount. Ask the bank for Excel or CSV instead.',
     );
   }
-  return table.rows;
+  // The lines above the table go first: the statement period gives the year to dates printed without one.
+  return [...table.preamble.map((l) => [l]), ...table.rows];
 }
