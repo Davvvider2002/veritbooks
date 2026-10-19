@@ -36,8 +36,57 @@ describe('journal import', () => {
     const r = parseJournals([['Ref', 'Account', 'Debit', 'Credit'], ['X1', '6100', '10', ''], ['X1', '1000', '', '9'], ['X2', '9999', '5', ''], ['X2', '1000', '', '5']], tb);
     expect(r.journals).toHaveLength(0);
     expect(r.errors.join(' ')).toMatch(/X1: does not balance/);
-    expect(r.errors.join(' ')).toMatch(/"9999" is not in the trial balance/);
+    expect(r.missing.map((m) => m.code)).toEqual(['9999']);
+    expect(r.waiting).toEqual(['X2']);
     expect(parseJournals([['a', 'b'], ['1', '2']], tb).errors[0]).toMatch(/No heading row/);
+  });
+});
+
+describe('accounts a journal uses that the trial balance lacks', () => {
+  const big: TbLine[] = [
+    ...tb,
+    { id: 'd', code: '6401010', name: 'Deposit with Tax Consultant', balance: 100_00, prior: null, mapCode: 'other_receivables', nature: null },
+    { id: 'e', code: '8270102', name: 'PAYE Liability - NBC', balance: -50_00, prior: null, mapCode: 'other_payables', nature: null },
+  ];
+  const rows = [
+    ['Journal no', 'Account code', 'Account name', 'Debit', 'Credit'],
+    ['ADJ-004', '6401004', 'Deposit with Lawyers', '1,000', ''],
+    ['ADJ-004', '1000', 'Cash at bank', '', '1,000'],
+    ['ADJ-006', '8270106', '', '200', ''],
+    ['ADJ-006', '8270106', '', '50', ''],
+    ['ADJ-006', '1000', '', '', '250'],
+    ['ADJ-007', 'Bank charges suspense', '', '30', ''],
+    ['ADJ-007', '1000', '', '', '30'],
+    ['ADJ-008', '6100', '', '10', ''],
+    ['ADJ-008', '1000', '', '', '10'],
+  ];
+  const r = parseJournals(rows, big);
+
+  it('lists each one once, with its name, journals and net amount, and holds those journals back', () => {
+    expect(r.missing.map((m) => [m.code, m.name, m.refs, m.rows.length, m.net])).toEqual([
+      ['6401004', 'Deposit with Lawyers', ['ADJ-004'], 1, 1_000_00],
+      ['8270106', '', ['ADJ-006'], 2, 250_00],
+      ['Bank charges suspense', 'Bank charges suspense', ['ADJ-007'], 1, 30_00],
+    ]);
+    expect(r.waiting).toEqual(['ADJ-004', 'ADJ-006', 'ADJ-007']);
+    expect(r.journals.map((j) => j.ref)).toEqual(['ADJ-008']);
+    expect(r.errors).toEqual([]);
+  });
+
+  it('suggests a statement line from the nearest account code, or from the name', () => {
+    expect(r.missing[0]).toMatchObject({ mapCode: 'other_receivables', basis: 'Like 6401010 Deposit with Tax Consultant.' });
+    expect(r.missing[1]).toMatchObject({ mapCode: 'other_payables' });
+    expect(r.missing[2].mapCode).not.toBeNull();
+  });
+
+  it('imports every journal once the accounts are added', () => {
+    const added: TbLine[] = [
+      ...big,
+      ...r.missing.map((m, i) => ({ id: `n${i}`, code: m.code, name: m.name || m.code, balance: 0, prior: null, mapCode: m.mapCode, nature: m.nature })),
+    ];
+    const again = parseJournals(rows, added);
+    expect(again.missing).toEqual([]);
+    expect(again.journals.map((j) => j.ref)).toEqual(['ADJ-004', 'ADJ-006', 'ADJ-007', 'ADJ-008']);
   });
 });
 

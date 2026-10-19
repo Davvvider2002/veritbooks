@@ -1,6 +1,6 @@
 # VeritBooks: platform definition
 
-Version 0.19, 19 October 2026.
+Version 0.20, 19 October 2026.
 
 ## What it is
 
@@ -390,6 +390,10 @@ Two steps appear only for a South African firm. The rules and their sources live
 **South African bank statements.** The bank reader takes the layout South African banks use: one Amount column, signed in a CSV export or marked Cr for money in on a PDF; balances marked Cr or Dr; dates written yyyy/mm/dd, or printed as "03 Jan" with the year taken from the statement period and moved on when the months turn back. A charges column is kept apart from the amounts. Samples: `public/samples/za-bank-statement-2025.csv` and `.pdf`, made by `scripts/make-za-bank.mjs` and `scripts/make-za-bank-pdf.py` from the same transactions as the general sample, so they reconcile to `general-ledger-2025.csv` with the same two items for a journal. A South African firm's Bank step links to them.
 
 **CIPC filing.** Works out the public interest score (employees, a point per R1 million or part of third party liabilities and of turnover, and individuals with a beneficial interest) and says what it means for audit or review. It collects the annual return details CIPC requires, lists any still blank, and downloads one XHTML file in Inline XBRL 1.1 against the IFRS for SMEs entry point of CIPC's 2024 taxonomy. The statements of financial position, profit or loss and cash flows are tagged figure by figure, each fact with its concept's sign; the directors' report, directors' responsibilities, the independent report, the accounting policies, the notes and the directors are tagged as blocks; nil turnover, third party liabilities, revenue and liabilities carry an English footnote. The file passes Arelle's Inline XBRL 1.1 checks against a stand-in taxonomy. The element names follow CIPC's naming rule but could not be checked against the taxonomy package, so the file is marked as a draft to be validated with CIPC before its first filing. The entry point can be changed on the step.
+
+## Journal import: accounts not in the trial balance
+
+A journal file may use accounts the client's trial balance does not have. They are no longer reported as errors. Each is listed once, with its name (from an account name column when the file has one), the journals and lines that use it, its net amount, and a suggested line in the statements: from its name where the name says (bank, VAT, salaries), otherwise like the trial balance account whose code shares the most leading characters with it (6401004 beside 6401010). The journals that use it are held back. The preparer checks each, names it, chooses or confirms its line, and adds the ones they tick to the trial balance with a nil balance (and a nil prior year when the file has one); the file is then read again and the held journals are ready to add. Logic in `src/engine/journalImport.ts`, screen in `src/steps/work.tsx`.
 
 ## Channel partners
 

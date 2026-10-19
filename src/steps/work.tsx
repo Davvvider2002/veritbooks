@@ -1,11 +1,12 @@
-import { parseJournals } from '../engine/journalImport';
+import { parseJournals, type MissingAccount } from '../engine/journalImport';
+import { CHART, NATURE_CODES, SECTION_LABEL } from '../engine/chart';
 import { readRows } from './input';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { PACKS, PACK_VERSION, packOf, programmeFor } from '../content/packs';
 import { repo } from '../data';
 import { BENCHMARKS, benchmarkBase, computeMateriality, unadjustedEffect } from '../engine/checks';
 import { fmt, fmt2, parseAmount, cur } from '../engine/money';
-import type { JournalLine, Planning, TbLine } from '../engine/types';
+import type { JournalLine, Nature, Planning, TbLine } from '../engine/types';
 import { ErrorNote, Field, useAction } from '../ui';
 import type { Ctx } from '../workspace';
 import { FileCount } from './evidence';
@@ -372,17 +373,147 @@ export function JournalsStep({ eng, lines, adjustments, statements, locked, relo
 }
 
 /** Adds many journals at once from a spreadsheet, after showing what will be added. */
+type NewAccount = { add: boolean; code: string; name: string; mapCode: string; nature: Nature | '' };
+
+/**
+ * Accounts the journal file uses that the trial balance does not have. Each is listed once, with
+ * the statement line it most likely belongs on, and can be added to the trial balance with a nil
+ * balance so the journals that use it can be imported.
+ */
+function MissingAccounts({ missing, busy, onAdd }: { missing: MissingAccount[]; busy: boolean; onAdd: (accounts: NewAccount[]) => void }) {
+  const [rows, setRows] = useState<NewAccount[]>(() =>
+    missing.map((m) => ({ add: true, code: m.code, name: m.name, mapCode: m.mapCode ?? '', nature: m.nature ?? (m.mapCode && NATURE_CODES.has(m.mapCode) ? 'other' : '') })),
+  );
+  const put = (i: number, patch: Partial<NewAccount>) => setRows(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  const chosen = rows.filter((r) => r.add);
+  const unnamed = chosen.filter((r) => !r.name.trim()).length;
+  return (
+    <div className="card stack" style={{ borderColor: 'var(--warn, #b7791f)' }} aria-label="Accounts not in the trial balance">
+      <div>
+        <h4 style={{ margin: 0 }}>
+          {missing.length} account{missing.length === 1 ? ' is' : 's are'} not in the trial balance
+        </h4>
+        <p className="small muted" style={{ margin: '4px 0 0' }}>
+          The journals that use {missing.length === 1 ? 'it' : 'them'} are held back. Check each account, name it, and choose its line in the statements. Adding it puts it in the trial balance with a nil balance, so the journals can be imported. Ask the client to include it in the trial balance next time, or it will need adding again after a fresh import.
+        </p>
+      </div>
+      <div className="scroll-x">
+        <table className="data">
+          <thead>
+            <tr>
+              <th>Add</th>
+              <th>Code</th>
+              <th>Name</th>
+              <th>Line in the statements</th>
+              <th>Used in</th>
+              <th className="num">Net {cur()}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => {
+              const m = missing[i];
+              return (
+                <tr key={m.code}>
+                  <td>
+                    <input type="checkbox" aria-label={`Add account ${m.code}`} checked={r.add} onChange={(e) => put(i, { add: e.target.checked })} />
+                  </td>
+                  <td>
+                    <strong>{m.code}</strong>
+                  </td>
+                  <td style={{ minWidth: 200 }}>
+                    <input type="text" aria-label={`Name of account ${m.code}`} placeholder="Account name" value={r.name} onChange={(e) => put(i, { name: e.target.value })} />
+                  </td>
+                  <td style={{ minWidth: 230 }}>
+                    <select
+                      aria-label={`Statement line for account ${m.code}`}
+                      value={r.mapCode}
+                      onChange={(e) => put(i, { mapCode: e.target.value, nature: NATURE_CODES.has(e.target.value) ? r.nature || 'other' : '' })}
+                    >
+                      <option value="">Not mapped yet</option>
+                      {(Object.keys(SECTION_LABEL) as (keyof typeof SECTION_LABEL)[]).map((sec) => (
+                        <optgroup key={sec} label={SECTION_LABEL[sec]}>
+                          {CHART.filter((c) => c.section === sec).map((c) => (
+                            <option key={c.code} value={c.code}>{c.label}</option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                    {NATURE_CODES.has(r.mapCode) && (
+                      <select aria-label={`Nature of account ${m.code}`} value={r.nature} onChange={(e) => put(i, { nature: e.target.value as Nature })} style={{ marginTop: 4 }}>
+                        <option value="other">Other costs</option>
+                        <option value="staff">Staff costs</option>
+                        <option value="depreciation">Depreciation and amortisation</option>
+                      </select>
+                    )}
+                    <div className="small muted">{m.basis}</div>
+                  </td>
+                  <td className="small">
+                    {m.refs.slice(0, 3).join(', ')}
+                    {m.refs.length > 3 ? ` and ${m.refs.length - 3} more` : ''}
+                    <div className="muted">
+                      {m.rows.length} line{m.rows.length === 1 ? '' : 's'}
+                    </div>
+                  </td>
+                  <td className="num">{m.net > 0 ? `${fmt2(m.net)} Dr` : m.net < 0 ? `${fmt2(-m.net)} Cr` : '–'}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {unnamed > 0 && <div className="small muted">An account left without a name is added under its code. You can rename it later by importing the trial balance again.</div>}
+      <div>
+        <button className="primary" disabled={busy || chosen.length === 0} onClick={() => onAdd(chosen)}>
+          Add {chosen.length} account{chosen.length === 1 ? '' : 's'} and read the file again
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function JournalImport({ engagementId, lines, existing, reload }: { engagementId: string; lines: TbLine[]; existing: string[]; reload: () => void }) {
   const [result, setResult] = useState<ReturnType<typeof parseJournals> | null>(null);
   const [file, setFile] = useState('');
+  // The rows are kept so the file can be read again once missing accounts are added.
+  const [rows, setRows] = useState<unknown[][] | null>(null);
+  // The trial balance as it stands after accounts are added here, before the page reloads.
+  const [known, setKnown] = useState<TbLine[] | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const { busy, error, run, setError } = useAction();
+  // Once the page has reloaded with the new accounts, the trial balance it passes in is the one to use.
+  useEffect(() => setKnown(null), [lines]);
+  const tb = known ?? lines;
   const taken = new Set(existing.map((r) => r.trim().toLowerCase()));
   const clash = (result?.journals ?? []).filter((j) => taken.has(j.ref.toLowerCase()));
   const ready = (result?.journals ?? []).filter((j) => !taken.has(j.ref.toLowerCase()));
   const name = (id: string) => {
-    const l = lines.find((x) => x.id === id);
+    const l = tb.find((x) => x.id === id);
     return l ? `${l.code} ${l.name}` : '';
   };
+  const addAccounts = (accounts: NewAccount[]) =>
+    void run(async () => {
+      setNotice(null);
+      const withPrior = tb.some((l) => l.prior !== null);
+      const have = new Set(tb.map((l) => l.code.trim().toLowerCase()));
+      const added = accounts.filter((a) => !have.has(a.code.trim().toLowerCase()));
+      await repo.replaceLines(engagementId, [
+        ...tb.map((l) => ({ code: l.code, name: l.name, balance: l.balance, prior: l.prior, prior2: l.prior2 ?? null, mapCode: l.mapCode, nature: l.nature })),
+        ...added.map((a) => ({
+          code: a.code.trim(),
+          name: a.name.trim() || a.code.trim(),
+          balance: 0,
+          prior: withPrior ? 0 : null,
+          prior2: null,
+          mapCode: a.mapCode || null,
+          nature: a.mapCode && NATURE_CODES.has(a.mapCode) ? ((a.nature || 'other') as Nature) : null,
+        })),
+      ]);
+      const fresh = await repo.listLines(engagementId);
+      setKnown(fresh);
+      if (rows) setResult(parseJournals(rows, fresh));
+      setNotice(`Added ${added.length} account${added.length === 1 ? '' : 's'} to the trial balance with a nil balance: ${added.map((a) => a.code).join(', ')}. ${added.some((a) => !a.mapCode) ? 'Map the ones left unmapped in the Mapping step.' : 'They show in the Mapping step.'}`);
+      reload();
+    });
   return (
     <div className="card stack" aria-label="Import journals">
       <div className="between">
@@ -392,7 +523,7 @@ function JournalImport({ engagementId, lines, existing, reload }: { engagementId
         </a>
       </div>
       <p className="small muted" style={{ margin: 0 }}>
-        One row per journal line, with columns for the reference, the account code (or account name as in the trial balance), and debit and credit. Date, description and treatment (posted or proposed) are optional. Rows with the same reference form one journal, and each journal must balance.
+        One row per journal line, with columns for the reference, the account code (or account name as in the trial balance), and debit and credit. An account name column, date, description and treatment (posted or proposed) are optional. Rows with the same reference form one journal, and each journal must balance. An account the trial balance does not have can be added here.
       </p>
       <input
         type="file"
@@ -403,12 +534,25 @@ function JournalImport({ engagementId, lines, existing, reload }: { engagementId
           e.target.value = ''; // so the same file can be chosen again after it is corrected
           if (!f) return;
           setFile(f.name);
-          void run(async () => setResult(parseJournals(await readRows(f), lines)));
+          setNotice(null);
+          void run(async () => {
+            const read = await readRows(f);
+            setRows(read);
+            setResult(parseJournals(read, tb));
+          });
         }}
       />
       <ErrorNote error={error} />
+      {notice && <div className="banner info">{notice}</div>}
       {result && (
         <div className="stack">
+          {result.missing.length > 0 && <MissingAccounts key={`${file}-${result.missing.map((m) => m.code).join('|')}`} missing={result.missing} busy={busy} onAdd={addAccounts} />}
+          {result.waiting.length > 0 && (
+            <div className="banner warn">
+              {result.waiting.length} journal{result.waiting.length === 1 ? ' is' : 's are'} waiting for {result.waiting.length === 1 ? 'its' : 'their'} accounts: {result.waiting.slice(0, 8).join(', ')}
+              {result.waiting.length > 8 ? ` and ${result.waiting.length - 8} more` : ''}.
+            </div>
+          )}
           {result.errors.length > 0 && (
             <div className="banner bad">
               <strong>{result.errors.length} problem(s) in {file}.</strong> These journals will not be added until the file is corrected:
@@ -454,7 +598,9 @@ function JournalImport({ engagementId, lines, existing, reload }: { engagementId
                     void run(async () => {
                       for (const j of ready) await repo.addAdjustment(engagementId, { ref: j.ref, description: [j.date, j.description].filter(Boolean).join(' · '), posted: j.posted, lines: j.lines });
                       setResult(null);
+                      setRows(null);
                       setFile('');
+                      setNotice(`${ready.length} journal${ready.length === 1 ? '' : 's'} added.`);
                       reload();
                     });
                   }}
