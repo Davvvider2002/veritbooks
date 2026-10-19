@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { GlEntry } from '../engine/ledger';
+import type { AdminPartners, PartnerMe, PartnerProgramme } from '../engine/partners';
 import type { Adjustment, Nature, TbLine } from '../engine/types';
 import { hashToken, LockedError, opensAtPage, MAX_EVIDENCE_BYTES, newToken, type AdminData, type BankAccount, type ClientRequest, type RequestLink, type QualityEvaluation, type QualityItem, type Client, type Engagement, type Evidence, type Invite, type Member, type Repo, type StoredBankLine } from './repo';
 
@@ -146,7 +147,8 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       const { data, error } = await db.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: window.location.origin },
+        // A partner's confirmation link opens the partner portal.
+        options: { emailRedirectTo: window.location.origin + (window.location.pathname.startsWith('/partners') ? '/partners' : '') },
       });
       fail(error);
       return !data.session;
@@ -702,6 +704,53 @@ export function createSupabaseRepo(url: string, key: string): Repo {
     async adminFxRate(price, charge) {
       const d = await billing({ action: 'rate', price, charge });
       return Number(d.rate);
+    },
+    async partnerProgramme() {
+      const { data, error } = await db.rpc('partner_programme');
+      fail(error);
+      return data as PartnerProgramme;
+    },
+    async partnerClick(code, campaign, path, country) {
+      const { data, error } = await db.rpc('partner_click', { p_code: code, p_campaign: campaign, p_path: path, p_country: country });
+      fail(error);
+      return !!data;
+    },
+    async partnerLookup(code) {
+      const { data, error } = await db.rpc('partner_lookup', { p_code: code });
+      fail(error);
+      return (data as { name: string } | null) ?? null;
+    },
+    async claimReferral(code, campaign) {
+      const { data, error } = await db.rpc('claim_referral', { p_code: code, p_campaign: campaign });
+      fail(error);
+      return data as { name: string };
+    },
+    async partnerApply(p) {
+      const { error } = await db.rpc('partner_apply', { p });
+      fail(error);
+    },
+    async partnerMe() {
+      const { data, error } = await db.rpc('partner_me');
+      fail(error);
+      return (data as PartnerMe | null) ?? null;
+    },
+    async partnerUpdate(p) {
+      const { error } = await db.rpc('partner_update', { p });
+      fail(error);
+    },
+    async partnerRequestPayout(currency) {
+      const { error } = await db.rpc('partner_request_payout', { p_currency: currency });
+      fail(error);
+    },
+    async adminPartners() {
+      const { data, error } = await db.rpc('admin_partners');
+      fail(error);
+      return data as AdminPartners;
+    },
+    async adminPartnerAct(action, args) {
+      const { data, error } = await db.rpc('admin_partner_act', { p_action: action, p: args });
+      fail(error);
+      return (data ?? {}) as Record<string, unknown>;
     },
     async adminAct(action, args) {
       const { error } = await db.rpc('admin_act', { p_action: action, p: args });

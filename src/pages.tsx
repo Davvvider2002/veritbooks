@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { PROGRAMME_VERSION } from './content/programmes';
 import { repo } from './data';
 import { readLogo } from './image';
 import { TwoFactorSetting } from './mfa';
+import { forgetReferral, storedReferral } from './referral';
 import type { Branding, Workspace } from './data/repo';
 import { longDate } from './engine/report';
 import type { EngagementType, Role } from './engine/types';
@@ -175,6 +176,29 @@ export function FirmSetup({ onDone }: { onDone: () => Promise<void> }) {
   const invites = useLoad(() => repo.myInvites().catch(() => []), []);
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
   const pending = invites.data ?? [];
+  // A partner's link remembered in this browser fills the referral code in.
+  const [remembered, setRemembered] = useState(() => storedReferral());
+  const [refCode, setRefCode] = useState(remembered?.code ?? '');
+  const [refName, setRefName] = useState<string | null>(null);
+  const checkCode = async (code: string) => {
+    if (!code.trim()) return setRefName(null);
+    const found = await repo.partnerLookup(code).catch(() => null);
+    setRefName(found ? found.name : '');
+  };
+  useEffect(() => {
+    if (!remembered) return;
+    // A visit older than the programme's window no longer counts.
+    void repo.partnerProgramme().then(
+      (p) => {
+        const still = storedReferral(p.cookie_days);
+        if (!still) {
+          setRemembered(null);
+          setRefCode('');
+        } else void checkCode(still.code);
+      },
+      () => void checkCode(remembered.code),
+    );
+  }, []);
 
   return (
     <div className="narrow stack" style={{ maxWidth: 560 }}>
@@ -229,7 +253,14 @@ export function FirmSetup({ onDone }: { onDone: () => Promise<void> }) {
         onSubmit={(e) => {
           e.preventDefault();
           void run(async () => {
+            const code = refCode.trim();
+            if (code && !(await repo.partnerLookup(code).catch(() => null))) throw new Error('That referral code was not found. Check it, or leave it blank.');
             await repo.createFirm(f);
+            if (code) {
+              // The firm is set up either way. A code that cannot be applied now is not worth stopping for.
+              await repo.claimReferral(code, remembered?.code === code.toUpperCase() ? remembered.campaign : '').catch(() => undefined);
+              forgetReferral();
+            }
             await onDone();
           });
         }}
@@ -258,6 +289,9 @@ export function FirmSetup({ onDone }: { onDone: () => Promise<void> }) {
             <input type="text" value={f.memberFrc} onChange={set('memberFrc')} />
           </Field>
         </div>
+        <Field label="Referral code (optional)" hint={refName ? `Referred by ${refName}.` : refName === '' ? 'That code was not found.' : 'If a VeritBooks partner introduced you, enter their code.'}>
+          <input type="text" value={refCode} maxLength={20} onChange={(e) => { setRefCode(e.target.value.toUpperCase()); setRefName(null); }} onBlur={() => void checkCode(refCode)} style={{ textTransform: 'uppercase' }} />
+        </Field>
         <ErrorNote error={error} />
         <button className="primary" disabled={busy}>
           Create firm
@@ -283,7 +317,7 @@ function CountrySetting({ ws, onChanged }: { ws: Workspace; onChanged: () => Pro
         <span className="tag">{j.name}</span>
       </div>
       <p style={{ margin: 0 }}>
-        Your reports follow {j.companiesAct ?? `the law of ${j.inName}`}, and partners sign with their {j.licenceLabel}. Your plan is priced in {ws.billing.currency === 'USD' ? 'US dollars' : ws.billing.currency === 'GHS' ? 'cedis' : 'naira'}.
+        Your reports follow {j.companiesAct ?? `the law of ${j.inName}`}, and partners sign with their {j.licenceLabel}. Your plan is priced in {ws.billing.currency === 'USD' ? 'US dollars' : ws.billing.currency === 'GHS' ? 'cedis' : ws.billing.currency === 'ZAR' ? 'rand' : 'naira'}.
       </p>
       {canChange ? (
         <div className="row">

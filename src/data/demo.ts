@@ -61,7 +61,20 @@ interface Platform {
 }
 export const DEMO_ADMIN = 'admin@veritbooks.demo';
 
+/** The partner programme in demo mode. */
+interface DemoPartners {
+  settings: AdminPartners['settings'];
+  partners: (PartnerProfile & { user_id: string | null; admin_notes: string; created_by_admin: boolean })[];
+  clicks: { partner_id: string; at: string; campaign: string; path: string; country: string }[];
+  commissions: (Commission & { partner_id: string; firm_id: string; payment_id: string })[];
+  payouts: (Payout & { partner_id: string })[];
+  assets: PartnerAsset[];
+  /** Firm id -> its referral. */
+  referrals: Record<string, { partner_id: string; referred_at: string; campaign: string; review: string | null }>;
+}
+
 interface Store {
+  partnerProgramme?: DemoPartners;
   user: User | null;
   accounts: Record<string, { id: string; password: string }>;
   firms: Record<string, { firm: Firm; members: Member[]; sub?: DemoSub }>; // keyed by firm id
@@ -127,6 +140,22 @@ function save() {
     // Storage unavailable: the session continues in memory only.
   }
 }
+import {
+  DEFAULT_PROGRAMME,
+  addDays,
+  balancesOf,
+  commissionOn,
+  newCode,
+  normaliseCode,
+  sameCompanyDomain,
+  withinPeriod,
+  type AdminPartners,
+  type Commission,
+  type PartnerAsset,
+  type PartnerProfile,
+  type Payout,
+} from '../engine/partners';
+
 const uid = () =>
   typeof crypto !== 'undefined' && crypto.randomUUID
     ? crypto.randomUUID()
@@ -274,6 +303,53 @@ export function createDemoRepo(): Repo {
       vatKobo, currency: ch.currency, amountKobo, receiptNo: ++platform().receipt,
       ...(converted ? { quotedCurrency: c.currency, quotedKobo: gross, quotedVatKobo: vat, fxRate: ch.rate } : {}),
     });
+    accrue(sub, sub.payments[sub.payments.length - 1]);
+  };
+  /** A payment by a referred firm earns its partner a commission, as the database's trigger does. */
+  const accrue = (sub: DemoSub, pay: PaymentRecord) => {
+    const firm = Object.entries(s.firms).find(([, f]) => f.sub === sub)?.[0];
+    const pp = programme();
+    const ref = firm ? pp.referrals[firm] : undefined;
+    if (!firm || !ref) return;
+    const p = pp.partners.find((x) => x.id === ref.partner_id);
+    if (!p || p.status !== 'active' || !withinPeriod(ref.referred_at, pay.paidAt, p.commission_months)) return;
+    const base = pay.amountKobo - pay.vatKobo;
+    if (base <= 0) return;
+    pp.commissions.push({
+      id: uid(), partner_id: p.id, firm_id: firm, payment_id: pay.id, firm: s.firms[firm].firm.name, currency: pay.currency ?? 'NGN', base_kobo: base,
+      percent: p.commission_percent, amount_kobo: commissionOn(base, p.commission_percent), status: ref.review ? 'review' : 'pending',
+      created_at: pay.paidAt, available_at: addDays(pay.paidAt, pp.settings.hold_days), payout_id: null, void_reason: '', kind: pay.kind,
+    });
+  };
+  const programme = (): DemoPartners =>
+    (s.partnerProgramme ??= {
+      settings: {
+        open: DEFAULT_PROGRAMME.open, default_percent: DEFAULT_PROGRAMME.percent, default_months: DEFAULT_PROGRAMME.months, hold_days: DEFAULT_PROGRAMME.hold_days,
+        cookie_days: DEFAULT_PROGRAMME.cookie_days, min_payout: { ...DEFAULT_PROGRAMME.min_payout }, terms_version: DEFAULT_PROGRAMME.terms_version, updated_at: new Date().toISOString(),
+      },
+      partners: [], clicks: [], commissions: [], payouts: [], assets: [], referrals: {},
+    });
+  const publicProgramme = () => {
+    const x = programme().settings;
+    return { open: x.open, percent: x.default_percent, months: x.default_months, hold_days: x.hold_days, cookie_days: x.cookie_days, min_payout: x.min_payout, terms_version: x.terms_version };
+  };
+  const liveCode = (code: string) => programme().partners.find((p) => p.code === normaliseCode(code) && p.status === 'active');
+  const shownName = (p: { company: string; name: string }) => p.company || p.name;
+  const makePayout = (partnerId: string, currency: string, by: 'partner' | 'admin') => {
+    const pp = programme();
+    const p = pp.partners.find((x) => x.id === partnerId);
+    if (!p || p.status !== 'active') throw new Error('Payouts are open only to active partners.');
+    const now = new Date();
+    const due = pp.commissions.filter((c) => c.partner_id === partnerId && c.currency === currency && c.status === 'pending' && new Date(c.available_at) <= now);
+    const total = due.reduce((a, c) => a + c.amount_kobo, 0);
+    if (total <= 0) throw new Error(`Nothing is available to pay out in ${currency}.`);
+    if (!p.payout_details.account_number && !p.payout_details.mobile_number) throw new Error('Add payout details first.');
+    const min = pp.settings.min_payout[currency] ?? 0;
+    if (by === 'partner' && total < min) throw new Error(`The least that can be paid out in ${currency} is ${(min / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}.`);
+    const o: Payout & { partner_id: string } = { id: uid(), partner_id: partnerId, currency, amount_kobo: total, status: 'requested', requested_at: now.toISOString(), requested_by: by, payout_details: { ...p.payout_details }, decided_at: null, reference: '', method: '', note: '' };
+    pp.payouts.push(o);
+    for (const c of due) Object.assign(c, { status: 'requested', payout_id: o.id });
+    return o.id;
   };
   const makeFounding = (sub: DemoSub) => {
     const now = new Date();
@@ -849,6 +925,257 @@ export function createDemoRepo(): Repo {
       if (email && platform().mfa) delete platform().mfa![email];
       platform().log.push({ at: new Date().toISOString(), action: 'reset_two_factor', detail: { admin: email ?? '' }, admin: me().email, firm: null });
       save();
+    },
+    async partnerProgramme() {
+      return publicProgramme();
+    },
+    async partnerClick(code, campaign, path, country) {
+      const p = liveCode(code);
+      if (!p) return false;
+      programme().clicks.push({ partner_id: p.id, at: new Date().toISOString(), campaign: campaign.slice(0, 60), path: path.slice(0, 120), country: country.slice(0, 2).toUpperCase() });
+      save();
+      return true;
+    },
+    async partnerLookup(code) {
+      const p = liveCode(code);
+      return p ? { name: shownName(p) } : null;
+    },
+    async claimReferral(code, campaign) {
+      const id = firmId();
+      if (s.firms[id].members.find((m) => m.userId === me().id)?.role !== 'partner') throw new Error('Only a partner of the firm can enter a referral code.');
+      const pp = programme();
+      if (pp.referrals[id]) throw new Error('This firm already has a referral.');
+      if (subOf(id).payments.length) throw new Error('A referral code can only be added in the first 30 days, before the firm has paid.');
+      const p = liveCode(code);
+      if (!p) throw new Error('That referral code was not found.');
+      if (p.user_id === me().id || p.email.toLowerCase() === me().email.toLowerCase()) throw new Error('A partner cannot refer their own firm.');
+      pp.referrals[id] = { partner_id: p.id, referred_at: new Date().toISOString(), campaign: campaign.slice(0, 60), review: sameCompanyDomain(me().email, p.email) ? "The firm's email domain is the same as the partner's." : null };
+      save();
+      return { name: shownName(p) };
+    },
+    async partnerApply(a) {
+      const pp = programme();
+      const u = me();
+      if (pp.partners.some((p) => p.user_id === u.id)) throw new Error('You have already applied.');
+      if (!a.accept_terms) throw new Error('Accept the partner terms to apply.');
+      if (!a.name.trim()) throw new Error('Enter your name.');
+      const invited = pp.partners.find((p) => !p.user_id && p.email.toLowerCase() === u.email.toLowerCase());
+      if (invited) {
+        Object.assign(invited, { user_id: u.id, terms_version: pp.settings.terms_version, terms_accepted_at: new Date().toISOString(), phone: a.phone, website: a.website, promotion: a.promotion });
+      } else {
+        if (!pp.settings.open) throw new Error('The partner programme is not taking applications at the moment.');
+        pp.partners.push({
+          id: uid(), user_id: u.id, email: u.email.toLowerCase(), name: a.name.trim(), company: a.company.trim(), phone: a.phone, country: a.country || 'NG', website: a.website,
+          promotion: a.promotion, code: newCode(a.name, (c) => pp.partners.some((p) => p.code === c)), status: 'pending', commission_percent: pp.settings.default_percent,
+          commission_months: pp.settings.default_months, payout_details: {}, admin_notes: '', created_by_admin: false, terms_version: pp.settings.terms_version,
+          terms_accepted_at: new Date().toISOString(), created_at: new Date().toISOString(), approved_at: null,
+        });
+      }
+      save();
+    },
+    async partnerMe() {
+      if (!s.user) return null;
+      const pp = programme();
+      const u = s.user;
+      const p = pp.partners.find((x) => x.user_id === u.id);
+      if (!p) {
+        const inv = pp.partners.find((x) => !x.user_id && x.email.toLowerCase() === u.email.toLowerCase());
+        return inv ? { invited: true as const, name: inv.name, company: inv.company, programme: publicProgramme() } : null;
+      }
+      const since = Date.now() - 30 * 86_400_000;
+      const clicks = pp.clicks.filter((k) => k.partner_id === p.id);
+      const byCampaign = new Map<string, number>();
+      for (const k of clicks) byCampaign.set(k.campaign, (byCampaign.get(k.campaign) ?? 0) + 1);
+      const byDay = new Map<string, number>();
+      for (const k of clicks) if (Date.parse(k.at) > since) byDay.set(k.at.slice(0, 10), (byDay.get(k.at.slice(0, 10)) ?? 0) + 1);
+      const mine = pp.commissions.filter((c) => c.partner_id === p.id);
+      const { user_id: _u, admin_notes: _n, created_by_admin: _c, ...profile } = p;
+      return {
+        partner: profile,
+        programme: publicProgramme(),
+        clicks: {
+          total: clicks.length,
+          last30: clicks.filter((k) => Date.parse(k.at) > since).length,
+          campaigns: [...byCampaign].map(([campaign, n]) => ({ campaign, clicks: n })).sort((a, b) => b.clicks - a.clicks),
+          days: [...byDay].map(([day, n]) => ({ day, clicks: n })).sort((a, b) => a.day.localeCompare(b.day)),
+        },
+        referrals: Object.entries(pp.referrals)
+          .filter(([fid, r]) => r.partner_id === p.id && !!s.firms[fid])
+          .map(([fid, r]) => {
+            const earned: Record<string, number> = {};
+            for (const c of mine) if (c.firm_id === fid && c.status !== 'void') earned[c.currency] = (earned[c.currency] ?? 0) + c.amount_kobo;
+            return { firm_id: fid, firm: s.firms[fid]?.firm.name ?? '', country: s.firms[fid]?.firm.country ?? 'NG', referred_at: r.referred_at, campaign: r.campaign, state: s.firms[fid] ? stateOf(fid) : 'expired', review: !!r.review, earned };
+          })
+          .sort((a, b) => b.referred_at.localeCompare(a.referred_at)),
+        commissions: mine.map(({ partner_id: _p, firm_id: _f, payment_id: _y, ...c }) => c).sort((a, b) => b.created_at.localeCompare(a.created_at)),
+        payouts: pp.payouts.filter((o) => o.partner_id === p.id).map(({ partner_id: _p, payout_details: _d, requested_by: _b, ...o }) => o).sort((a, b) => b.requested_at.localeCompare(a.requested_at)),
+        balances: balancesOf(mine),
+        assets: p.status === 'active' ? pp.assets : [],
+      };
+    },
+    async partnerUpdate(patch) {
+      const p = programme().partners.find((x) => x.user_id === me().id);
+      if (!p) throw new Error('No partner account.');
+      for (const k of ['company', 'phone', 'website', 'promotion'] as const) if (patch[k] !== undefined) p[k] = String(patch[k]);
+      if (patch.payout_details) p.payout_details = { ...patch.payout_details };
+      save();
+    },
+    async partnerRequestPayout(currency) {
+      const p = programme().partners.find((x) => x.user_id === me().id);
+      if (!p) throw new Error('No partner account.');
+      makePayout(p.id, currency.toUpperCase(), 'partner');
+      save();
+    },
+    async adminPartners() {
+      if (!isAdminUser()) throw new Error('Not found.');
+      const pp = programme();
+      const since = Date.now() - 30 * 86_400_000;
+      const paying = (fid: string) => (s.firms[fid] ? subOf(fid).payments.length > 0 : false);
+      const months = new Map<string, number>();
+      for (const k of pp.clicks) {
+        const key = `${k.partner_id}|${k.at.slice(0, 7)}|${k.campaign}`;
+        months.set(key, (months.get(key) ?? 0) + 1);
+      }
+      return {
+        settings: { ...pp.settings },
+        partners: pp.partners.map(({ user_id, ...p }) => {
+          const refs = Object.entries(pp.referrals).filter(([, r]) => r.partner_id === p.id);
+          return {
+            ...p, has_account: !!user_id,
+            clicks: pp.clicks.filter((k) => k.partner_id === p.id).length,
+            clicks30: pp.clicks.filter((k) => k.partner_id === p.id && Date.parse(k.at) > since).length,
+            referred: refs.length, paying: refs.filter(([fid]) => paying(fid)).length,
+            balances: balancesOf(pp.commissions.filter((c) => c.partner_id === p.id)),
+          };
+        }).sort((a, b) => b.created_at.localeCompare(a.created_at)),
+        referrals: Object.entries(pp.referrals).map(([fid, r]) => ({ firm_id: fid, firm: s.firms[fid]?.firm.name ?? '', country: s.firms[fid]?.firm.country ?? 'NG', partner_id: r.partner_id, referred_at: r.referred_at, campaign: r.campaign, review: r.review, state: s.firms[fid] ? stateOf(fid) : 'expired' })),
+        commissions: pp.commissions.map(({ payment_id: _y, ...c }) => c).sort((a, b) => b.created_at.localeCompare(a.created_at)),
+        payouts: [...pp.payouts].sort((a, b) => b.requested_at.localeCompare(a.requested_at)),
+        clicks: [...months].map(([k, n]) => {
+          const [partner_id, month, campaign] = k.split('|');
+          return { partner_id, month, campaign, clicks: n };
+        }),
+        assets: [...pp.assets],
+      };
+    },
+    async adminPartnerAct(action, a) {
+      if (!isAdminUser()) throw new Error('Not found.');
+      const pp = programme();
+      const str = (k: string) => (a[k] === undefined || a[k] === null ? undefined : String(a[k]));
+      const p = str('id') ? pp.partners.find((x) => x.id === str('id')) : undefined;
+      const code = str('code') ? normaliseCode(str('code')!) : undefined;
+      if (code !== undefined && !/^[A-Z0-9]{4,20}$/.test(code)) throw new Error('A code is 4 to 20 letters and numbers.');
+      if (code && pp.partners.some((x) => x.code === code && x.id !== str('id'))) throw new Error('Another partner already uses that code.');
+      const months = (v: unknown, fallback: number | null) => (v === undefined ? fallback : v === '' || v === null ? null : Number(v));
+      const now = new Date().toISOString();
+      let out: Record<string, unknown> = {};
+      const need = () => {
+        if (!p) throw new Error('Partner not found.');
+        return p;
+      };
+      const commission = () => pp.commissions.find((c) => c.id === str('id'));
+      const payout = () => pp.payouts.find((o) => o.id === str('id'));
+      switch (action) {
+        case 'create': {
+          const email = (str('email') ?? '').trim().toLowerCase();
+          if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error("Enter the partner's email address.");
+          if (pp.partners.some((x) => x.email.toLowerCase() === email)) throw new Error('A partner with that email already exists.');
+          const np = {
+            id: uid(), user_id: null, email, name: (str('name') ?? '').trim(), company: str('company') ?? '', phone: str('phone') ?? '', country: (str('country') || 'NG').toUpperCase(),
+            website: '', promotion: '', code: code ?? newCode(str('name') ?? '', (c) => pp.partners.some((x) => x.code === c)), status: 'active' as const,
+            commission_percent: a.percent !== undefined && a.percent !== '' ? Number(a.percent) : pp.settings.default_percent, commission_months: months(a.months, pp.settings.default_months),
+            payout_details: {}, admin_notes: str('admin_notes') ?? '', created_by_admin: true, terms_version: null, terms_accepted_at: null, created_at: now, approved_at: now,
+          };
+          if (!np.name) throw new Error("Enter the partner's name.");
+          pp.partners.push(np);
+          out = { id: np.id, code: np.code };
+          break;
+        }
+        case 'update': {
+          const x = need();
+          if (str('name')?.trim()) x.name = str('name')!.trim();
+          for (const k of ['company', 'phone', 'admin_notes'] as const) if (str(k) !== undefined) x[k] = str(k)!;
+          if (str('country')) x.country = str('country')!.toUpperCase();
+          if (code) x.code = code;
+          if (a.percent !== undefined && a.percent !== '') x.commission_percent = Number(a.percent);
+          if ('months' in a) x.commission_months = months(a.months, x.commission_months);
+          break;
+        }
+        case 'status': {
+          const x = need();
+          const st = str('status') as PartnerProfile['status'];
+          if (!['active', 'suspended', 'rejected', 'pending'].includes(st)) throw new Error('Unknown status.');
+          x.status = st;
+          if (st === 'active') x.approved_at ??= now;
+          break;
+        }
+        case 'commission_approve': {
+          const c = commission();
+          if (!c || c.status !== 'review') throw new Error('That commission is not awaiting review.');
+          c.status = 'pending';
+          if (pp.referrals[c.firm_id]) pp.referrals[c.firm_id].review = null;
+          break;
+        }
+        case 'commission_void': {
+          if (!str('reason')?.trim()) throw new Error('Give the reason, such as a refund.');
+          const c = commission();
+          if (!c || !['review', 'pending'].includes(c.status)) throw new Error('Only a commission not yet in a payout can be voided.');
+          Object.assign(c, { status: 'void', void_reason: str('reason')!.trim(), payout_id: null });
+          break;
+        }
+        case 'payout_create':
+          out = { id: makePayout(need().id, (str('currency') ?? '').toUpperCase(), 'admin') };
+          break;
+        case 'payout_paid': {
+          if (!str('reference')?.trim()) throw new Error('Enter the transfer reference.');
+          const o = payout();
+          if (!o || o.status !== 'requested') throw new Error('That payout is not awaiting payment.');
+          Object.assign(o, { status: 'paid', decided_at: str('paid_at') ? new Date(str('paid_at')!).toISOString() : now, reference: str('reference')!.trim(), method: str('method') || 'Bank transfer', note: str('note') ?? '' });
+          for (const c of pp.commissions) if (c.payout_id === o.id) c.status = 'paid';
+          break;
+        }
+        case 'payout_reject': {
+          if (!str('note')?.trim()) throw new Error('Tell the partner why.');
+          const o = payout();
+          if (!o || o.status !== 'requested') throw new Error('That payout is not awaiting payment.');
+          Object.assign(o, { status: 'rejected', decided_at: now, note: str('note')!.trim() });
+          for (const c of pp.commissions) if (c.payout_id === o.id) Object.assign(c, { status: 'pending', payout_id: null });
+          break;
+        }
+        case 'assign_referral': {
+          const fid = str('firm') ?? '';
+          if (!s.firms[fid]) throw new Error('Firm not found.');
+          const pid = str('partner');
+          if (pid && !pp.partners.some((x) => x.id === pid)) throw new Error('Partner not found.');
+          if (pid) pp.referrals[fid] = { partner_id: pid, referred_at: pp.referrals[fid]?.referred_at ?? now, campaign: pp.referrals[fid]?.campaign ?? '', review: null };
+          else delete pp.referrals[fid];
+          break;
+        }
+        case 'settings': {
+          const st = pp.settings;
+          if (a.open !== undefined) st.open = !!a.open;
+          if (a.default_percent !== undefined) st.default_percent = Number(a.default_percent);
+          if ('default_months' in a) st.default_months = months(a.default_months, st.default_months);
+          if (a.hold_days !== undefined) st.hold_days = Number(a.hold_days);
+          if (a.cookie_days !== undefined) st.cookie_days = Number(a.cookie_days);
+          if (a.min_payout && typeof a.min_payout === 'object') st.min_payout = { ...st.min_payout, ...(a.min_payout as Record<string, number>) };
+          if (str('terms_version')?.trim()) st.terms_version = str('terms_version')!.trim();
+          st.updated_at = now;
+          break;
+        }
+        case 'asset_add':
+          if (!str('title')?.trim()) throw new Error('Give the resource a title.');
+          pp.assets.push({ id: uid(), title: str('title')!.trim(), kind: str('kind') === 'link' ? 'link' : 'copy', body: str('body') ?? '', url: str('url') ?? '', created_at: now });
+          break;
+        case 'asset_delete':
+          pp.assets = pp.assets.filter((x) => x.id !== str('id'));
+          break;
+        default:
+          throw new Error('Unknown action.');
+      }
+      platform().log.push({ at: now, action: 'partner_' + action, detail: a, admin: me().email, firm: null });
+      save();
+      return out;
     },
     async adminOverview() {
       if (!isAdminUser()) throw new Error('Not found.');

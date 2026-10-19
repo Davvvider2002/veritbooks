@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { AdminPartners } from './partners/AdminPartners';
 import { Link } from 'react-router-dom';
 import { JURISDICTIONS, jurisdictionOf, type CountryCode } from './content/jurisdictions';
 import { SecondFactor } from './mfa';
@@ -15,7 +16,7 @@ const STATE: Record<AdminFirm['state'], { label: string; tag: string }> = {
   expired: { label: 'Lapsed', tag: 'bad' },
   suspended: { label: 'Suspended', tag: 'bad' },
 };
-const TABS = ['Overview', 'Firms', 'Sign-ups', 'Payments', 'Prices', 'Settings', 'Log'] as const;
+const TABS = ['Overview', 'Firms', 'Sign-ups', 'Payments', 'Partners', 'Prices', 'Settings', 'Log'] as const;
 type Tab = (typeof TABS)[number];
 type Act = (action: string, args: Record<string, unknown>) => void;
 /** The currency a firm is charged in, from its country. */
@@ -850,6 +851,7 @@ export function AdminApp() {
           {data && tab === 'Firms' && <Firms d={data} act={act} busy={busy} openId={openId} setOpenId={setOpenId} />}
           {data && tab === 'Sign-ups' && <Users d={data} act={act} busy={busy} me={who.user} resetMfa={(id) => void run(async () => { setDone(null); await repo.adminResetTwoFactor(id); setDone('Two-factor reset. They set up a new authenticator at their next sign-in.'); await load(); })} />}
           {data && tab === 'Payments' && <Payments d={data} />}
+          {data && tab === 'Partners' && <AdminPartners />}
           {data && tab === 'Prices' && <Prices d={data} act={act} busy={busy} />}
           {data && tab === 'Settings' && <Settings d={data} act={act} busy={busy} />}
           {data && tab === 'Log' && <Log d={data} />}

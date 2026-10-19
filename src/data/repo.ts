@@ -103,6 +103,7 @@ export interface LogEntry {
 }
 
 import type { PlanMode } from '../engine/billing';
+import type { AdminPartners, PartnerMe, PartnerProfile, PartnerProgramme } from '../engine/partners';
 import type { CountryCode, CurrencyCode } from '../content/jurisdictions';
 
 export type PlanCode = 'solo' | 'practice' | 'firm';
@@ -486,6 +487,23 @@ export interface Repo {
   /** True when the signed-in user is a platform admin. */
   isAdmin(): Promise<boolean>;
   adminOverview(): Promise<AdminData>;
+
+  /** The partner programme's terms. No sign-in needed. */
+  partnerProgramme(): Promise<PartnerProgramme>;
+  /** Counts a visit through a partner's link. Says only whether the code is live. No sign-in needed. */
+  partnerClick(code: string, campaign: string, path: string, country: string): Promise<boolean>;
+  /** The name behind a live code, so a firm knows it typed it right. Null when the code is not live. */
+  partnerLookup(code: string): Promise<{ name: string } | null>;
+  /** Credits the signed-in partner's new firm to the partner whose code brought it in. */
+  claimReferral(code: string, campaign: string): Promise<{ name: string }>;
+  /** Applies to the partner programme, or takes up a partner account the platform owner set up. */
+  partnerApply(p: { name: string; company: string; phone: string; country: string; website: string; promotion: string; accept_terms: boolean }): Promise<void>;
+  /** The signed-in partner's portal. Null when the account is not a partner. */
+  partnerMe(): Promise<PartnerMe | null>;
+  partnerUpdate(p: Partial<Pick<PartnerProfile, 'company' | 'phone' | 'website' | 'promotion' | 'payout_details'>>): Promise<void>;
+  partnerRequestPayout(currency: string): Promise<void>;
+  adminPartners(): Promise<AdminPartners>;
+  adminPartnerAct(action: string, args: Record<string, unknown>): Promise<Record<string, unknown>>;
   adminAct(action: string, args: Record<string, unknown>): Promise<void>;
   /** Flutterwave's rate today: how many of `charge` it takes to make one of `price`. Admins only. */
   adminFxRate(price: BillingCurrency, charge: BillingCurrency): Promise<number>;

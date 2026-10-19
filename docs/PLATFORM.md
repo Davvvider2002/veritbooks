@@ -1,6 +1,6 @@
 # VeritBooks: platform definition
 
-Version 0.18, 18 October 2026.
+Version 0.19, 19 October 2026.
 
 ## What it is
 
@@ -390,6 +390,24 @@ Two steps appear only for a South African firm. The rules and their sources live
 **South African bank statements.** The bank reader takes the layout South African banks use: one Amount column, signed in a CSV export or marked Cr for money in on a PDF; balances marked Cr or Dr; dates written yyyy/mm/dd, or printed as "03 Jan" with the year taken from the statement period and moved on when the months turn back. A charges column is kept apart from the amounts. Samples: `public/samples/za-bank-statement-2025.csv` and `.pdf`, made by `scripts/make-za-bank.mjs` and `scripts/make-za-bank-pdf.py` from the same transactions as the general sample, so they reconcile to `general-ledger-2025.csv` with the same two items for a journal. A South African firm's Bank step links to them.
 
 **CIPC filing.** Works out the public interest score (employees, a point per R1 million or part of third party liabilities and of turnover, and individuals with a beneficial interest) and says what it means for audit or review. It collects the annual return details CIPC requires, lists any still blank, and downloads one XHTML file in Inline XBRL 1.1 against the IFRS for SMEs entry point of CIPC's 2024 taxonomy. The statements of financial position, profit or loss and cash flows are tagged figure by figure, each fact with its concept's sign; the directors' report, directors' responsibilities, the independent report, the accounting policies, the notes and the directors are tagged as blocks; nil turnover, third party liabilities, revenue and liabilities carry an English footnote. The file passes Arelle's Inline XBRL 1.1 checks against a stand-in taxonomy. The element names follow CIPC's naming rule but could not be checked against the taxonomy package, so the file is marked as a draft to be validated with CIPC before its first filing. The entry point can be changed on the step.
+
+## Channel partners
+
+Partners promote VeritBooks to firms and earn on what those firms pay. Database: `supabase/migrations/0019_partners.sql`. Rules shared with the demo store: `src/engine/partners.ts`. Partner portal: `/partners` (`src/partners/PartnerApp.tsx`). Platform owner: the admin console's Partners tab (`src/partners/AdminPartners.tsx`).
+
+**Joining.** Anyone can read the programme at `/partners`, create an account and apply, accepting the terms (written from the programme settings, in `src/content/partnerTerms.ts`). The platform owner approves or declines each application, and can set a different rate first. The platform owner can also set a partner up by email; that person takes the account up by signing in at `/partners` with that address and accepting the terms. A partner gets a code made from their first name, such as LINDIWE27, which the platform owner can change.
+
+**Tracking.** The partner's link is `veritbooks.com/?ref=CODE`, optionally tagged `&c=campaign` and `&country=ZA`. Any page captures it; the browser remembers it for the programme's window (90 days to start) and counts one click per session. When a firm is set up, the referral code field is filled from the link, and a firm can type a code instead. The credit is made by the database (`claim_referral`): once per firm, by its partner, within 30 days of set-up and before it has paid. A partner cannot refer their own firm. A firm on the partner's own company email domain is held for review. A firm cannot change its own referral.
+
+**Commission.** A trigger on payments credits the partner the moment a referred firm's payment is marked paid, by checkout or by a transfer the platform owner records: the partner's rate on the amount paid net of VAT, in the currency paid, for the partner's commission period (12 months to start, or lifetime). Suspended partners earn nothing. Each commission is held (45 days to start) and then becomes available.
+
+**Payouts.** A partner asks for a payout of their available balance in a currency once it reaches the minimum (₦20,000, GH₵200, US$20, R300 to start) and their bank or mobile money details are saved. The request keeps a copy of the details. The platform owner pays by transfer, records the reference, and the partner sees it. A request can be returned with a reason, which puts the commissions back in the balance. The platform owner can also pay out a partner's available balance at any time, below the minimum.
+
+**The partner portal.** Overview (link, code, clicks, firms, earnings by currency, clicks by day and campaign), Links and tools (campaign link builder, country, QR code download, ready-made email, WhatsApp, LinkedIn and X messages), Referrals (firm name, country, date, campaign, status, earned; nothing else of the firm), Earnings, Payouts, Resources (from the platform owner, with `{link}` and `{code}` filled in), Profile (contact and payout details, terms accepted).
+
+**The platform owner.** Overview with what is waiting, commission owed by stage and the leading partners; Applications; Partners (add, search, edit terms, code and notes, suspend, payout details, firms referred, pay out now); Payouts queue and history; Commissions (approve held referrals, void with a reason such as a refund, move a firm's credit to another partner); Reports by month, partner and currency, with CSV downloads of the report, partners, commissions and payouts; Resources; Settings (applications open, default rate and period, hold, link window, minimums, terms version). Every action is in the admin log.
+
+**Not yet.** Emails to partners on approval and payout; paying through Flutterwave transfers from the console; a coupon or discount for referred firms; a partner tier or bonus scheme.
 
 ## Nigerian content
 

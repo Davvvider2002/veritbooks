@@ -627,5 +627,88 @@ const [cz] = await as(ZA1, `insert into clients (firm_id, name) values ($1, 'Sow
 const [ez] = await as(ZA1, `insert into engagements (firm_id, client_id, type, year_end, currency) values ($1, $2, 'compilation', '2025-02-28', 'ZAR') returning *`, [fz.id, cz.id]);
 ok('an engagement can be presented in rand', ez.currency === 'ZAR');
 
+// --- Channel partners ---------------------------------------------------------
+await db.exec(readFileSync('supabase/migrations/0019_partners.sql', 'utf8'));
+const p_P1 = '00000000-0000-0000-0000-000000000041'; // the partner
+const p_R1 = '00000000-0000-0000-0000-000000000042'; // a firm the partner refers
+const p_R2 = '00000000-0000-0000-0000-000000000043'; // a firm on the partner's own email domain
+await db.exec(`insert into auth.users (id, email, email_confirmed_at) values
+  ('${p_P1}', 'lindiwe@growthagency.co.za', now()), ('${p_R1}', 'owner@capefirm.co.za', now()), ('${p_R2}', 'sam@growthagency.co.za', now())`);
+
+const p_pact = (a, p) => as2(Z, `select admin_partner_act($1, $2::jsonb) as r`, [a, JSON.stringify(p)]);
+ok('anyone can read the programme terms', (await anon(`select partner_programme() as p`))[0].p.percent == 20 && (await anon(`select partner_programme() as p`))[0].p.hold_days === 45);
+await denied('applying needs the terms accepted', () => as(p_P1, `select partner_apply($1::jsonb)`, [JSON.stringify({ name: 'Lindiwe Dube' })]), /terms/);
+await as(p_P1, `select partner_apply($1::jsonb)`, [JSON.stringify({ name: 'Lindiwe Dube', company: 'Growth Agency', country: 'ZA', accept_terms: true, promotion: 'Webinars for SAIPA members' })]);
+let p_me = (await as(p_P1, `select partner_me() as m`))[0].m;
+const p_code = p_me.partner.code;
+ok('an application waits for approval, with a code made from the name', p_me.partner.status === 'pending' && /^LINDIWE\d{2,3}$/.test(p_code) && Number(p_me.partner.commission_percent) === 20);
+ok('a pending partner’s link does not count', (await anon(`select partner_click($1, '', '/', 'ZA') as c`, [p_code]))[0].c === false);
+await denied('a partner cannot approve themselves', () => as2(p_P1, `select admin_partner_act('status', $1::jsonb)`, [JSON.stringify({ id: p_me.partner.id, status: 'active' })]), /Not found/);
+await denied('partner tables are closed to users', () => as(p_P1, `select * from partners`), /permission denied/);
+await p_pact('status', { id: p_me.partner.id, status: 'active' });
+ok('an active partner’s link counts a visit', (await anon(`select partner_click($1, 'linkedin', '/', 'ZA') as c`, [p_code.toLowerCase()]))[0].c === true);
+ok('a code shows the partner’s name to a firm', (await anon(`select partner_lookup($1) as l`, [p_code]))[0].l.name === 'Growth Agency');
+const [p_fr1] = await as(p_R1, `select * from create_firm('Cape Audit Inc', '', 'Cape Town', 'Owner Cape', '', 'ZA')`);
+ok('a new firm takes the referral', (await as(p_R1, `select claim_referral($1, 'linkedin') as r`, [p_code]))[0].r.name === 'Growth Agency');
+await denied('only once', () => as(p_R1, `select claim_referral($1, '')`, [p_code]), /already/);
+await denied('a firm cannot change its own referral', () => as(p_R1, `update firms set referred_by = null where id = $1 returning id`, [p_fr1.id]), /referral|permission/);
+const [p_fp] = await as(p_P1, `select * from create_firm('Growth Agency Practice', '', 'Durban', 'Lindiwe Dube', '', 'ZA')`);
+await denied('a partner cannot refer their own firm', () => as(p_P1, `select claim_referral($1, '')`, [p_code]), /own firm/);
+const [p_fr2] = await as(p_R2, `select * from create_firm('Sam and Co', '', 'Pretoria', 'Sam', '', 'ZA')`);
+await as(p_R2, `select claim_referral($1, '')`, [p_code]);
+ok('a referral from the partner’s own email domain is held for review', (await db.query(`select referral_review from firms where id = $1`, [p_fr2.id])).rows[0].referral_review !== null);
+await db.exec(`update firms set plan = 'trial' where id in ('${p_fr1.id}', '${p_fr2.id}')`);
+const p_q1 = await co(p_R1, { kind: 'engagement', type: 'audit' });
+await svc(`select apply_payment($1, 'p1', $2, $3)`, [p_q1.tx_ref, p_q1.amount_kobo, p_q1.currency]);
+p_me = (await as(p_P1, `select partner_me() as m`))[0].m;
+const p_c1 = p_me.commissions[0];
+ok('a payment by the referred firm earns 20% of what it paid, net of VAT', p_c1 && p_c1.currency === p_q1.currency && p_c1.amount_kobo === Math.floor((p_q1.amount_kobo - (p_q1.vat_kobo ?? 0)) * 0.2) && p_c1.status === 'pending');
+ok('the commission is held for 45 days', p_me.balances[p_c1.currency].held === p_c1.amount_kobo && p_me.balances[p_c1.currency].available === 0);
+ok('the partner sees the firm, its source and the click', p_me.referrals.some((r) => r.firm === 'Cape Audit Inc' && r.campaign === 'linkedin') && p_me.clicks.total === 1 && p_me.clicks.campaigns[0].campaign === 'linkedin');
+const p_q2 = await co(p_R2, { kind: 'engagement', type: 'review' });
+await svc(`select apply_payment($1, 'p2', $2, $3)`, [p_q2.tx_ref, p_q2.amount_kobo, p_q2.currency]);
+let p_ap = (await as2(Z, `select admin_partners() as a`))[0].a;
+const p_held = p_ap.commissions.find((c) => c.firm === 'Sam and Co');
+ok('a held referral earns a commission awaiting review', p_held.status === 'review');
+await p_pact('commission_approve', { id: p_held.id });
+await denied('nothing can be paid out while the commission is held', () => as(p_P1, `select partner_request_payout($1)`, [p_c1.currency]), /Nothing is available/);
+await db.exec(`update partner_commissions set available_at = now() - interval '1 day'`);
+await denied('a payout needs bank details', () => as(p_P1, `select partner_request_payout($1)`, [p_c1.currency]), /payout details/);
+await as(p_P1, `select partner_update($1::jsonb)`, [JSON.stringify({ payout_details: { bank: 'FNB', account_name: 'Growth Agency', account_number: '62000000001', branch_code: '250655' } })]);
+await denied('a partner cannot change their own commission', () => as(p_P1, `update partners set commission_percent = 90`), /permission denied/);
+await p_pact('settings', { min_payout: { [p_c1.currency]: 5000000 } });
+await denied('below the minimum, the partner cannot ask for a payout', () => as(p_P1, `select partner_request_payout($1)`, [p_c1.currency]), /least/);
+await p_pact('settings', { min_payout: { [p_c1.currency]: 100 } });
+await as(p_P1, `select partner_request_payout($1)`, [p_c1.currency]);
+p_ap = (await as2(Z, `select admin_partners() as a`))[0].a;
+const p_po = p_ap.payouts[0];
+ok('the payout request carries both commissions and the bank details', p_po.status === 'requested' && p_po.amount_kobo === p_ap.commissions.filter((c) => c.status === 'requested').reduce((a, c) => a + c.amount_kobo, 0) && p_po.payout_details.bank === 'FNB');
+await denied('a payout is marked paid only with a reference', () => p_pact('payout_paid', { id: p_po.id }), /reference/);
+await p_pact('payout_paid', { id: p_po.id, reference: 'EFT 2026-11-30 0001' });
+p_me = (await as(p_P1, `select partner_me() as m`))[0].m;
+ok('once paid, the partner sees it paid', p_me.payouts[0].status === 'paid' && p_me.balances[p_c1.currency].paid === p_po.amount_kobo && p_me.commissions.every((c) => c.status === 'paid'));
+await denied('a paid commission cannot be voided', () => p_pact('commission_void', { id: p_c1.id, reason: 'Refund' }), /not yet in a payout/);
+await p_pact('update', { id: p_me.partner.id, months: 1 });
+await db.exec(`update firms set referred_at = now() - interval '2 months' where id = '${p_fr1.id}'`);
+const p_q3 = await co(p_R1, { kind: 'engagement', type: 'compilation' });
+await svc(`select apply_payment($1, 'p3', $2, $3)`, [p_q3.tx_ref, p_q3.amount_kobo, p_q3.currency]);
+ok('after the commission period, payments earn nothing', (await as(p_P1, `select partner_me() as m`))[0].m.commissions.length === 2);
+await p_pact('update', { id: p_me.partner.id, months: '' });
+await p_pact('status', { id: p_me.partner.id, status: 'suspended' });
+const p_q4 = await co(p_R1, { kind: 'engagement', type: 'compilation' });
+await svc(`select apply_payment($1, 'p4', $2, $3)`, [p_q4.tx_ref, p_q4.amount_kobo, p_q4.currency]);
+ok('a suspended partner earns nothing, and their link stops counting', (await as(p_P1, `select partner_me() as m`))[0].m.commissions.length === 2 && (await anon(`select partner_click($1, '', '/', '') as c`, [p_code]))[0].c === false);
+const p_made = (await p_pact('create', { email: 'Kwame@Accra.gh', name: 'Kwame Mensah', country: 'GH', percent: 25, code: 'KWAME' }))[0].r;
+ok('the platform owner can set a partner up, with their own code and rate', p_made.code === 'KWAME');
+await denied('codes are unique', () => p_pact('create', { email: 'other@x.gh', name: 'Other', code: 'kwame' }), /already uses/);
+const p_K = '00000000-0000-0000-0000-000000000044';
+await db.exec(`insert into auth.users (id, email, email_confirmed_at) values ('${p_K}', 'kwame@accra.gh', now())`);
+ok('the invited partner sees the invitation', (await as(p_K, `select partner_me() as m`))[0].m.invited === true);
+await as(p_K, `select partner_apply($1::jsonb)`, [JSON.stringify({ name: 'Kwame Mensah', accept_terms: true })]);
+p_me = (await as(p_K, `select partner_me() as m`))[0].m;
+ok('and takes it up by accepting the terms, already active at 25%', p_me.partner.status === 'active' && Number(p_me.partner.commission_percent) === 25 && p_me.partner.code === 'KWAME');
+ok('every partner action is logged', (await as2(Z, `select admin_overview() as o`))[0].o.log.some((l) => l.action === 'partner_payout_paid'));
+void p_fp;
+
 console.log(failed ? `\n${failed} check(s) failed` : '\nAll database checks passed');
 process.exit(failed ? 1 : 0);

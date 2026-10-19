@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { AdminApp } from './admin';
+import { PARTNER_INTENT, PartnerApp } from './partners/PartnerApp';
 import { ClientsPage } from './clients';
 import { BillingPage, PlanStrip } from './billing';
 import { SecondFactor } from './mfa';
@@ -30,6 +31,8 @@ export function App() {
   const portal = /^\/r\/([^/]+)\/?$/.exec(path)?.[1];
   // The platform owner's console has its own sign-in and shares nothing with a firm's workspace.
   const admin = /^\/admin\/?$/.test(path);
+  // The partner portal has its own sign-in and shows nothing of any firm's workspace.
+  const partners = /^\/partners\/?$/.test(path);
 
   const refresh = async () => {
     try {
@@ -43,6 +46,16 @@ export function App() {
       if (mfa.enrolled && !mfa.verified) return setSession({ state: 'second-factor', user });
       // A platform admin with no firm of their own belongs in the admin console, not firm setup.
       if (!ws && (await repo.adminStatus()).admin) return nav('/admin', { replace: true });
+      // A partner with no firm of their own, or someone who signed up to be one, belongs in the partner portal.
+      if (!ws) {
+        let intent = false;
+        try {
+          intent = localStorage.getItem(PARTNER_INTENT) === '1';
+        } catch {
+          // Storage unavailable.
+        }
+        if (intent || (await repo.partnerMe().catch(() => null))) return nav('/partners', { replace: true });
+      }
       setSession(ws ? { state: 'ready', user, ws } : { state: 'no-firm', user });
     } catch (e) {
       setSession({ state: 'error', error: message(e) });
@@ -55,6 +68,7 @@ export function App() {
   }, []);
 
   if (admin && session.state !== 'new-password') return <AdminApp />;
+  if (partners && session.state !== 'new-password') return <PartnerApp />;
   // A visitor who is not signed in sees the public site at the front door.
   if (session.state === 'signed-out' && path === '/') return <Landing />;
   if (portal)

@@ -572,6 +572,7 @@ export function Landing() {
             <a href="#features">Features</a>
             <a href="#pricing">Pricing</a>
             <a href="#faq">FAQ</a>
+            <a href="/partners">Partner programme</a>
             <Go to={CTA.signIn}>Sign in</Go>
           </nav>
           <div className="lp-legal">
