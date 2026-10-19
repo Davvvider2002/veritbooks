@@ -13,6 +13,7 @@ import { fmt2 } from '../engine/money';
 import type { Nature } from '../engine/types';
 import { ErrorNote, message, useAction } from '../ui';
 import type { Ctx } from '../workspace';
+import { AddAccount } from './accounts';
 
 export async function readRows(file: File): Promise<unknown[][]> {
   if (/\.xlsx$/i.test(file.name)) {
@@ -410,8 +411,21 @@ function MappingAssist({ ctx, unmapped, apply }: { ctx: Ctx; unmapped: Ctx['line
 }
 
 export function MappingStep(ctx: Ctx) {
-  const { eng, client, lines, locked, reload } = ctx;
+  const { eng, client, lines, adjustments, locked, reload } = ctx;
   const [filter, setFilter] = useState<'all' | 'unmapped'>('all');
+  const [adding, setAdding] = useState(false);
+  // Posted journals change the balances the statements use; proposed ones are shown apart.
+  const moves = useMemo(() => {
+    const posted = new Map<string, number>();
+    const proposed = new Map<string, number>();
+    for (const a of adjustments)
+      for (const j of a.lines) {
+        const m = a.posted ? posted : proposed;
+        m.set(j.lineId, (m.get(j.lineId) ?? 0) + j.amount);
+      }
+    return { posted, proposed };
+  }, [adjustments]);
+  const withJournals = moves.posted.size > 0 || moves.proposed.size > 0;
   const { error, run } = useAction();
   const unmapped = lines.filter((l) => !l.mapCode || !ITEM.has(l.mapCode));
   const shown = useMemo(
@@ -453,6 +467,17 @@ export function MappingStep(ctx: Ctx) {
       </div>
       <ErrorNote error={error} />
       {!locked && (
+        <div className="card stack" aria-label="New GL account">
+          <div className="between">
+            <h3 style={{ margin: 0 }}>Create and map a new GL account</h3>
+            <button className="link" onClick={() => setAdding(!adding)}>
+              {adding ? 'Close' : 'Add an account'}
+            </button>
+          </div>
+          {adding && <AddAccount engagementId={eng.id} lines={lines} onAdded={() => reload()} />}
+        </div>
+      )}
+      {!locked && (
         <MappingAssist
           ctx={ctx}
           unmapped={unmapped}
@@ -468,7 +493,10 @@ export function MappingStep(ctx: Ctx) {
             <tr>
               <th>Code</th>
               <th>Account</th>
-              <th className="num">Balance</th>
+              <th className="num">{withJournals ? 'Trial balance' : 'Balance'}</th>
+              {withJournals && <th className="num">Posted journals</th>}
+              {withJournals && <th className="num">After journals</th>}
+              {moves.proposed.size > 0 && <th className="num">Proposed</th>}
               <th>Statement line</th>
               <th>Nature</th>
             </tr>
@@ -479,6 +507,9 @@ export function MappingStep(ctx: Ctx) {
                 <td>{l.code}</td>
                 <td>{l.name}</td>
                 <td className="num">{fmt2(l.balance)}</td>
+                {withJournals && <td className="num">{moves.posted.get(l.id) ? fmt2(moves.posted.get(l.id)!) : ''}</td>}
+                {withJournals && <td className="num">{fmt2(l.balance + (moves.posted.get(l.id) ?? 0))}</td>}
+                {moves.proposed.size > 0 && <td className="num muted">{moves.proposed.get(l.id) ? fmt2(moves.proposed.get(l.id)!) : ''}</td>}
                 <td>
                   <select
                     aria-label={`Statement line for ${l.name}`}
@@ -520,6 +551,7 @@ export function MappingStep(ctx: Ctx) {
         </table>
       </div>
       <p className="small muted">
+        {withJournals && 'The statements use the balance after posted journals. Proposed journals stay out of them until the client books them. '}
         Nature tags feed the statement of value added and the cash flow. Tag salaries and pensions as staff cost, and depreciation and amortisation as depreciation.
       </p>
     </div>

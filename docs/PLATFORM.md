@@ -1,6 +1,6 @@
 # VeritBooks: platform definition
 
-Version 0.20, 19 October 2026.
+Version 0.21, 19 October 2026.
 
 ## What it is
 
@@ -319,7 +319,7 @@ Setting up: add `FLW_SECRET_KEY` and `FLW_WEBHOOK_HASH` as secrets of the `billi
 - **Getting around:** Engagements and Clients are in the top bar. Each file shows a breadcrumb back to its client, and every step ends with buttons for the previous and next step.
 - **Audit file numbers:** typed by hand, or given automatically from a pattern such as `AF/{YYYY}/{N}`, set by a partner in Firm details. A number can be changed on the engagement until the file is signed. Numbers are unique within the firm.
 - **Opening balances (audit and review):** when last year's file for the same client is in VeritBooks, this year's prior year column is compared line by line with last year's closing figures after posted journals. Otherwise the team agrees the balances to last year's signed statements and records the work. A conclusion is recorded either way.
-- **Journal import:** journals can be added from an Excel or CSV file, one row per line, grouped by reference. Each journal must balance and use accounts in the trial balance. A template is provided. Journals already in the file are skipped.
+- **Journal import:** journals can be added from an Excel or CSV file, one row per line, grouped by reference. Each journal must balance. A template is provided, with Account Code and Account Name columns. Journals already in the file are skipped.
 - **Management letter (audit and review):** matters with observation, implication, recommendation, management's response, priority and status, printed as a letter on the firm's letterhead.
 
 ## Report branding
@@ -391,9 +391,17 @@ Two steps appear only for a South African firm. The rules and their sources live
 
 **CIPC filing.** Works out the public interest score (employees, a point per R1 million or part of third party liabilities and of turnover, and individuals with a beneficial interest) and says what it means for audit or review. It collects the annual return details CIPC requires, lists any still blank, and downloads one XHTML file in Inline XBRL 1.1 against the IFRS for SMEs entry point of CIPC's 2024 taxonomy. The statements of financial position, profit or loss and cash flows are tagged figure by figure, each fact with its concept's sign; the directors' report, directors' responsibilities, the independent report, the accounting policies, the notes and the directors are tagged as blocks; nil turnover, third party liabilities, revenue and liabilities carry an English footnote. The file passes Arelle's Inline XBRL 1.1 checks against a stand-in taxonomy. The element names follow CIPC's naming rule but could not be checked against the taxonomy package, so the file is marked as a draft to be validated with CIPC before its first filing. The entry point can be changed on the step.
 
-## Journal import: accounts not in the trial balance
+## Journal import: accounts not in the trial balance, and rows to correct
 
-A journal file may use accounts the client's trial balance does not have. They are no longer reported as errors. Each is listed once, with its name (from an account name column when the file has one), the journals and lines that use it, its net amount, and a suggested line in the statements: from its name where the name says (bank, VAT, salaries), otherwise like the trial balance account whose code shares the most leading characters with it (6401004 beside 6401010). The journals that use it are held back. The preparer checks each, names it, chooses or confirms its line, and adds the ones they tick to the trial balance with a nil balance (and a nil prior year when the file has one); the file is then read again and the held journals are ready to add. Logic in `src/engine/journalImport.ts`, screen in `src/steps/work.tsx`.
+**Columns.** The template (`public/samples/journals-template.csv`) reads Ref, Date, Description, Account Code, Account Name, Debit, Credit, Treatment. Headings are read in plain words, so "Debit (₦)", "Debit NGN", "Dr Amount" and "Amount (ZAR)" are all recognised. A single Amount column (debits positive) is used when there are no Debit and Credit columns, or on a row where both are empty. A file with account names and no codes is matched to the trial balance by name.
+
+**Accounts not in the trial balance.** They are not reported as errors. Each is listed once with its code and name, the journals and lines that use it, its debits, credits and net in the file, and a suggested line in the statements: from its name where the name says (bank, VAT, salaries), otherwise like the trial balance account whose code shares the most leading characters with it (6401004 beside 6401010). An account the file names without a code is offered a code (NEW1, NEW2 and so on) which the preparer can change. The journals that use it are held back. The preparer checks each, names it, chooses its line, and adds the ones they tick with a nil balance (and a nil prior year when the trial balance has one). The file is read again and the held journals are ready to add. The new account's value comes from the journals: the Mapping step shows the trial balance, posted journals and the balance after journals for every account, with proposed journals in their own column.
+
+**Rows to correct.** A journal that does not balance, or has a row with no amount, no account, no reference or a negative debit or credit, is held back and its rows are listed for correction in the screen, in the file's own columns. Each edit reads the file again at once; a corrected row shows as corrected rather than vanishing. A row can be deleted, or a line added to a journal. The corrected file can be downloaded as CSV to send back to the client. Journals that are ready can be added while others are still being corrected.
+
+**New GL accounts during the audit.** The Mapping step and the New journal card both have a form to create an account (code, name, line in the statements, nature for expense lines). It is added with a nil balance; codes must be unique. From the journal card, the new account goes onto the first empty journal line. A fresh trial balance import replaces the list, so the client should be asked to include such accounts in the next trial balance.
+
+Logic in `src/engine/journalImport.ts`; screens in `src/steps/work.tsx`, `src/steps/accounts.tsx` and the Mapping step in `src/steps/input.tsx`.
 
 ## Channel partners
 

@@ -1,5 +1,7 @@
-Ref,Date,Description,Account,Debit,Credit,Treatment
-AJ1,2025-12-31,Accrue December electricity,6210,"450,000.00",,Posted
-AJ1,2025-12-31,Accrue December electricity,2100,,"450,000.00",Posted
-AJ2,2025-12-31,Write down slow-moving stock,5000,"1,200,000.00",,Proposed
-AJ2,2025-12-31,Write down slow-moving stock,1200,,"1,200,000.00",Proposed
+Ref,Date,Description,Account Code,Account Name,Debit,Credit,Treatment
+AJ1,2025-12-31,Accrue December electricity,6210,Electricity and diesel,"450,000.00",,Posted
+AJ1,2025-12-31,Accrue December electricity,2100,Accrued expenses,,"450,000.00",Posted
+AJ2,2025-12-31,Write down slow-moving stock,5000,Cost of sales,"1,200,000.00",,Proposed
+AJ2,2025-12-31,Write down slow-moving stock,1200,Inventories,,"1,200,000.00",Proposed
+AJ3,2025-12-31,Deposit paid to lawyers wrongly expensed,1355,Deposit with lawyers,"250,000.00",,Proposed
+AJ3,2025-12-31,Deposit paid to lawyers wrongly expensed,6220,Audit and professional fees,,"250,000.00",Proposed

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseJournals } from './journalImport';
+import { parseJournals, rowsToCsv } from './journalImport';
 import { openingComparison } from './opening';
 import type { TbLine } from './types';
 
@@ -87,6 +87,34 @@ describe('accounts a journal uses that the trial balance lacks', () => {
     const again = parseJournals(rows, added);
     expect(again.missing).toEqual([]);
     expect(again.journals.map((j) => j.ref)).toEqual(['ADJ-004', 'ADJ-006', 'ADJ-007', 'ADJ-008']);
+  });
+});
+
+describe('journal sheets as clients send them', () => {
+  it('reads amount headings with currency marks', () => {
+    const r = parseJournals([['JV No', 'GL Code', 'Debit (₦)', 'Credit (₦)'], ['J1', '6100', '50', ''], ['J1', '1000', '', '50']], tb);
+    expect(r.journals).toHaveLength(1);
+    const z = parseJournals([['Journal Ref', 'Account Code', 'Amount (ZAR)'], ['J2', '6100', '20'], ['J2', '1000', '-20']], tb);
+    expect(z.journals[0].lines.map((l) => l.amount)).toEqual([2000, -2000]);
+  });
+
+  it('imports by account name when the sheet has no codes', () => {
+    const r = parseJournals([['Ref', 'Account Name', 'Debit', 'Credit'], ['N1', 'Rent', '75', ''], ['N1', 'cash at bank', '', '75'], ['N2', 'Consulting fees', '10', ''], ['N2', 'Rent', '', '10']], tb);
+    expect(r.journals.map((j) => j.ref)).toEqual(['N1']);
+    expect(r.missing).toMatchObject([{ code: '', name: 'Consulting fees', debit: 1000, credit: 0 }]);
+  });
+
+  it('points at the rows to correct, and reads the corrected rows', () => {
+    const rows: unknown[][] = [['Ref', 'Account', 'Debit', 'Credit'], ['X1', '6100', '10', ''], ['X1', '1000', '', '9'], ['X3', '6100', '', ''], ['X3', '1000', '', '5']];
+    const r = parseJournals(rows, tb);
+    expect(r.problems.map((p) => [p.index, p.ref])).toEqual([[3, 'X3'], [1, 'X1'], [2, 'X1']]);
+    expect(r.errors).toContain('X3, row 4: the line has no amount.');
+    rows[2] = ['X1', '1000', '', '10'];
+    rows[3] = ['X3', '6100', '5', ''];
+    const again = parseJournals(rows, tb);
+    expect(again.errors).toEqual([]);
+    expect(again.journals.map((j) => j.ref)).toEqual(['X1', 'X3']);
+    expect(rowsToCsv(rows.slice(0, 2))).toBe('Ref,Account,Debit,Credit\r\nX1,6100,10,\r\n');
   });
 });
 
