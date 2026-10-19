@@ -16,6 +16,8 @@ import type {
 export interface User {
   id: string;
   email: string;
+  /** The firm named in the invitation email this account was created from, if any. */
+  invitedTo?: string | null;
 }
 
 export interface Firm {
@@ -295,6 +297,11 @@ export interface PendingInvite {
   id: string;
   firmName: string;
   role: Role;
+  /** The firm's details, so the person invited joins it without entering them. */
+  country?: string;
+  address?: string;
+  firmLicence?: string;
+  invitedBy?: string;
 }
 
 export type LedgerPeriod = 'current' | 'prior';

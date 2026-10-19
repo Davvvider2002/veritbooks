@@ -465,6 +465,8 @@ export function createDemoRepo(): Repo {
     },
     async createFirm(f) {
       if (s.memberOf[me().id]) throw new Error('You already belong to a firm.');
+      const invited = s.invites.find((i) => !i.accepted && i.email === me().email);
+      if (invited) throw new Error(`You have been invited to join ${s.firms[invited.firmId]?.firm.name ?? 'a firm'}. Accept that invitation instead of setting up a new firm.`);
       const countryForNew = (code: string) => {
         if (!countries().some((c) => c.code === code && c.enabled)) throw new Error('Choose the country where your firm practises.');
         return code as CountryCode;
@@ -534,7 +536,11 @@ export function createDemoRepo(): Repo {
       if (!s.user) return [];
       return s.invites
         .filter((i) => !i.accepted && i.email === s.user!.email)
-        .map((i) => ({ id: i.id, firmName: s.firms[i.firmId]?.firm.name ?? '', role: i.role }));
+        .map((i) => {
+          const f = s.firms[i.firmId];
+          const by = f?.members.find((m) => m.role === 'partner');
+          return { id: i.id, firmName: f?.firm.name ?? '', role: i.role, country: f?.firm.country ?? 'NG', address: f?.firm.address ?? '', firmLicence: f?.firm.frcNumber ?? '', invitedBy: by?.fullName ?? '' };
+        });
     },
     async acceptInvite(id, fullName, frcNumber) {
       const i = s.invites.find((x) => x.id === id && !x.accepted && x.email === me().email);

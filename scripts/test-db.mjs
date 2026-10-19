@@ -710,5 +710,17 @@ ok('and takes it up by accepting the terms, already active at 25%', p_me.partner
 ok('every partner action is logged', (await as2(Z, `select admin_overview() as o`))[0].o.log.some((l) => l.action === 'partner_payout_paid'));
 void p_fp;
 
+// --- An invited colleague joins; they do not set up a firm of their own -------
+await db.exec(readFileSync('supabase/migrations/0020_invite_details.sql', 'utf8'));
+const IV = '00000000-0000-0000-0000-000000000051';
+await db.exec(`insert into auth.users (id, email, email_confirmed_at) values ('${IV}', 'ifeoma@firm1.ng', now())`);
+const [invI] = await as(A, `insert into firm_invites (firm_id, email, role) values ($1, 'ifeoma@firm1.ng', 'staff') returning *`, [f1.id]);
+const det = (await as(IV, `select * from my_invite_details()`))[0];
+ok('the invitation carries the firm’s details and who sent it', det && det.firm_name === 'Firm One' && det.address === 'Lagos' && det.country === 'NG' && det.role === 'staff' && det.invited_by === 'Ada Partner');
+ok('nobody else sees those details', (await as(F, `select * from my_invite_details()`)).length === 0);
+await denied('someone invited cannot set up a firm of their own', () => as(IV, `select * from create_firm('My Own Firm', '', 'Lagos', 'Ifeoma', '')`), /invited to join Firm One/);
+await as(IV, `select accept_invite($1, 'Ifeoma Staff', '')`, [invI.id]);
+ok('they join the inviting firm', (await as(IV, `select role from firm_members where user_id = $1`, [IV]))[0]?.role === 'staff');
+
 console.log(failed ? `\n${failed} check(s) failed` : '\nAll database checks passed');
 process.exit(failed ? 1 : 0);

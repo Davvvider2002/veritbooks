@@ -5,7 +5,7 @@ import { repo } from './data';
 import { readLogo } from './image';
 import { TwoFactorSetting } from './mfa';
 import { forgetReferral, storedReferral } from './referral';
-import type { Branding, Workspace } from './data/repo';
+import type { Branding, PendingInvite, User, Workspace } from './data/repo';
 import { longDate } from './engine/report';
 import type { EngagementType, Role } from './engine/types';
 import { ErrorNote, Field, message, useAction, useLoad } from './ui';
@@ -165,13 +165,80 @@ export function NewPasswordPage({ onDone }: { onDone: () => Promise<void> }) {
   );
 }
 
-export function FirmSetup({ onDone }: { onDone: () => Promise<void> }) {
+/** Joining the firm that sent the invitation. The firm's details come with it; the person adds only their own. */
+function JoinFirm({ invites, onDone }: { invites: PendingInvite[]; onDone: () => Promise<void> }) {
+  return (
+    <div className="narrow stack" style={{ maxWidth: 560 }}>
+      <div>
+        <h1>{invites.length === 1 ? `Join ${invites[0].firmName}` : 'Join your firm'}</h1>
+        <p className="muted" style={{ marginTop: 6 }}>
+          You have been invited to work on this firm’s engagements. The firm’s details are already set up. Add your own and join.
+        </p>
+      </div>
+      {invites.map((i) => (
+        <JoinCard key={i.id} invite={i} onDone={onDone} />
+      ))}
+    </div>
+  );
+}
+
+const ROLE_WORD: Record<string, string> = { partner: 'Partner', manager: 'Manager', staff: 'Staff' };
+
+function JoinCard({ invite: i, onDone }: { invite: PendingInvite; onDone: () => Promise<void> }) {
+  const j = jurisdictionOf(i.country);
+  const [f, setF] = useState({ fullName: '', frcNumber: '' });
+  const { busy, error, run, setError } = useAction();
+  const detail = (label: string, value: string | undefined) =>
+    value ? (
+      <div>
+        <div className="small muted">{label}</div>
+        <div>{value}</div>
+      </div>
+    ) : null;
+  return (
+    <form
+      className="card stack"
+      aria-label={`Invitation from ${i.firmName}`}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!f.fullName.trim()) return setError('Enter your full name.');
+        void run(async () => {
+          await repo.acceptInvite(i.id, f.fullName, f.frcNumber);
+          await onDone();
+        });
+      }}
+    >
+      <div className="grid2">
+        {detail('Firm', i.firmName)}
+        {detail('Your role', ROLE_WORD[i.role] ?? i.role)}
+        {detail('Country', i.country ? j.name : undefined)}
+        {detail('Office address', i.address)}
+        {detail(`Firm ${j.licenceLabel}`, i.firmLicence)}
+        {detail('Invited by', i.invitedBy)}
+      </div>
+      <div className="grid2">
+        <Field label="Your full name">
+          <input type="text" required autoComplete="name" value={f.fullName} onChange={(e) => setF({ ...f, fullName: e.target.value })} />
+        </Field>
+        <Field label={`Your ${j.licenceLabel}`} hint={i.role === 'partner' ? 'Needed before you can sign reports.' : 'Leave blank if you hold none.'}>
+          <input type="text" value={f.frcNumber} onChange={(e) => setF({ ...f, frcNumber: e.target.value })} />
+        </Field>
+      </div>
+      <ErrorNote error={error} />
+      <div>
+        <button className="primary" disabled={busy}>
+          Join {i.firmName}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+export function FirmSetup({ onDone, user }: { onDone: () => Promise<void>; user?: User }) {
   const [f, setF] = useState({ country: chosenCountry(), name: '', frcNumber: '', address: '', fullName: '', memberFrc: '' });
   const offered = useLoad(() => repo.publicPrices().then((p) => p.countries.map((c) => c.code)).catch(() => COUNTRY_CODES), []);
   const j = jurisdictionOf(f.country);
-  const [join, setJoin] = useState({ fullName: '', frcNumber: '' });
   const { busy, error, run } = useAction();
-  const joining = useAction();
   // Invitations are checked quietly: a database without the team update simply shows none.
   const invites = useLoad(() => repo.myInvites().catch(() => []), []);
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
@@ -200,52 +267,29 @@ export function FirmSetup({ onDone }: { onDone: () => Promise<void> }) {
     );
   }, []);
 
+  // An invited colleague joins the firm that invited them. They never set up a firm of their own.
+  if (invites.data === undefined) return <div className="page muted">Loading…</div>;
+  if (pending.length > 0) return <JoinFirm invites={pending} onDone={onDone} />;
+  if (user?.invitedTo)
+    return (
+      <div className="narrow stack" style={{ maxWidth: 560 }}>
+        <h1>Join {user.invitedTo}</h1>
+        <div className="card stack">
+          <p style={{ margin: 0 }}>
+            You were invited to join <strong>{user.invitedTo}</strong>, but there is no open invitation for {user.email} at the moment. It may have been withdrawn, or already used.
+          </p>
+          <p style={{ margin: 0 }}>Ask the partner who invited you to send the invitation again. Once they have, sign in again here to join.</p>
+        </div>
+      </div>
+    );
+
   return (
     <div className="narrow stack" style={{ maxWidth: 560 }}>
-      {pending.length > 0 && (
-        <>
-          <div>
-            <h1>Join your firm</h1>
-            <p className="muted" style={{ marginTop: 6 }}>You have been invited. Confirm your details to join.</p>
-          </div>
-          <div className="card stack">
-            <div className="grid2">
-              <Field label="Your full name">
-                <input type="text" value={join.fullName} onChange={(e) => setJoin({ ...join, fullName: e.target.value })} />
-              </Field>
-              <Field label="Your practising licence or registration number" hint="FRC in Nigeria, ICAG in Ghana, and so on. Leave blank if you hold none.">
-                <input type="text" value={join.frcNumber} onChange={(e) => setJoin({ ...join, frcNumber: e.target.value })} />
-              </Field>
-            </div>
-            <ErrorNote error={joining.error} />
-            {pending.map((i) => (
-              <div key={i.id} className="between" style={{ alignItems: 'center' }}>
-                <span>
-                  <strong>{i.firmName}</strong> <span className="muted">as {i.role}</span>
-                </span>
-                <button
-                  className="primary"
-                  disabled={joining.busy}
-                  onClick={() => {
-                    if (!join.fullName.trim()) return joining.setError('Enter your full name.');
-                    void joining.run(async () => {
-                      await repo.acceptInvite(i.id, join.fullName, join.frcNumber);
-                      await onDone();
-                    });
-                  }}
-                >
-                  Join {i.firmName}
-                </button>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
       <div>
-        {pending.length > 0 ? <h2>Or set up a new firm</h2> : <h1>Set up your firm</h1>}
+        <h1>Set up your firm</h1>
         <p className="muted" style={{ marginTop: 6 }}>
           You become the firm’s first engagement partner. Licence numbers are printed on every signed report, and a file cannot be signed without them.
-          {pending.length === 0 && ' If a colleague has invited you instead, sign in with the email address they invited.'}
+          {' If a colleague has invited you instead, use the link in their email, or sign in with the address they invited.'}
         </p>
       </div>
       <form

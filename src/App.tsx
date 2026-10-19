@@ -141,7 +141,7 @@ export function App() {
       {session.state === 'signed-out' && (path === '/forgot' ? <ForgotPage /> : <AuthPage key={path} start={path === '/signup' ? 'up' : 'in'} />)}
       {session.state === 'new-password' && <NewPasswordPage onDone={refresh} />}
       {session.state === 'second-factor' && <SecondFactor enrolled onDone={() => void refresh()} />}
-      {session.state === 'no-firm' && <FirmSetup onDone={refresh} />}
+      {session.state === 'no-firm' && <FirmSetup onDone={refresh} user={session.user} />}
       {session.state === 'ready' && (
         <Routes>
           <Route path="/" element={<Dashboard ws={session.ws} />} />

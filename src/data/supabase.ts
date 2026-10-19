@@ -128,7 +128,7 @@ export function createSupabaseRepo(url: string, key: string): Repo {
     async currentUser() {
       const { data } = await db.auth.getSession();
       const u = data.session?.user;
-      return u ? { id: u.id, email: u.email ?? '' } : null;
+      return u ? { id: u.id, email: u.email ?? '', invitedTo: (u.user_metadata?.invited_to as string | undefined) || null } : null;
     },
     onAuthChange(cb) {
       const { data } = db.auth.onAuthStateChange((event) => {
@@ -290,9 +290,13 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       if (!data?.length) throw new Error('Only a partner can remove a member.');
     },
     async myInvites() {
-      const { data, error } = await db.rpc('my_invites');
-      fail(error);
-      return ((data as any[]) ?? []).map((r) => ({ id: r.id, firmName: r.firm_name, role: r.role }));
+      const { data, error } = await db.rpc('my_invite_details');
+      if (!error)
+        return ((data as any[]) ?? []).map((r) => ({ id: r.id, firmName: r.firm_name, role: r.role, country: r.country, address: r.address, firmLicence: r.firm_licence, invitedBy: r.invited_by }));
+      // A database without migration 0020 still lists the invitation, with the firm's name only.
+      const old = await db.rpc('my_invites');
+      fail(old.error);
+      return ((old.data as any[]) ?? []).map((r) => ({ id: r.id, firmName: r.firm_name, role: r.role }));
     },
     async acceptInvite(id, fullName, frcNumber) {
       const { error } = await db.rpc('accept_invite', { p_invite: id, p_full_name: fullName, p_frc_number: frcNumber });
