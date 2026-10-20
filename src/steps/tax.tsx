@@ -457,8 +457,8 @@ export function TaxStep({ eng, lines, adjustments, statements: st, locked, reloa
             {!locked && (
               <div className="row">
                 <select aria-label="Treatment of the tax journals" value={posted ? 'posted' : 'proposed'} onChange={(e) => setPosted(e.target.value === 'posted')} style={{ width: 'auto' }}>
-                  <option value="posted">Posted by the client</option>
-                  <option value="proposed">Proposed, not booked</option>
+                  <option value="posted">Posted as an adjustment</option>
+                  <option value="proposed">Unadjusted difference, not posted</option>
                 </select>
                 <button
                   className="primary"
