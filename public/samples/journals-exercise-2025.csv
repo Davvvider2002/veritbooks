@@ -1,0 +1,9 @@
+JV No,Date,Narration,GL Code,Account Name,Debit (₦),Credit (₦),Status
+J1,2025-12-31,Accrue diesel,6210,Electricity and diesel,"100,000.00",,Posted
+J1,2025-12-31,Accrue diesel,2100,Accrued expenses,,"100,000.00",Posted
+J2,2025-12-31,Consultant's December invoice,,Consulting fees,"50,000.00",,Posted
+J2,2025-12-31,Consultant's December invoice,2100,Accrued expenses,,"50,000.00",Posted
+J3,2025-12-31,Stock write-down,5000,Cost of sales,"300,000.00",,Posted
+J3,2025-12-31,Stock write-down,1200,Inventories,,"250,000.00",Posted
+J4,2025-12-31,Bank charges not booked,6230,Bank charges,,,Posted
+J4,2025-12-31,Bank charges not booked,1400,Bank current account,,"20,000.00",Posted
