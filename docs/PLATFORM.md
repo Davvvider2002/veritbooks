@@ -1,6 +1,6 @@
 # VeritBooks: platform definition
 
-Version 0.21, 19 October 2026.
+Version 0.22, 20 October 2026.
 
 ## What it is
 
@@ -8,7 +8,7 @@ VeritBooks is an engagement file for accounting firms in English-speaking West A
 
 ## What it is not
 
-VeritBooks does not issue an audit opinion. The opinion is the engagement partner's judgment, based on evidence that goes beyond a trial balance and bank statements. The software selects nothing on the partner's behalf, marks every output as a draft until it is signed, and refuses to sign unless the signer is a partner with an FRC number.
+VeritBooks does not issue an audit opinion. The opinion is the engagement partner's judgment, based on evidence that goes beyond a trial balance and bank statements. The software selects nothing on the partner's behalf, marks every output as a draft until it is signed, and refuses to sign unless the signer is an engagement partner. The partner's and the firm's licence numbers are printed when held but are optional.
 
 ## Who uses it
 
@@ -34,7 +34,7 @@ One user belongs to one firm. A firm sees only its own data. Partners invite col
 | Journals | Balanced adjusting journals. Posted journals flow into the statements. Proposed journals are totalled as unadjusted differences and compared with materiality. |
 | Statements | Statement of financial position, statement of profit or loss and other comprehensive income, statement of changes in equity, statement of cash flows (indirect method), notes with a breakdown per line, statement of value added, two-year financial summary. Print or save as PDF. |
 | Report | Draft auditor's report (unmodified, qualified, adverse, disclaimer), review report or compilation report. |
-| Sign-off | A gate list blocks signing until it is clear. Signing stamps the partner's name and FRC number and the firm's FRC number, and locks the file. |
+| Sign-off | A gate list blocks signing until it is clear. Signing stamps the partner's name, and the partner's and firm's licence numbers when held, and locks the file. |
 | Audit trail | Every change to an engagement, its trial balance and its journals, written by database triggers. |
 
 ## Disclosures and directors' pages
@@ -346,15 +346,37 @@ A visitor who is not signed in sees the landing page at the front door. Sign-in 
 1. Numbers are computed, never generated. Every figure in a statement is a sum of mapped account balances. No language model produces or alters a figure.
 2. Amounts are stored as whole kobo, so there is no rounding drift.
 3. The statement of financial position must balance and the cash flow must reconcile to the movement in cash, or the difference is shown on the face of the draft.
-4. Only a partner with an FRC number, in a firm with an FRC number, can sign. The database enforces this, not only the screen.
+4. Only an engagement partner can sign. The database enforces this, not only the screen. Licence numbers (the partner's, the firm's, and in Nigeria the CEO's and CFO's) are optional from version 0.22: printed when held, flagged as advisory when not.
 5. A signed file cannot be edited or deleted by anyone, including the partner who signed it.
 6. Users cannot write to or delete from the audit trail.
 
 ## Importing several years
 
-The Trial balance step takes up to three years at once: several files, one file with a column for each year, or both. VeritBooks reads each year from a column heading ("31 Dec 2024", "Debit 2023"), the title above the header ("Trial balance as at 31 December 2025"), or the file name ("TB FY2024.xlsx"), in that order of trust. It places each year against the engagement's year end: the same year is the current year, one before is the prior year, two before is the year before that. The accountant sees each file, the year found, where it came from, and whether it foots, and can change any placement or leave a file out. Two files in one year are refused.
+The Trial balance step takes up to five years at once: several files, one file with a column for each year, or both. VeritBooks reads each year from a column heading ("31 Dec 2024", "Debit 2023"), the title above the header ("Trial balance as at 31 December 2025"), or the file name ("TB FY2024.xlsx"), in that order of trust. It places each year against the engagement's year end: the same year is the current year, then the prior year, and so on back four years. The accountant sees each file, the year found, where it came from, and whether it foots, and can change any placement or leave a file out. Two files in one year are refused.
 
-The third year is held on each account. It adds a third column to the analytical review and its ratios, and fills that year of the financial summary in place of figures typed in. It is never printed as a comparative. Samples: `public/samples/trial-balance-2023.csv` and `trial-balance-3-years.csv`.
+What the years give: two years give the comparatives; three give the cash flow statement its comparative year (IFRS requires one) and a third column in the analytical review; four give three years of cash flows on the Multi-year comparatives step; five complete the five-year financial summary from imported figures instead of typed ones. Earlier years carry no journals. Samples: `public/samples/trial-balance-2021.csv` to `trial-balance-2025.csv`, `trial-balance-3-years.csv` and `trial-balance-5-years.csv`; 2022 and 2021 are made by `scripts/make-earlier-years.py` so retained earnings and cash roll forward year to year. Database: `tb_lines.prior3_balance` and `prior4_balance` (migration 0021).
+
+**Multi-year comparatives.** A step after the financial statements shows the statement of financial position and the income statement for the current year and two comparative years (or every year held, up to five), and a cash flow for each year that has the year before it. It downloads to Excel, one sheet for each statement.
+
+**Replacing the trial balance.** Until the file is signed, the Trial balance step can purge the imported trial balance: the current year only, or every year. Accounts that journals post to are kept so the journals stay attached, and are matched to the revised file by account code; mapping is remembered for the client, so the revised accounts map as before. The purge is in the audit trail.
+
+## Extended trial balance and lead schedules
+
+Two steps after Mapping. The layout follows the working trial balance in accounts production software such as Draftworx (whose help centre documents the working trial balance and its Excel export, but not its column layout in text) and the usual lead schedule format.
+
+**Extended trial balance.** One row for each account, by code: lead schedule, statement line, prior year final (this year's opening balance for balance sheet accounts), draft trial balance, adjustments debit and credit with the journal references, final trial balance, movement and percentage change. Totals sit in a frozen footer; the draft and final columns must total nil and the adjustments balance. Filters by lead schedule, by text, and for adjusted accounts only. Unadjusted differences are listed but left out of the final column.
+
+**Lead schedules.** Working paper references: A Property, plant and equipment; B Intangible assets; C Investments; D Inventories; E Trade receivables; F Other receivables and prepayments; G Cash; H Share capital and premium; I Reserves and dividends; J Borrowings; K Provisions; L Trade payables; M Other payables and accruals; N Taxation; R Revenue; S Other income and finance income; T Cost of sales; U Operating expenses; V Finance costs; Z accounts not mapped. Each schedule lists its accounts under each statement line (A1.1, A1.2), subtotals the line, and shows the figure per the financial statements and note with an Agrees or Differs mark. A summary lists every lead.
+
+**Excel and sending to the client.** One workbook: the ETB, the lead summary and a sheet for each lead, each with the client, year, working paper reference, and spaces for preparer and reviewer. Final balances, movements, totals and differences are Excel formulas; headings and account columns are frozen; lead sheets carry tick-mark and W/P columns and a tick-mark legend. "Send to the client" opens the device's share sheet with the workbook attached where the browser supports it (Outlook, Mail, WhatsApp), and otherwise saves the workbook and opens an email with the subject and message written, for the file to be attached. Logic in `src/engine/etb.ts` and `src/engine/etbSheets.ts`, screens in `src/steps/etb.tsx`, writer `write-excel-file`.
+
+## Journals are posted
+
+A journal passed by the audit team is posted as an adjustment. The Mapping step no longer has a Proposed column. A journal can still be recorded as an unadjusted difference (a misstatement the client will not correct), which stays out of the statements and is totalled against materiality, as ISA 450 requires the auditor to accumulate them.
+
+## Wide reports
+
+Wide tables scroll inside their own frame with headings frozen; the main reports (Mapping, the ETB, lead schedules, imported accounts, flagged journal rows) also freeze the code and account columns, like freeze panes. "Full width" hides the step list and gives the report the whole page, with a step menu in its place; the choice is remembered in the browser.
 
 ## Countries
 
@@ -439,7 +461,7 @@ The work programmes, accounting policy wording and report wording are starter co
 - Disclosures not produced: deferred tax workings outside South Africa, a detailed directors' interests table, financial instruments and leases notes, and segment or industry-specific notes. The prior year statement of changes in equity assumes share capital and other reserves did not move in that year. The tax reconciliation and notes carry no prior year comparatives.
 - Cash flow: purchases and disposals of assets are shown net, and interest and tax paid are derived from balance movements.
 - Team: invitations are not emailed. Managers and staff have the same data rights; only the partner role is distinct.
-- Sign-off gates: partner role, FRC numbers, a footing and fully mapped trial balance and balanced journals are enforced in the database. Materiality, programme completion, opinion selection, journal conclusions and bank reconciliation are enforced in the application only.
+- Sign-off gates: partner role, a footing and fully mapped trial balance and balanced journals are enforced in the database. Materiality, programme completion, opinion selection, journal conclusions and bank reconciliation are enforced in the application only.
 - Journal testing uses fixed rules. The thresholds are not yet configurable per firm, and Nigerian public holidays are not flagged.
 - Package imports: the Sage 50, QuickBooks Desktop and Tally layouts were tested on files modelled on each package's exports, not on real exports. Tally has had the least testing. No direct connection to any accounting system exists yet.
 - PDF statements: the reader was built and tested on a statement drawn to resemble a Nigerian bank e-statement, a South African business cheque account statement (one Amount column marked Cr for money in, balances marked Cr or Dr, dates printed without a year, an accrued bank charges column) and a second synthetic layout, not on real statements from each bank. South African banks do not publish their export layouts, so the South African sample is modelled on the common layout, not copied from a real export. Column headings split over two lines, and statements with no balance column, are the likeliest to need work. Scans are not read.

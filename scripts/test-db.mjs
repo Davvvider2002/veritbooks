@@ -722,5 +722,13 @@ await denied('someone invited cannot set up a firm of their own', () => as(IV, `
 await as(IV, `select accept_invite($1, 'Ifeoma Staff', '')`, [invI.id]);
 ok('they join the inviting firm', (await as(IV, `select role from firm_members where user_id = $1`, [IV]))[0]?.role === 'staff');
 
+// --- 0021: five years, and signing without licence numbers -------------------
+await db.exec(readFileSync('supabase/migrations/0021_five_years_optional_licence.sql', 'utf8'));
+const [t5] = await as(GH1, `insert into tb_lines (engagement_id, code, name, balance, prior_balance, prior2_balance, prior3_balance, prior4_balance) values ($1, '1410', 'Petty cash', 5, 4, 3, 2, 1) returning *`, [eg.id]);
+ok('an account holds five years', Number(t5.prior3_balance) === 2 && Number(t5.prior4_balance) === 1);
+await denied('a partner with no licence number reaches the other checks', () => as(GH1, `select sign_engagement($1)`, [eg.id]), /does not foot/);
+const why = await as(B, `select sign_engagement($1)`, [e3.id]).then(() => '', (e) => e.message);
+ok('signing no longer asks for an FRC number', !/number is missing|licence number/.test(why));
+
 console.log(failed ? `\n${failed} check(s) failed` : '\nAll database checks passed');
 process.exit(failed ? 1 : 0);

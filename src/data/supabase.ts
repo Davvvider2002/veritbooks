@@ -48,6 +48,8 @@ const toLine = (r: any): TbLine => ({
   balance: Number(r.balance),
   prior: r.prior_balance === null ? null : Number(r.prior_balance),
   prior2: r.prior2_balance === null || r.prior2_balance === undefined ? null : Number(r.prior2_balance),
+  prior3: r.prior3_balance === null || r.prior3_balance === undefined ? null : Number(r.prior3_balance),
+  prior4: r.prior4_balance === null || r.prior4_balance === undefined ? null : Number(r.prior4_balance),
   mapCode: r.map_code,
   nature: r.nature,
 });
@@ -389,6 +391,8 @@ export function createSupabaseRepo(url: string, key: string): Repo {
           balance: l.balance,
           prior_balance: l.prior,
           prior2_balance: l.prior2 ?? null,
+          prior3_balance: l.prior3 ?? null,
+          prior4_balance: l.prior4 ?? null,
           map_code: l.mapCode,
           nature: l.nature,
         })),

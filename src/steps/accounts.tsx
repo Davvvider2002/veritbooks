@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { repo } from '../data';
 import { CHART, NATURE_CODES, SECTION_LABEL, type Section } from '../engine/chart';
 import type { Nature, TbLine } from '../engine/types';
+import { keepLine } from '../engine/yearsOf';
 import { ErrorNote, Field, useAction } from '../ui';
 
 export interface NewAccount {
@@ -27,7 +28,7 @@ export async function addAccounts(engagementId: string, lines: TbLine[], account
   }
   const withPrior = lines.some((l) => l.prior !== null);
   await repo.replaceLines(engagementId, [
-    ...lines.map((l) => ({ code: l.code, name: l.name, balance: l.balance, prior: l.prior, prior2: l.prior2 ?? null, mapCode: l.mapCode, nature: l.nature })),
+    ...lines.map(keepLine),
     ...accounts.map((a) => ({
       code: a.code.trim(),
       name: a.name.trim(),

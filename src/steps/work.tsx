@@ -263,7 +263,7 @@ export function JournalsStep({ eng, lines, adjustments, statements, locked, relo
       <div>
         <h2>Journals</h2>
         <p className="muted" style={{ marginTop: 4 }}>
-          Posted journals change the financial statements. Proposed journals the client has not booked stay out of the statements and are totalled as unadjusted differences.
+          A journal passed by the audit team is posted as an adjustment and flows into the financial statements. To record a difference the client will not correct, mark it as an unadjusted difference: it stays out of the statements and is totalled against materiality.
         </p>
       </div>
 
@@ -324,8 +324,8 @@ export function JournalsStep({ eng, lines, adjustments, statements, locked, relo
             </Field>
             <Field label="Treatment">
               <select value={posted ? 'posted' : 'proposed'} onChange={(e) => setPosted(e.target.value === 'posted')}>
-                <option value="posted">Posted by the client</option>
-                <option value="proposed">Proposed, not booked</option>
+                <option value="posted">Posted as an adjustment</option>
+                <option value="proposed">Unadjusted difference, not posted</option>
               </select>
             </Field>
           </div>
@@ -440,7 +440,7 @@ function MissingAccounts({ missing, taken, busy, onAdd }: { missing: MissingAcco
           The journals that use {missing.length === 1 ? 'it' : 'them'} are held back. Check each account’s code and name, and choose its line in the statements. Adding it puts it in the trial balance with a nil balance; the journals then give it the amounts shown. Ask the client to include it in the trial balance next time, or it will need adding again after a fresh import.
         </p>
       </div>
-      <div className="scroll-x">
+      <div className="grid-view" style={{ maxHeight: 460 }}>
         <table className="data">
           <thead>
             <tr>
@@ -565,12 +565,12 @@ function FlaggedRows({ rows, at, problems, layout, onChange, file }: { rows: unk
       <p className="small muted" style={{ margin: 0 }}>
         Correct the rows here and the file is read again as you type. Journals that balance move to the list below, ready to add. Delete a row the client entered twice, or add a line to complete a journal. The corrected file can be downloaded to send back to the client.
       </p>
-      <div className="scroll-x">
+      <div className="grid-view" style={{ ['--f1' as string]: '52px', maxHeight: 460 }}>
         <table className="data">
           <thead>
             <tr>
-              <th>Row</th>
-              <th>Problem</th>
+              <th className="freeze f1">Row</th>
+              <th className="freeze f2 edge">Problem</th>
               {cols.map((k) => (
                 <th key={k} className={['debit', 'credit', 'amount'].includes(k) ? 'num' : undefined}>
                   {show(rows[layout.header]?.[layout.columns[k]]) || COLUMN_LABEL[k]}
@@ -584,8 +584,8 @@ function FlaggedRows({ rows, at, problems, layout, onChange, file }: { rows: unk
               const issues = problems.filter((p) => p.index === index);
               return (
                 <tr key={index}>
-                  <td className="small">{index + 1}</td>
-                  <td className="small" style={{ minWidth: 160 }}>
+                  <td className="small freeze f1">{index + 1}</td>
+                  <td className="small freeze f2 edge wrap" style={{ minWidth: 170, maxWidth: 220 }}>
                     {issues.length ? <span className="danger">{issues.map((p) => p.message).join(' ')}</span> : <span className="tag ok">Corrected</span>}
                   </td>
                   {cols.map((k) => {
@@ -682,7 +682,7 @@ function JournalImport({ engagementId, lines, existing, reload }: { engagementId
         </a>
       </div>
       <p className="small muted" style={{ margin: 0 }}>
-        One row per journal line, with columns for the reference, the account code and account name, and debit and credit (or one Amount column, debits positive and credits negative). A file with account names only is matched to the trial balance by name. Date, description and treatment (posted or proposed) are optional. Rows with the same reference form one journal, and each journal must balance. Accounts the trial balance does not have can be added here, and flagged rows corrected here before the import.
+        One row per journal line, with columns for the reference, the account code and account name, and debit and credit (or one Amount column, debits positive and credits negative). A file with account names only is matched to the trial balance by name. Date and description are optional. Every journal is posted, unless a Treatment column marks it as an unadjusted difference. Rows with the same reference form one journal, and each journal must balance. Accounts the trial balance does not have can be added here, and flagged rows corrected here before the import.
       </p>
       <input
         type="file"
@@ -738,7 +738,7 @@ function JournalImport({ engagementId, lines, existing, reload }: { engagementId
                         <strong>{j.ref}</strong> {j.description}
                       </td>
                       <td className="small">{j.lines.map((l) => `${name(l.lineId)} ${drcr(l.amount)}`).join('; ')}</td>
-                      <td>{j.posted ? 'Posted' : 'Proposed'}</td>
+                      <td>{j.posted ? 'Posted' : 'Unadjusted'}</td>
                       <td className="num">{fmt2(j.lines.reduce((a, l) => a + Math.max(l.amount, 0), 0))}</td>
                     </tr>
                   ))}

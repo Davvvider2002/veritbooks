@@ -421,8 +421,8 @@ export function signOffChecks(g: GateInput): Check[] {
     j.officerNumbers
       ? {
           id: 'directors',
-          label: `Chief executive and chief financial officer are named with ${j.licenceShort}s`,
-          ok: !!(g.report.ceoName?.trim() && g.report.ceoFrc?.trim() && g.report.cfoName?.trim() && g.report.cfoFrc?.trim()),
+          label: 'Chief executive and chief financial officer are named',
+          ok: !!(g.report.ceoName?.trim() && g.report.cfoName?.trim()),
           blocking: g.type === 'audit',
         }
       : {
@@ -432,6 +432,14 @@ export function signOffChecks(g: GateInput): Check[] {
           blocking: g.type === 'audit',
         },
   );
+  if (j.officerNumbers && !(g.report.ceoFrc?.trim() && g.report.cfoFrc?.trim()))
+    checks.push({
+      id: 'officer_numbers',
+      label: `Chief executive and chief financial officer ${j.licenceShort}s are entered`,
+      ok: false,
+      detail: 'Optional. Printed under their names when entered.',
+      blocking: false,
+    });
   if (g.independence) {
     checks.push({
       id: 'independence_signer',
@@ -449,18 +457,28 @@ export function signOffChecks(g: GateInput): Check[] {
       });
     }
   }
+  // The licence numbers are printed on the report when held, but are not needed to sign.
   checks.push({
     id: 'firm_frc',
-    label: `The firm has its ${j.licenceLabel} on file`,
+    label: `The firm’s ${j.licenceLabel} is on file`,
     ok: !!g.firmFrc.trim(),
-    blocking: true,
+    detail: g.firmFrc.trim() ? undefined : 'Optional. The report is signed without it. Add it under the firm’s settings to print it.',
+    blocking: false,
   });
   checks.push({
     id: 'signer',
-    label: `The person signing is an engagement partner with ${/^[AEIOU]/.test(j.licenceShort) ? 'an' : 'a'} ${j.licenceShort}`,
-    ok: g.signerRole === 'partner' && !!g.signerFrc.trim(),
+    label: 'The person signing is an engagement partner',
+    ok: g.signerRole === 'partner',
     blocking: true,
   });
+  if (g.signerRole === 'partner' && !g.signerFrc.trim())
+    checks.push({
+      id: 'signer_frc',
+      label: `The engagement partner’s ${j.licenceShort} is on file`,
+      ok: false,
+      detail: 'Optional. The report is signed without it. Add it under your profile to print it.',
+      blocking: false,
+    });
   return checks;
 }
 

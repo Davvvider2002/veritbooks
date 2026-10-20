@@ -7,8 +7,9 @@ import type { MappingSuggestion } from '../data/repo';
 import { CHART, ITEM, NATURE_CODES, SECTION_LABEL, type Section } from '../engine/chart';
 import { validateTrialBalance } from '../engine/checks';
 import { normaliseNature } from '../engine/mapping';
-import { mergeYears } from '../engine/merge';
-import { MAX_YEARS, placementProblems, readYears, slotFor, SLOTS, yearOfSlot, type Slot, type YearSet } from '../engine/years';
+import { mergeYears, purgeLines } from '../engine/merge';
+import { MAX_YEARS, placementProblems, readYears, SLOT_NAME, slotFor, SLOTS, yearOfSlot, type Slot, type YearSet } from '../engine/years';
+import { yearsHeld, yearValue } from '../engine/yearsOf';
 import { fmt2 } from '../engine/money';
 import type { Nature } from '../engine/types';
 import { ErrorNote, message, useAction } from '../ui';
@@ -103,7 +104,6 @@ export function ChecksList({ checks }: { checks: ReturnType<typeof validateTrial
 
 type Placed = YearSet & { slot: Slot | null };
 
-const SLOT_NAME: Record<Slot, string> = { current: 'current year', prior: 'prior year', prior2: 'year before' };
 
 export function ImportStep({ eng, client, lines, adjustments, locked, reload }: Ctx) {
   const [sets, setSets] = useState<Placed[] | null>(null);
@@ -112,7 +112,7 @@ export function ImportStep({ eng, client, lines, adjustments, locked, reload }: 
   const { busy, error, run } = useAction();
   const year = Number(eng.yearEnd.slice(0, 4));
   const checks = validateTrialBalance(lines);
-  const withEarlier = lines.some((l) => l.prior2 !== null && l.prior2 !== undefined);
+  const held = yearsHeld(lines);
 
   const onFiles = async (list: FileList | null) => {
     setSets(null);
@@ -124,7 +124,7 @@ export function ImportStep({ eng, client, lines, adjustments, locked, reload }: 
       const found: YearSet[] = [];
       for (const f of files.slice(0, MAX_YEARS)) found.push(...readYears(await readRows(f), f.name));
       const notes: string[] = [];
-      if (files.length > MAX_YEARS) notes.push(`Only the first ${MAX_YEARS} files were read. Import up to three years at a time.`);
+      if (files.length > MAX_YEARS) notes.push(`Only the first ${MAX_YEARS} files were read. Import up to five years at a time.`);
       if (found.length > MAX_YEARS) notes.push(`The files hold ${found.length} years. The latest ${MAX_YEARS} are shown.`);
       const latest = found.sort((x, y) => (y.year ?? 0) - (x.year ?? 0)).slice(0, MAX_YEARS);
       const taken = new Set<Slot>();
@@ -144,8 +144,7 @@ export function ImportStep({ eng, client, lines, adjustments, locked, reload }: 
 
   const chosen = (sets ?? []).filter((x) => x.slot !== null);
   const problems = sets ? placementProblems(sets.map((x) => x.slot)) : [];
-  const ONE: Record<Slot, string> = { current: 'Import as current year', prior: 'Import as prior year', prior2: 'Import as the year before' };
-  const label = chosen.length === 1 ? ONE[chosen[0].slot!] : `Import ${chosen.length} years`;
+  const label = chosen.length === 1 ? `Import as ${chosen[0].slot === 'current' || chosen[0].slot === 'prior' ? 'the ' : ''}${SLOT_NAME[chosen[0].slot!]}` : `Import ${chosen.length} years`;
 
   const save = () =>
     run(async () => {
@@ -163,7 +162,7 @@ export function ImportStep({ eng, client, lines, adjustments, locked, reload }: 
         <h2>Trial balance</h2>
         <p className="muted" style={{ marginTop: 4 }}>
           Import the trial balance before closing entries, as CSV or Excel. The file needs a header row with the account name and either Debit and Credit columns or one Balance column.
-          You can bring in up to three years at once: choose several files, or one file with a column for each year.
+          You can bring in up to five years at once: choose several files, or one file with a column for each year. Two years give one year of comparatives; four years give three years of cash flows; five complete the five-year summary.
         </p>
       </div>
 
@@ -171,7 +170,7 @@ export function ImportStep({ eng, client, lines, adjustments, locked, reload }: 
         <div className="card stack">
           <SourceGuide kind="tb" />
           <label className="field">
-            <span>Trial balance files, up to three years</span>
+            <span>Trial balance files, up to five years</span>
             <input
               type="file"
               multiple
@@ -185,12 +184,12 @@ export function ImportStep({ eng, client, lines, adjustments, locked, reload }: 
             />
           </label>
           <p className="small muted" style={{ margin: 0 }}>
-            VeritBooks reads the year from a column heading, the title above the header, or the file name, and places it against this engagement’s year end of {year}: {year} is the current year, {year - 1} the prior year and {year - 2} the year before. Check each one before importing.
+            VeritBooks reads the year from a column heading, the title above the header, or the file name, and places it against this engagement’s year end of {year}: {year} is the current year, {year - 1} the prior year, and so on back to {year - 4}. Check each one before importing.
           </p>
           <p className="small muted" style={{ margin: 0 }}>
             No file to hand? Try the sample company:{' '}
-            <a href="/samples/trial-balance-2025.csv" download>2025</a>, <a href="/samples/trial-balance-2024.csv" download>2024</a> and{' '}
-            <a href="/samples/trial-balance-2023.csv" download>2023</a>, or <a href="/samples/trial-balance-3-years.csv" download>all three years in one file</a>.
+            <a href="/samples/trial-balance-2025.csv" download>2025</a>, <a href="/samples/trial-balance-2024.csv" download>2024</a>,{' '}
+            <a href="/samples/trial-balance-2023.csv" download>2023</a>, <a href="/samples/trial-balance-2022.csv" download>2022</a> and <a href="/samples/trial-balance-2021.csv" download>2021</a>, or <a href="/samples/trial-balance-5-years.csv" download>all five years in one file</a> (<a href="/samples/trial-balance-3-years.csv" download>three years</a>).
           </p>
           <ErrorNote error={parseError ?? error} />
           {notice && <div className="banner info">{notice}</div>}
@@ -238,7 +237,7 @@ export function ImportStep({ eng, client, lines, adjustments, locked, reload }: 
                             </select>
                             {differs && <div className="small" style={{ color: 'var(--warn, #8a5a00)' }}>The file says {x.year}.</div>}
                             {x.year !== null && !slotFor(x.year, eng.yearEnd) && !x.slot && (
-                              <div className="small muted">{x.year} is outside this engagement’s three years.</div>
+                              <div className="small muted">{x.year} is outside this engagement’s five years.</div>
                             )}
                           </td>
                           <td className="num">{x.lines.length}</td>
@@ -270,6 +269,8 @@ export function ImportStep({ eng, client, lines, adjustments, locked, reload }: 
         </div>
       )}
 
+      {!locked && lines.length > 0 && <PurgeTrialBalance ctx={{ eng, lines, adjustments, reload }} held={held} onDone={setNotice} />}
+
       {lines.length > 0 && (
         <>
           <div className="card">
@@ -278,25 +279,26 @@ export function ImportStep({ eng, client, lines, adjustments, locked, reload }: 
           </div>
           <div className="card">
             <h3>Imported accounts</h3>
-            <div className="scroll-x" style={{ marginTop: 8 }}>
-              <table className="data">
+            <div className="grid-view" style={{ marginTop: 8, ['--f1' as string]: '84px' }}>
+              <table className="data" aria-label="Imported accounts">
                 <thead>
                   <tr>
-                    <th>Code</th>
-                    <th>Account</th>
-                    <th className="num">{year}</th>
-                    <th className="num">{year - 1}</th>
-                    {withEarlier && <th className="num">{year - 2}</th>}
+                    <th className="freeze f1">Code</th>
+                    <th className="freeze f2 edge">Account</th>
+                    {Array.from({ length: Math.max(held, 2) }, (_, i) => (
+                      <th key={i} className="num">{year - i}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {lines.map((l) => (
                     <tr key={l.id}>
-                      <td>{l.code}</td>
-                      <td>{l.name}</td>
-                      <td className="num">{fmt2(l.balance)}</td>
-                      <td className="num">{l.prior === null ? '' : fmt2(l.prior)}</td>
-                      {withEarlier && <td className="num">{l.prior2 === null || l.prior2 === undefined ? '' : fmt2(l.prior2)}</td>}
+                      <td className="freeze f1">{l.code}</td>
+                      <td className="freeze f2 edge" style={{ minWidth: 200 }}>{l.name}</td>
+                      {Array.from({ length: Math.max(held, 2) }, (_, i) => {
+                        const v = yearValue(l, i);
+                        return <td key={i} className="num">{v === null ? '' : fmt2(v)}</td>;
+                      })}
                     </tr>
                   ))}
                 </tbody>
@@ -305,6 +307,75 @@ export function ImportStep({ eng, client, lines, adjustments, locked, reload }: 
             <p className="small muted" style={{ margin: '10px 0 0' }}>Debit balances are positive. Credit balances are in brackets.</p>
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Clears the imported trial balance so a revised one can be imported, as clients often send a
+ * draft and then a final version. Only before the file is signed. Journals and mapping are kept.
+ */
+function PurgeTrialBalance({ ctx, held, onDone }: { ctx: Pick<Ctx, 'eng' | 'lines' | 'adjustments' | 'reload'>; held: number; onDone: (n: string) => void }) {
+  const { eng, lines, adjustments, reload } = ctx;
+  const [scope, setScope] = useState<'current' | 'all'>('current');
+  const [confirming, setConfirming] = useState(false);
+  const { busy, error, run } = useAction();
+  const year = Number(eng.yearEnd.slice(0, 4));
+  const used = new Set(adjustments.flatMap((a) => a.lines.map((j) => j.lineId)));
+  const kept = lines.filter((l) => used.has(l.id)).length;
+  return (
+    <div className="card stack" aria-label="Replace the trial balance">
+      <div className="between">
+        <h3 style={{ margin: 0 }}>Replace the trial balance</h3>
+        {!confirming && (
+          <button className="link danger" onClick={() => setConfirming(true)}>
+            Purge trial balance
+          </button>
+        )}
+      </div>
+      <p className="small muted" style={{ margin: 0 }}>
+        Clients often revise a trial balance after sending a draft. Purge the one imported here, then import the revised file above. This is possible until the file is signed. Journals stay, and are matched to the new file by account code. Mapping is remembered for this client, so the new accounts map as before.
+      </p>
+      {confirming && (
+        <div className="stack">
+          <div className="row">
+            <label className="row small">
+              <input type="radio" name="purge-scope" checked={scope === 'current'} onChange={() => setScope('current')} />
+              {year} only, keeping earlier years
+            </label>
+            {held > 1 && (
+              <label className="row small">
+                <input type="radio" name="purge-scope" checked={scope === 'all'} onChange={() => setScope('all')} />
+                Every year imported ({year - held + 1} to {year})
+              </label>
+            )}
+          </div>
+          <div className="banner warn">
+            {scope === 'current' ? `The ${year} balances of ${lines.length} accounts will be cleared.` : `All ${held} years of balances on ${lines.length} accounts will be cleared.`}
+            {kept > 0 && (scope === 'current' ? ' Journals on this file stay attached to their accounts.' : ` ${kept} account${kept === 1 ? '' : 's'} used by journals ${kept === 1 ? 'stays' : 'stay'}, at nil, until the new files are imported.`)} The purge is recorded in the audit trail.
+          </div>
+          <ErrorNote error={error} />
+          <div className="row">
+            <button
+              className="danger"
+              disabled={busy}
+              onClick={() =>
+                void run(async () => {
+                  await repo.replaceLines(eng.id, purgeLines(lines, adjustments, scope));
+                  setConfirming(false);
+                  onDone(scope === 'current' ? `The ${year} trial balance was purged. Import the revised file.` : 'The trial balance was purged for every year. Import the revised files.');
+                  reload();
+                })
+              }
+            >
+              Confirm purge
+            </button>
+            <button className="link" onClick={() => setConfirming(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -414,18 +485,13 @@ export function MappingStep(ctx: Ctx) {
   const { eng, client, lines, adjustments, locked, reload } = ctx;
   const [filter, setFilter] = useState<'all' | 'unmapped'>('all');
   const [adding, setAdding] = useState(false);
-  // Posted journals change the balances the statements use; proposed ones are shown apart.
+  // Posted journals change the balances the statements use.
   const moves = useMemo(() => {
     const posted = new Map<string, number>();
-    const proposed = new Map<string, number>();
-    for (const a of adjustments)
-      for (const j of a.lines) {
-        const m = a.posted ? posted : proposed;
-        m.set(j.lineId, (m.get(j.lineId) ?? 0) + j.amount);
-      }
-    return { posted, proposed };
+    for (const a of adjustments) if (a.posted) for (const j of a.lines) posted.set(j.lineId, (posted.get(j.lineId) ?? 0) + j.amount);
+    return { posted };
   }, [adjustments]);
-  const withJournals = moves.posted.size > 0 || moves.proposed.size > 0;
+  const withJournals = moves.posted.size > 0;
   const { error, run } = useAction();
   const unmapped = lines.filter((l) => !l.mapCode || !ITEM.has(l.mapCode));
   const shown = useMemo(
@@ -487,16 +553,15 @@ export function MappingStep(ctx: Ctx) {
           }}
         />
       )}
-      <div className="card scroll-x">
-        <table className="data">
+      <div className="grid-view" style={{ ['--f1' as string]: '84px' }}>
+        <table className="data" aria-label="Mapping">
           <thead>
             <tr>
-              <th>Code</th>
-              <th>Account</th>
+              <th className="freeze f1">Code</th>
+              <th className="freeze f2 edge">Account</th>
               <th className="num">{withJournals ? 'Trial balance' : 'Balance'}</th>
               {withJournals && <th className="num">Posted journals</th>}
               {withJournals && <th className="num">After journals</th>}
-              {moves.proposed.size > 0 && <th className="num">Proposed</th>}
               <th>Statement line</th>
               <th>Nature</th>
             </tr>
@@ -504,12 +569,11 @@ export function MappingStep(ctx: Ctx) {
           <tbody>
             {shown.map((l) => (
               <tr key={l.id}>
-                <td>{l.code}</td>
-                <td>{l.name}</td>
+                <td className="freeze f1">{l.code}</td>
+                <td className="freeze f2 edge" style={{ minWidth: 200 }}>{l.name}</td>
                 <td className="num">{fmt2(l.balance)}</td>
                 {withJournals && <td className="num">{moves.posted.get(l.id) ? fmt2(moves.posted.get(l.id)!) : ''}</td>}
                 {withJournals && <td className="num">{fmt2(l.balance + (moves.posted.get(l.id) ?? 0))}</td>}
-                {moves.proposed.size > 0 && <td className="num muted">{moves.proposed.get(l.id) ? fmt2(moves.proposed.get(l.id)!) : ''}</td>}
                 <td>
                   <select
                     aria-label={`Statement line for ${l.name}`}
@@ -551,7 +615,7 @@ export function MappingStep(ctx: Ctx) {
         </table>
       </div>
       <p className="small muted">
-        {withJournals && 'The statements use the balance after posted journals. Proposed journals stay out of them until the client books them. '}
+        {withJournals && 'The statements use the balance after journals. '}
         Nature tags feed the statement of value added and the cash flow. Tag salaries and pensions as staff cost, and depreciation and amortisation as depreciation.
       </p>
     </div>

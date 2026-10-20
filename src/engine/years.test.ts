@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import Papa from 'papaparse';
 import { describe, expect, it } from 'vitest';
-import { mergeImport, mergeYears } from './merge';
+import { mergeImport, mergeYears, purgeLines } from './merge';
 import { buildStatements } from './statements';
 import { analyticalReview } from './analytical';
 import { financialSummary } from './disclosures';
@@ -70,7 +70,8 @@ describe('placing the years', () => {
     expect(slotFor(2025, '2025-12-31')).toBe('current');
     expect(slotFor(2024, '2025-12-31')).toBe('prior');
     expect(slotFor(2023, '2025-12-31')).toBe('prior2');
-    expect(slotFor(2021, '2025-12-31')).toBeNull();
+    expect(slotFor(2021, '2025-12-31')).toBe('prior4');
+    expect(slotFor(2020, '2025-12-31')).toBeNull();
     expect(slotFor(2025, '2025-03-31')).toBe('current');
   });
 
@@ -114,5 +115,41 @@ describe('using the third year', () => {
     const s = financialSummary(st, '2025-12-31', [{ year: '2023', revenue: 1, pbt: 1, tax: 0, nca: 0, ca: 0, liabilities: 0, capital: 0, reserves: 0 }, { year: '2022', revenue: 5, pbt: 1, tax: 0, nca: 0, ca: 0, liabilities: 0, capital: 0, reserves: 0 }]);
     expect(s.years).toEqual(['2025', '2024', '2023', '2022']);
     expect(s.rows.find((r) => r.label === 'Revenue')?.values[2]).toBe(18_860_000_000);
+  });
+});
+
+
+describe('five years of balances', () => {
+  const pl = (code: string, balance: number) => ({ code, name: `Account ${code}`, balance });
+  it('places five years against the accounts, each year kept as the others arrive', () => {
+    const merged = mergeYears(
+      [],
+      [
+        { slot: 'current', lines: [pl('1', 50), pl('2', -50)] },
+        { slot: 'prior', lines: [pl('1', 40), pl('2', -40)] },
+        { slot: 'prior2', lines: [pl('1', 30), pl('2', -30)] },
+        { slot: 'prior3', lines: [pl('1', 20), pl('3', -20)] },
+        { slot: 'prior4', lines: [pl('1', 10), pl('3', -10)] },
+      ],
+      new Map(),
+      [],
+    );
+    expect(merged.map((l) => [l.code, l.balance, l.prior, l.prior2, l.prior3, l.prior4])).toEqual([
+      ['1', 50, 40, 30, 20, 10],
+      ['2', -50, -40, -30, 0, 0],
+      ['3', 0, 0, 0, -20, -10],
+    ]);
+  });
+  it('purges this year, or every year, keeping accounts a journal uses', () => {
+    const lines: TbLine[] = [
+      { id: 'a', code: '1', name: 'Bank', balance: 50, prior: 40, prior2: null, mapCode: 'cash', nature: null },
+      { id: 'b', code: '2', name: 'Capital', balance: -50, prior: 0, prior2: null, mapCode: 'share_capital', nature: null },
+      { id: 'c', code: '3', name: 'Suspense', balance: 0, prior: -40, prior2: null, mapCode: null, nature: null },
+    ];
+    const adj = [{ id: 'j', ref: 'AJ1', description: '', posted: true, lines: [{ lineId: 'b', amount: 1 }, { lineId: 'a', amount: -1 }] }];
+    expect(purgeLines(lines, adj, 'current').map((l) => [l.code, l.balance, l.prior])).toEqual([['1', 0, 40], ['2', 0, 0], ['3', 0, -40]]);
+    expect(purgeLines(lines, [], 'current').map((l) => l.code)).toEqual(['1', '3']);
+    expect(purgeLines(lines, adj, 'all').map((l) => [l.code, l.balance, l.prior, l.mapCode])).toEqual([['1', 0, null, 'cash'], ['2', 0, null, 'share_capital']]);
+    expect(purgeLines(lines, [], 'all')).toEqual([]);
   });
 });

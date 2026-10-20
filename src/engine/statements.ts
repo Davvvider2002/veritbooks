@@ -1,5 +1,6 @@
 import { CHART, ITEM, NATURE_CODES, type Section } from './chart';
 import type { Adjustment, Kobo, Nature, TbLine } from './types';
+import { shiftYears, yearValue } from './yearsOf';
 
 export type Period = 'current' | 'prior';
 
@@ -180,13 +181,18 @@ export interface Statements {
   hasPrior: boolean;
   cur: Figures;
   prior: Figures | null;
-  /** The year before the prior year, when imported. Used for trends, never printed as a comparative. */
+  /** The year before the prior year, when imported. Used for trends, and for the cash flow's comparative year. */
   earlier?: Figures | null;
+  /** Three and four years back, when imported. For the five-year summary. */
+  older?: Figures[];
   notes: Map<string, number>;
   position: Row[];
   income: Row[];
   equity: EquityTable;
+  /** With the prior year alongside when the year before it is held, as IFRS asks. */
   cashFlow: Row[] | null;
+  /** Every cash flow row, including those left out of the statement for being nil. For lining years up. */
+  cashFlowFull?: Row[];
   /** Closing cash less opening cash less the net movement. Nil when the cash flow reconciles. */
   cashFlowDifference: Kobo | null;
   /** What profit before tax and profit for the year are made of, for tables built outside this file. */
@@ -210,7 +216,7 @@ export interface NoteBreakdown {
   prior: Kobo | null;
 }
 
-export function buildStatements(lines: TbLine[], adjustments: Adjustment[]): Statements {
+export function buildStatements(lines: TbLine[], adjustments: Adjustment[], opts: { comparativeCashFlow?: boolean } = {}): Statements {
   const cur = figures(lines, adjustments, 'current');
   const withPrior = hasPrior(lines);
   const prior = withPrior ? figures(lines, adjustments, 'prior') : null;
@@ -407,6 +413,7 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[]): Sta
 
   // Cash flow, indirect method. Needs the prior year to measure movements.
   let cashFlow: Row[] | null = null;
+  let cashFlowFull: Row[] | undefined;
   let cashFlowDifference: Kobo | null = null;
   if (prior) {
     const d = (code: string) => cur.v[code] - prior.v[code];
@@ -460,7 +467,6 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[]): Sta
     const netFinancing = financing.reduce((a, r) => a + (r.cur ?? 0), 0);
     const net = netOperating + netInvesting + netFinancing;
     cashFlowDifference = cur.v.cash - prior.v.cash - net;
-    const nonZero = (r: Row) => r.cur !== 0;
     const generatedRow = sub('Cash generated from operations', generated, operating.map(asPart));
     const taxRow = line('Income tax paid', taxPaid, [
       leaf('income_tax_expense', -1),
@@ -471,27 +477,42 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[]): Sta
     const operatingRow = sub('Net cash from operating activities', netOperating, [generatedRow, taxRow].map(asPart));
     const investingRow = sub('Net cash used in investing activities', netInvesting, investing.map(asPart));
     const financingRow = sub('Net cash from financing activities', netFinancing, financing.map(asPart));
-    cashFlow = [
-      head('Cash flows from operating activities'),
-      ...operating.filter((r, i) => i === 0 || nonZero(r)),
-      generatedRow,
-      taxRow,
-      operatingRow,
-      head('Cash flows from investing activities'),
-      ...investing.filter(nonZero),
-      investingRow,
-      head('Cash flows from financing activities'),
-      ...financing.filter(nonZero),
-      financingRow,
-      sub('Net change in cash and cash equivalents', net, [operatingRow, investingRow, financingRow].map(asPart)),
-      line('Cash and cash equivalents at start of year', prior.v.cash, [bal('cash', 'prior')]),
-      sub('Cash and cash equivalents at end of year', cur.v.cash, [bal('cash', 'current')], 'total'),
+    // Every row, with the ones that are left out when nil in both years marked optional. The
+    // comparative year is built the same way, so its rows line up with these one for one.
+    const full: { row: Row; optional: boolean }[] = [
+      { row: head('Cash flows from operating activities'), optional: false },
+      ...operating.map((row, i) => ({ row, optional: i !== 0 })),
+      { row: generatedRow, optional: false },
+      { row: taxRow, optional: false },
+      { row: operatingRow, optional: false },
+      { row: head('Cash flows from investing activities'), optional: false },
+      ...investing.map((row) => ({ row, optional: true })),
+      { row: investingRow, optional: false },
+      { row: head('Cash flows from financing activities'), optional: false },
+      ...financing.map((row) => ({ row, optional: true })),
+      { row: financingRow, optional: false },
+      { row: sub('Net change in cash and cash equivalents', net, [operatingRow, investingRow, financingRow].map(asPart)), optional: false },
+      { row: line('Cash and cash equivalents at start of year', prior.v.cash, [bal('cash', 'prior')]), optional: false },
+      { row: sub('Cash and cash equivalents at end of year', cur.v.cash, [bal('cash', 'current')], 'total'), optional: false },
     ];
-    if (cashFlowDifference !== 0) {
+    cashFlowFull = full.map((x) => x.row);
+    // The comparative cash flow needs the year before the prior year as its opening position.
+    let before: Statements | null = null;
+    if (opts.comparativeCashFlow !== false && hasEarlier(lines)) {
+      before = buildStatements(shiftYears(lines, 1), [], { comparativeCashFlow: false });
+      const theirs = before.cashFlowFull;
+      if (theirs && theirs.length === full.length)
+        full.forEach((x, i) => {
+          if (x.row.style !== 'heading') x.row.prior = theirs[i].cur;
+        });
+    }
+    cashFlow = full.filter((x) => !x.optional || x.row.cur !== 0 || (x.row.prior ?? 0) !== 0).map((x) => x.row);
+    const priorDifference = before?.cashFlowDifference ?? null;
+    if (cashFlowDifference !== 0 || (priorDifference !== null && priorDifference !== 0)) {
       cashFlow.push({
         label: 'Unreconciled difference: opening balances do not agree to the prior year',
         cur: cashFlowDifference,
-        prior: null,
+        prior: before ? priorDifference : null,
         style: 'check',
       });
     }
@@ -575,6 +596,7 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[]): Sta
   return {
     hasPrior: withPrior,
     earlier: earlierFigures(lines),
+    older: [3, 4].filter((i) => lines.some((l) => yearValue(l, i) !== null)).map((i) => figures(shiftYears(lines, i), [], 'current')),
     cur,
     prior,
     notes,
@@ -582,6 +604,7 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[]): Sta
     income,
     equity,
     cashFlow,
+    cashFlowFull,
     cashFlowDifference,
     pbtParts,
     profitParts,

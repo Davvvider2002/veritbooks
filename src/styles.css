@@ -91,7 +91,10 @@ table.data th.num { text-align: right; }
 table.data tr.clickable { cursor: pointer; }
 table.data tr.clickable:hover td { background: #faf8f1; }
 table.data select { padding: 5px 6px; font-size: 14px; }
-.scroll-x { overflow-x: auto; }
+.scroll-x { overflow: auto; max-height: calc(100vh - 150px); overscroll-behavior-x: contain; }
+/* Headings stay in view while a long table scrolls inside its frame. */
+.scroll-x > table.data > thead th { position: sticky; top: 0; z-index: 1; background: var(--card); box-shadow: inset 0 -1px 0 var(--rule-strong); border-bottom: 0; }
+.scroll-x > table.data { border-collapse: separate; border-spacing: 0; }
 
 .tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #ebe8dc; color: var(--muted); }
 .tag.ok { background: var(--accent-soft); color: var(--accent); }
@@ -288,3 +291,31 @@ ol.backup-codes { columns: 2; padding-left: 24px; margin: 0; font-size: 15px; li
 ol.backup-codes code { letter-spacing: 0.08em; }
 a.btn-like { display: inline-block; padding: 8px 14px; border: 1px solid var(--rule-strong); border-radius: 6px; background: #fff; color: var(--ink); text-decoration: none; font-weight: 500; font-size: 14px; }
 button.danger { color: var(--bad); border-color: var(--bad); }
+
+/* Wide reports: a contained grid with frozen headings and first columns, like freeze panes in a
+   spreadsheet. The grid scrolls inside its own frame, so nothing spills past the page. */
+.grid-view { overflow: auto; max-height: calc(100vh - 150px); border: 1px solid var(--rule); border-radius: 6px; background: var(--card); overscroll-behavior: contain; }
+.grid-view table.data { border-collapse: separate; border-spacing: 0; width: 100%; }
+.grid-view table.data th, .grid-view table.data td { background: var(--card); }
+.grid-view thead th { position: sticky; top: 0; z-index: 2; box-shadow: inset 0 -1px 0 var(--rule-strong); border-bottom: 0; white-space: nowrap; }
+.grid-view tfoot td { position: sticky; bottom: 0; z-index: 2; font-weight: 600; box-shadow: inset 0 1px 0 var(--rule-strong); border-bottom: 0; }
+.grid-view .freeze { position: sticky; left: 0; z-index: 1; }
+.grid-view .freeze.f2 { left: var(--f1, 84px); }
+.grid-view .freeze.f1 { width: var(--f1, 84px); min-width: var(--f1, 84px); max-width: var(--f1, 84px); overflow: hidden; text-overflow: ellipsis; }
+.grid-view .freeze.edge { box-shadow: 1px 0 0 var(--rule), 4px 0 6px -4px rgba(0,0,0,0.18); }
+.grid-view thead th.freeze, .grid-view tfoot td.freeze { z-index: 3; }
+.grid-view thead th.freeze.edge { box-shadow: inset 0 -1px 0 var(--rule-strong), 1px 0 0 var(--rule), 4px 0 6px -4px rgba(0,0,0,0.18); }
+.grid-view tr.group td { background: #f1eee4; font-weight: 600; }
+.grid-view tr.sub td { font-weight: 600; box-shadow: inset 0 1px 0 var(--rule); }
+.grid-view tr.tie td { color: var(--muted); font-style: italic; }
+.grid-view table.data select { min-width: 210px; }
+.grid-view table.data input[type='text'] { min-width: 90px; }
+.grid-view td.wrap { white-space: normal; min-width: 180px; }
+/* The engagement steps can be hidden, giving a wide report the whole page. */
+.page.workspace-page { max-width: 1440px; }
+.workspace.full { grid-template-columns: minmax(0, 1fr); }
+.workspace.full > .steps { display: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button { padding: 3px 10px; border-radius: 999px; font-size: 13px; }
+.chips button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+@media print { .grid-view, .scroll-x { max-height: none; overflow: visible; border: 0; } .scroll-x > table.data > thead th { position: static; box-shadow: none; } .grid-view thead th, .grid-view tfoot td, .grid-view .freeze { position: static; box-shadow: none; } }

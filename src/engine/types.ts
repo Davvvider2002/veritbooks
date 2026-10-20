@@ -17,6 +17,9 @@ export interface TbLine {
   prior: Kobo | null;
   /** The year before the prior year, when it has been imported. Used for trends and the financial summary. */
   prior2?: Kobo | null;
+  /** Three and four years before the current year, when imported. Used for the cash flow comparatives, trends and the five-year summary. */
+  prior3?: Kobo | null;
+  prior4?: Kobo | null;
   mapCode: string | null;
   nature: Nature | null;
 }

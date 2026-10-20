@@ -158,13 +158,17 @@ const asYear = (f: Figures, year: string): EarlierYear => ({
   reserves: f.v.other_reserves + f.closingRetained,
 });
 
-/** Financial summary: the current and prior year from the file, then up to three earlier years as entered. */
+/** Financial summary: each year imported (up to five), then earlier years as entered to make five. */
 export function financialSummary(st: Statements, yearEnd: string, earlier: EarlierYear[] = []): MultiYear {
   const y = Number(yearEnd.slice(0, 4));
   const cols: EarlierYear[] = [asYear(st.cur, String(y))];
   if (st.prior) cols.push(asYear(st.prior, String(y - 1)));
   // The year before, from its imported trial balance, takes the place of figures typed in for it.
-  if (st.prior && st.earlier) cols.push(asYear(st.earlier, String(y - 2)));
+  if (st.prior && st.earlier) {
+    cols.push(asYear(st.earlier, String(y - 2)));
+    // Three and four years back, when their trial balances are imported too.
+    (st.older ?? []).forEach((f, i) => cols.push(asYear(f, String(y - 3 - i))));
+  }
   cols.push(...earlier.filter((e) => e.year.trim() && !cols.some((c) => c.year === e.year.trim())).slice(0, 5 - cols.length));
   const row = (label: string, f: (e: EarlierYear) => Kobo, style: 'line' | 'total' = 'line') => ({ label, values: cols.map(f), style });
   const head = (label: string) => ({ label, values: cols.map(() => null), style: 'heading' as const });

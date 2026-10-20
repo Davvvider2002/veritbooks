@@ -295,16 +295,18 @@ export function buildIxbrl(input: IxbrlInput): IxbrlResult {
         if (r.style === 'check') return '';
         const byLabel = LABEL_CONCEPT[r.label];
         const concept = (r.code && CHART_CONCEPT[r.code]) || byLabel?.concept;
-        const cell = (v: Kobo | null, context: string) => {
+        const cell = (v: Kobo | null, context: string | null) => {
           if (v === null) return '';
-          if (!concept) return v === 0 ? '–' : v < 0 ? `(${whole(v)})` : whole(v);
+          if (!concept || !context) return v === 0 ? '–' : v < 0 ? `(${whole(v)})` : whole(v);
           // The fact carries the concept's own sign; the row shows the statement's.
           const natural = r.negated ? -v : byLabel?.invert && !r.code ? -v : v;
           return money(concept, natural, context, v);
         };
         // The cash flow's opening cash is last year's closing balance.
         const curCtx = r.label === 'Cash and cash equivalents at start of year' ? 'PY_I' : r.label === 'Cash and cash equivalents at end of year' ? 'CY_I' : cy;
-        return `<tr class="${r.style}"><td>${esc(r.label)}</td><td class="num">${cell(r.cur, curCtx)}</td>${withPrior ? `<td class="num">${cell(r.prior, py)}</td>` : ''}</tr>`;
+        // The comparative year's opening cash is two years back, which has no context of its own: it is shown, not tagged.
+        const priorCtx = r.label === 'Cash and cash equivalents at start of year' ? null : r.label === 'Cash and cash equivalents at end of year' ? 'PY_I' : py;
+        return `<tr class="${r.style}"><td>${esc(r.label)}</td><td class="num">${cell(r.cur, curCtx)}</td>${withPrior ? `<td class="num">${cell(r.prior, priorCtx)}</td>` : ''}</tr>`;
       })
       .join('\n');
     const year = end.slice(0, 4);
@@ -333,7 +335,7 @@ export function buildIxbrl(input: IxbrlInput): IxbrlResult {
 </tbody></table>`,
   );
   if (input.blocks.equity) section('Statement of changes in equity', input.blocks.equity);
-  if (st.cashFlow) section('Statement of cash flows', table(st.cashFlow, 'duration', false));
+  if (st.cashFlow) section('Statement of cash flows', table(st.cashFlow, 'duration', withPrior && st.cashFlow.some((r) => r.style !== 'heading' && r.prior !== null)));
   section(
     'Notes to the financial statements',
     `${block('ifrs-full:DisclosureOfMaterialAccountingPolicyInformationExplanatory', input.blocks.policies)}\n${block('ifrs-full:DisclosureOfNotesAndOtherExplanatoryInformationExplanatory', input.blocks.notes)}`,

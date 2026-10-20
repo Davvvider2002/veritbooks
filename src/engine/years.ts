@@ -1,6 +1,6 @@
 // Reading which year a trial balance belongs to, and placing several years at once.
 //
-// A firm can import up to three years in one go: several files, one file with a column per
+// A firm can import up to five years in one go: several files, one file with a column per
 // year, or both. Each year is found from, in order of trust:
 //   1. a column heading that names the year ("2025", "31 Dec 2024", "Debit 2023");
 //   2. the title lines above the header ("Trial balance as at 31 December 2025");
@@ -25,9 +25,11 @@ export interface YearSet {
 }
 
 /** The slots a year can fill in an engagement. */
-export type Slot = 'current' | 'prior' | 'prior2';
-export const SLOTS: Slot[] = ['current', 'prior', 'prior2'];
-export const MAX_YEARS = 3;
+export type Slot = 'current' | 'prior' | 'prior2' | 'prior3' | 'prior4';
+export const SLOTS: Slot[] = ['current', 'prior', 'prior2', 'prior3', 'prior4'];
+export const MAX_YEARS = 5;
+/** Each slot in words. */
+export const SLOT_NAME: Record<Slot, string> = { current: 'current year', prior: 'prior year', prior2: 'two years before', prior3: 'three years before', prior4: 'four years before' };
 
 const YEAR = /(?<!\d)(19[5-9]\d|20\d{2})(?!\d)/g;
 
@@ -121,11 +123,11 @@ export function readYears(rows: unknown[][], fileName: string): YearSet[] {
   return [{ file: fileName, column: null, year, how, lines: p.lines, warnings: p.warnings }];
 }
 
-/** Where a year belongs in an engagement with this year end, or null when it is not one of the three. */
+/** Where a year belongs in an engagement with this year end, or null when it is not one of the five. */
 export function slotFor(year: number | null, yearEnd: string): Slot | null {
   if (year === null) return null;
   const gap = Number(yearEnd.slice(0, 4)) - year;
-  return gap === 0 ? 'current' : gap === 1 ? 'prior' : gap === 2 ? 'prior2' : null;
+  return gap >= 0 && gap < SLOTS.length ? SLOTS[gap] : null;
 }
 
 /** The year a slot stands for. */
@@ -136,6 +138,6 @@ export function placementProblems(chosen: (Slot | null)[]): string[] {
   const used = chosen.filter((c): c is Slot => c !== null);
   const problems: string[] = [];
   if (used.length === 0) problems.push('Choose which year each file is.');
-  for (const s of SLOTS) if (used.filter((u) => u === s).length > 1) problems.push(`Two files are set as the same year (${s === 'current' ? 'current year' : s === 'prior' ? 'prior year' : 'the year before'}). Choose one.`);
+  for (const s of SLOTS) if (used.filter((u) => u === s).length > 1) problems.push(`Two files are set as the same year (${SLOT_NAME[s]}). Choose one.`);
   return problems;
 }

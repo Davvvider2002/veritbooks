@@ -1564,9 +1564,6 @@ export function createDemoRepo(): Repo {
       if (m.role !== 'partner') throw new Error('Only an engagement partner can sign.');
       if (stateOf(firmId()) !== 'active' && !(e as any).payPer)
         throw new Error('A file can be signed once it is paid for. A partner can choose a plan, or pay for this one engagement, under Billing.');
-      const licence = jurisdictionOf(f.firm.country).licenceLabel;
-      if (!m.frcNumber.trim()) throw new Error(`Your ${licence} is missing.`);
-      if (!f.firm.frcNumber.trim()) throw new Error(`The firm's ${licence} is missing.`);
       const lines = s.lines[id] ?? [];
       if (lines.length === 0) throw new Error('No trial balance has been imported.');
       const posted = (s.adjustments[id] ?? []).filter((a) => a.posted).flatMap((a) => a.lines);

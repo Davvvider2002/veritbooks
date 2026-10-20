@@ -18,6 +18,7 @@ import {
 } from '../engine/tax';
 import { ITEM } from '../engine/chart';
 import type { TbLine } from '../engine/types';
+import { keepLine } from '../engine/yearsOf';
 import { ErrorNote, Field, useAction } from '../ui';
 import type { Ctx } from '../workspace';
 
@@ -417,8 +418,8 @@ export function TaxStep({ eng, lines, adjustments, statements: st, locked, reloa
               onClick={() =>
                 void run(async () => {
                   const used = new Set(lines.map((l) => l.code));
-                  const added = missing.filter((m) => !used.has(m.code)).map((m) => ({ code: m.code, name: m.name, balance: 0, prior: st.hasPrior ? 0 : null, prior2: null, mapCode: m.mapCode, nature: null }));
-                  await repo.replaceLines(eng.id, [...lines.map((l) => ({ code: l.code, name: l.name, balance: l.balance, prior: l.prior, prior2: l.prior2 ?? null, mapCode: l.mapCode, nature: l.nature })), ...added]);
+                  const added = missing.filter((m) => !used.has(m.code)).map((m) => ({ code: m.code, name: m.name, balance: 0, prior: st.hasPrior ? 0 : null, prior2: null, prior3: null, prior4: null, mapCode: m.mapCode, nature: null }));
+                  await repo.replaceLines(eng.id, [...lines.map(keepLine), ...added]);
                   setDone(`Added ${added.map((a) => `${a.code} ${a.name}`).join(' and ')} to the trial balance with a nil balance.`);
                   reload();
                 })

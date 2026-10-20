@@ -14,10 +14,12 @@ import { AnalyticalStep } from './steps/analytical';
 import { ConsolidationStep } from './steps/consolidation';
 import { TaxStep } from './steps/tax';
 import { CipcStep } from './steps/cipc';
+import { EtbStep, LeadsStep } from './steps/etb';
+import { ComparativesStep } from './steps/comparatives';
 import { cashFlowBlocker, consolidate, groupCashFlow, groupEquity, unitOf, unitOfGroup, type Consolidated, type GroupEquity, type GroupSetup, type Unit } from './engine/consolidation';
 import type { Row } from './engine/statements';
 import { figures, hasPrior } from './engine/statements';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { packOf, programmeFor } from './content/packs';
 import { repo } from './data';
 import type { Client, Engagement, Workspace } from './data/repo';
@@ -167,6 +169,8 @@ function loadHeavy(id: string): Promise<Heavy> {
 const STEPS = [
   { slug: 'import', label: 'Trial balance', el: ImportStep },
   { slug: 'mapping', label: 'Mapping', el: MappingStep },
+  { slug: 'etb', label: 'Extended trial balance', el: EtbStep },
+  { slug: 'leads', label: 'Lead schedules', el: LeadsStep },
   { slug: 'planning', label: 'Planning', el: PlanningStep },
   { slug: 'analytical', label: 'Analytical review', el: AnalyticalStep },
   { slug: 'opening', label: 'Opening balances', el: OpeningStep },
@@ -182,6 +186,7 @@ const STEPS = [
   { slug: 'checklist', label: 'Disclosure checklist', el: ChecklistStep },
   { slug: 'consolidation', label: 'Consolidation', el: ConsolidationStep },
   { slug: 'statements', label: 'Financial statements', el: StatementsStep },
+  { slug: 'comparatives', label: 'Multi-year comparatives', el: ComparativesStep },
   { slug: 'report', label: 'Report', el: ReportStep },
   { slug: 'management', label: 'Management letter', el: ManagementStep },
   { slug: 'sign-off', label: 'Sign-off', el: SignOffStep },
@@ -256,8 +261,26 @@ function CurrencyNote({ eng, jur, locked, reload }: { eng: Engagement; jur: Juri
   );
 }
 
+const FULL_KEY = 'veritbooks.fullWidth';
 export function EngagementPage({ ws }: { ws: Workspace }) {
   const { id = '', step } = useParams();
+  const navigate = useNavigate();
+  // Wide reports can have the whole page: the step list is hidden and a menu takes its place.
+  const [full, setFull] = useState(() => {
+    try {
+      return localStorage.getItem(FULL_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleFull = () => {
+    setFull(!full);
+    try {
+      localStorage.setItem(FULL_KEY, full ? '0' : '1');
+    } catch {
+      // The choice is only remembered where the browser allows it.
+    }
+  };
   const { data, error, reload } = useLoad(async () => {
     const eng = await repo.getEngagement(id);
     if (!eng) return null;
@@ -387,7 +410,7 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
   const programmeDone = programme.filter((i) => data.eng.programme[i.id]?.done).length;
 
   return (
-    <div className="page">
+    <div className="page workspace-page">
       <div className="between no-print" style={{ marginBottom: 22 }}>
         <div>
           <nav className="small muted crumbs" aria-label="Breadcrumb">
@@ -412,7 +435,7 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
         </div>
       </div>
 
-      <div className="workspace">
+      <div className={`workspace${full ? ' full' : ''}`}>
         <nav className="steps" aria-label="Engagement steps">
           {steps.map((s, i) => (
             <Link
@@ -427,6 +450,22 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
           ))}
         </nav>
         <main>
+          <div className="between no-print" style={{ marginBottom: 10, minHeight: 22 }}>
+            {full ? (
+              <select aria-label="Go to step" value={current.slug} onChange={(e) => navigate(`/engagements/${id}/${e.target.value}`)} style={{ width: 'auto' }}>
+                {steps.map((s, i) => (
+                  <option key={s.slug} value={s.slug}>
+                    {i + 1}. {s.label}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span />
+            )}
+            <button className="link small" onClick={toggleFull} aria-pressed={full}>
+              {full ? 'Show the step list' : 'Full width'}
+            </button>
+          </div>
           {data.eng.status === 'locked' && current.slug !== 'statements' && current.slug !== 'report' && (
             <div className="banner info no-print" style={{ marginBottom: 16 }}>
               This file was signed by {data.eng.signedByName} on {longDate((data.eng.signedAt ?? '').slice(0, 10))} and is locked. Nothing in it can be changed.

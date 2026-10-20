@@ -61,13 +61,15 @@ describe('sign-off checks name the local licence', () => {
   };
   it('asks a Ghanaian firm for ICAG numbers, and its directors for none', () => {
     const checks = signOffChecks({ ...base, jurisdiction: JURISDICTIONS.GH });
-    expect(checks.find((c) => c.id === 'firm_frc')?.label).toBe('The firm has its ICAG practising licence number on file');
+    expect(checks.find((c) => c.id === 'firm_frc')?.label).toBe('The firm’s ICAG practising licence number is on file');
     expect(checks.find((c) => c.id === 'directors')?.ok).toBe(true);
   });
-  it('still asks Nigerian directors for FRC numbers', () => {
+  it('asks for Nigerian directors’ FRC numbers without requiring them', () => {
     const checks = signOffChecks({ ...base, jurisdiction: JURISDICTIONS.NG });
-    expect(checks.find((c) => c.id === 'directors')?.ok).toBe(false);
-    expect(checks.find((c) => c.id === 'signer')?.label).toContain('FRC number');
+    expect(checks.find((c) => c.id === 'directors')?.ok).toBe(true);
+    const numbers = checks.find((c) => c.id === 'officer_numbers')!;
+    expect(numbers.label).toContain('FRC number');
+    expect(numbers.blocking).toBe(false);
   });
 });
 

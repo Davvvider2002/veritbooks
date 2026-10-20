@@ -370,7 +370,7 @@ export async function hashToken(token: string): Promise<string> {
 
 export const MAX_EVIDENCE_BYTES = 25 * 1024 * 1024;
 
-export type ImportLine = Pick<TbLine, 'code' | 'name' | 'balance' | 'prior' | 'prior2' | 'mapCode' | 'nature'>;
+export type ImportLine = Pick<TbLine, 'code' | 'name' | 'balance' | 'prior' | 'prior2' | 'prior3' | 'prior4' | 'mapCode' | 'nature'>;
 
 /**
  * Everything the app needs from storage. Two implementations exist:

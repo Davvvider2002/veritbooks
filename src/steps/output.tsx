@@ -76,7 +76,8 @@ const TBC = '[To be completed in Disclosures.]';
 export function StatementsStep(ctx: Ctx) {
   const { eng, client, ws, lines, adjustments, statements: st, jur: j } = ctx;
   const law = booksLaw(j);
-  const officer = (n: string | undefined) => (j.officerNumbers ? <><br />{n || `[${j.licenceShort}]`}</> : null);
+  // An officer's number is printed when entered; a draft shows where it would go, a signed report leaves it out.
+  const officer = (n: string | undefined) => (j.officerNumbers && (n?.trim() || eng.status !== 'locked') ? <><br />{n?.trim() || `[${j.licenceShort}]`}</> : null);
   const d = eng.disclosures;
   const gaps = disclosureGaps(d, st, lines, adjustments, eng.yearEnd);
   const ppe = ppeSchedule(lines, adjustments, st.cur, d.ppeDisposals);
@@ -320,7 +321,12 @@ export function StatementsStep(ctx: Ctx) {
       {st.cashFlow && (
         <section className={sheet} id="fs-cashflow">
           <SheetHead ctx={ctx} title="Statement of cash flows" />
-          <StatementTable rows={st.cashFlow} curLabel={year} onTrace={onTrace} />
+          <StatementTable rows={st.cashFlow} curLabel={year} priorLabel={st.cashFlow.some((r) => r.style !== 'heading' && r.prior !== null) ? prior : undefined} onTrace={onTrace} />
+          {!st.cashFlow.some((r) => r.style !== 'heading' && r.prior !== null) && (
+            <p className="small muted no-print" style={{ marginTop: 12 }}>
+              The comparative cash flow needs the balances from {Number(year) - 2} as its opening position. Import that year’s trial balance to show it.
+            </p>
+          )}
           <PageFoot ctx={ctx} />
       </section>
       )}
@@ -581,10 +587,9 @@ function ReportSheet({ ctx, draft, ready }: { ctx: Ctx; draft: ReturnType<typeof
             <>
               {eng.signedByName}
               {title && <><br />{title}</>}
+              {eng.signedByFrc && <><br />{eng.signedByFrc}</>}
               <br />
-              {eng.signedByFrc}
-              <br />
-              For: {ws.firm.name} ({eng.firmFrc})
+              For: {ws.firm.name}{eng.firmFrc ? ` (${eng.firmFrc})` : ''}
               <br />
               {ws.firm.address}
               <br />
@@ -823,14 +828,14 @@ export function SignOffStep(ctx: Ctx) {
       <div>
         <h2>Sign-off</h2>
         <p className="muted" style={{ marginTop: 4 }}>
-          Signing records the engagement partner’s name and {ctx.jur.licenceShort} on the report and locks the file. A locked file cannot be changed.
+          Signing records the engagement partner’s name, and their {ctx.jur.licenceShort} when it is on file, on the report and locks the file. A locked file cannot be changed.
         </p>
       </div>
       {signed && (
         <div className="card">
           <h3>Signed</h3>
           <p style={{ marginTop: 8, marginBottom: 0 }}>
-            {eng.signedByName} ({eng.signedByFrc}) signed for {ws.firm.name} ({eng.firmFrc}) on{' '}
+            {eng.signedByName}{eng.signedByFrc ? ` (${eng.signedByFrc})` : ''} signed for {ws.firm.name}{eng.firmFrc ? ` (${eng.firmFrc})` : ''} on{' '}
             {new Date(eng.signedAt ?? '').toLocaleString('en-GB')}.
           </p>
         </div>

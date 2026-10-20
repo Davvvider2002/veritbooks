@@ -2,14 +2,15 @@ import { ITEM } from './chart';
 import { normaliseNature, suggestMapping } from './mapping';
 import type { ParsedLine } from './parse';
 import type { Adjustment, Nature, TbLine } from './types';
-import type { Slot } from './years';
+import { SLOTS, type Slot } from './years';
+import { YEAR_KEYS, yearValue, type YearKey } from './yearsOf';
 
 export type SavedMaps = Map<string, { mapCode: string; nature: Nature | null }>;
 export type MergedLine = Omit<TbLine, 'id'>;
 
 /**
  * Combine a newly imported trial balance with what the engagement already holds.
- * Each import fills one year (current, prior, or the year before that) and keeps the others.
+ * Each import fills one year (the current year or one of the four before it) and keeps the others.
  * Mapping comes from, in order: the existing line, the client's remembered mapping, a keyword suggestion.
  */
 export function mergeImport(
@@ -21,9 +22,11 @@ export function mergeImport(
 ): MergedLine[] {
   const byCode = new Map(existing.map((l) => [l.code, l]));
   const incoming = new Map(parsed.map((p) => [p.code, p]));
-  const hadPrior = existing.some((l) => l.prior !== null);
-  const hadPrior2 = existing.some((l) => l.prior2 !== null && l.prior2 !== undefined);
-  const prior2Of = (l: TbLine | undefined) => l?.prior2 ?? (hadPrior2 ? 0 : null);
+  const target = SLOTS.indexOf(period);
+  // A year already held stays held: an account missing from it reads nil, not "not imported".
+  const held = YEAR_KEYS.map((_, i) => i === 0 || existing.some((l) => yearValue(l, i) !== null));
+  const years = (l: TbLine | undefined, set?: number) =>
+    Object.fromEntries(YEAR_KEYS.map((k, i) => [k, i === target && set !== undefined ? set : l ? (yearValue(l, i) ?? (held[i] ? 0 : null)) : i === 0 ? 0 : held[i] ? 0 : null])) as Pick<MergedLine, YearKey>;
 
   const mapFor = (code: string, name: string) => {
     const ex = byCode.get(code);
@@ -34,33 +37,18 @@ export function mergeImport(
   };
 
   const out: MergedLine[] = [];
-  if (period === 'current') {
-    for (const p of parsed) {
-      const ex = byCode.get(p.code);
-      out.push({ code: p.code, name: p.name, balance: p.balance, prior: ex?.prior ?? (hadPrior ? 0 : null), prior2: prior2Of(ex), ...mapFor(p.code, p.name) });
-    }
-    for (const l of existing) {
-      if (!incoming.has(l.code) && (l.prior || l.prior2)) out.push({ ...stripId(l), balance: 0 });
-    }
-  } else {
-    const key = period === 'prior' ? 'prior' : 'prior2';
-    for (const l of existing) {
-      const v = incoming.get(l.code)?.balance ?? 0;
-      const others = l.balance !== 0 || (key === 'prior2' ? !!l.prior : !!l.prior2);
-      if (!others && v === 0) continue;
-      out.push({ ...stripId(l), prior: l.prior, prior2: prior2Of(l), [key]: v });
-    }
-    for (const p of parsed) {
-      if (byCode.has(p.code)) continue;
-      out.push({
-        code: p.code,
-        name: p.name,
-        balance: 0,
-        prior: key === 'prior' ? p.balance : hadPrior ? 0 : null,
-        prior2: key === 'prior2' ? p.balance : hadPrior2 ? 0 : null,
-        ...mapFor(p.code, p.name),
-      });
-    }
+  for (const l of existing) {
+    const p = incoming.get(l.code);
+    const v = p?.balance ?? 0;
+    // An account with nothing in any year once this one is replaced is left out.
+    const others = YEAR_KEYS.some((_, i) => i !== target && !!yearValue(l, i));
+    if (!others && !p) continue;
+    // The current year's file names the accounts as they now stand.
+    out.push({ ...stripId(l), name: target === 0 && p ? p.name : l.name, ...years(l, v) });
+  }
+  for (const p of parsed) {
+    if (byCode.has(p.code)) continue;
+    out.push({ code: p.code, name: p.name, ...years(undefined, p.balance), ...mapFor(p.code, p.name) });
   }
 
   const kept = new Set(out.map((l) => l.code));
@@ -86,7 +74,7 @@ function stripId(l: TbLine): MergedLine {
  * the others brought. Accounts keep their ids, so journals stay attached.
  */
 export function mergeYears(existing: TbLine[], years: { slot: Slot; lines: ParsedLine[] }[], saved: SavedMaps, adjustments: Adjustment[]): MergedLine[] {
-  const order: Slot[] = ['current', 'prior', 'prior2'];
+  const order: Slot[] = SLOTS;
   const ids = new Map(existing.map((l) => [l.code, l.id]));
   let held: TbLine[] = existing;
   let merged: MergedLine[] = existing.map(stripId);
@@ -97,4 +85,25 @@ export function mergeYears(existing: TbLine[], years: { slot: Slot; lines: Parse
     held = merged.map((l) => ({ ...l, id: ids.get(l.code) ?? `new:${l.code}` }));
   }
   return merged;
+}
+
+/**
+ * Clears an imported trial balance so a revised one can be imported, before the file is signed.
+ * 'current' clears this year's balances and keeps earlier years; 'all' clears every year.
+ * Accounts a journal posts to are kept, at nil, so the journal stays attached; it is matched to
+ * the fresh import by account code. Mapping stays on the accounts kept, and the client's
+ * remembered mapping maps the rest again on import.
+ */
+export function purgeLines(lines: TbLine[], adjustments: Adjustment[], scope: 'current' | 'all'): MergedLine[] {
+  const used = new Set(adjustments.flatMap((a) => a.lines.map((j) => j.lineId)));
+  const out: MergedLine[] = [];
+  for (const l of lines) {
+    const next: MergedLine =
+      scope === 'current'
+        ? { ...stripId(l), balance: 0 }
+        : { ...stripId(l), balance: 0, prior: null, prior2: null, prior3: null, prior4: null };
+    const holds = YEAR_KEYS.some((_, i) => !!yearValue(next, i));
+    if (holds || used.has(l.id)) out.push(next);
+  }
+  return out;
 }

@@ -185,7 +185,8 @@ describe('validation and sign-off', () => {
     };
     expect(canSign(signOffChecks(ready))).toBe(true);
     expect(canSign(signOffChecks({ ...ready, signerRole: 'manager' }))).toBe(false);
-    expect(canSign(signOffChecks({ ...ready, signerFrc: '' }))).toBe(false);
+    // The licence numbers are optional: printed when held, not needed to sign.
+    expect(canSign(signOffChecks({ ...ready, signerFrc: '', firmFrc: '' }))).toBe(true);
     expect(canSign(signOffChecks({ ...ready, report: { ...ready.report, opinion: 'qualified' as const } }))).toBe(false);
   });
 });

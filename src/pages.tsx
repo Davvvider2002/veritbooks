@@ -319,7 +319,7 @@ export function FirmSetup({ onDone, user }: { onDone: () => Promise<void>; user?
         <Field label="Firm name">
           <input type="text" required value={f.name} onChange={set('name')} />
         </Field>
-        <Field label={`Firm ${j.licenceLabel}`} hint="You can add this later, but it is needed before sign-off.">
+        <Field label={`Firm ${j.licenceLabel}`} hint="Optional. When entered, it is printed on signed reports.">
           <input type="text" value={f.frcNumber} onChange={set('frcNumber')} />
         </Field>
         <Field label="Office address">
