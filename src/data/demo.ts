@@ -1615,9 +1615,10 @@ export function createDemoRepo(): Repo {
       eng(id);
       return [...(((s as any).amendments?.[id] ?? []) as Amendment[])];
     },
-    async listLog(id) {
+    async listLog(id, page) {
       eng(id);
-      return [...(s.log[id] ?? [])].reverse();
+      const all = [...(s.log[id] ?? [])].reverse();
+      return { entries: page ? all.slice(page.offset, page.offset + page.limit) : all, total: all.length };
     },
   };
 }

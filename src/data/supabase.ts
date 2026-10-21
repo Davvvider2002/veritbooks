@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { BREACHED_MESSAGE, isBreached } from '../engine/breached';
 import type { GlEntry } from '../engine/ledger';
 import type { AdminPartners, PartnerMe, PartnerProgramme } from '../engine/partners';
 import type { Adjustment, Nature, TbLine } from '../engine/types';
@@ -65,6 +66,7 @@ function fail(error: { message: string } | null): void {
   // Only reached when the session could not be renewed: the sign-in itself has run out.
   if (/jwt expired|"exp" claim|token is expired/i.test(error.message)) throw new Error('Your session has ended. Sign out and sign in again to carry on. Nothing you saved has been lost.');
   if (needs0006(error)) throw new Error(UPDATE_0006);
+  if (/email rate limit|over_email_send_rate_limit/i.test(error.message)) throw new Error('VeritBooks has sent too many sign-in emails in the last hour. Please try again in an hour with the same email address.');
   if (/failed to fetch|networkerror|network request failed|load failed/i.test(error.message)) throw new Error(OFFLINE);
   if (/adjustments_ref_idx|adjustments.*duplicate key/i.test(error.message)) throw new Error('Another journal on this file already uses that reference. Choose a different reference.');
   throw new Error(error.message);
@@ -193,6 +195,7 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       fail(error);
     },
     async signUp(email, password) {
+      if (await isBreached(password)) throw new Error(BREACHED_MESSAGE);
       // Send the confirmation link back to whichever site the user signed up on.
       const { data, error } = await db.auth.signUp({
         email,
@@ -212,6 +215,7 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       return sessionStorage.getItem(RECOVER) === '1';
     },
     async setPassword(password) {
+      if (await isBreached(password)) throw new Error(BREACHED_MESSAGE);
       const { error } = await db.auth.updateUser({ password });
       fail(error);
       sessionStorage.removeItem(RECOVER);
@@ -1020,22 +1024,20 @@ export function createSupabaseRepo(url: string, key: string): Repo {
         resignedAt: r.resigned_at,
       }));
     },
-    async listLog(id) {
-      const { data, error } = await db
+    async listLog(id, page) {
+      const toEntry = (r: any) => ({ id: String(r.id), at: r.at, table: r.table_name, action: r.action, userId: r.user_id, detail: r.detail });
+      if (!page) {
+        const rows = await fetchAll((from, to) => db.from('audit_log').select('*').eq('engagement_id', id).order('id', { ascending: false }).range(from, to));
+        return { entries: rows.map(toEntry), total: rows.length };
+      }
+      const { data, error, count } = await db
         .from('audit_log')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('engagement_id', id)
         .order('id', { ascending: false })
-        .limit(200);
+        .range(page.offset, page.offset + page.limit - 1);
       fail(error);
-      return (data ?? []).map((r) => ({
-        id: String(r.id),
-        at: r.at,
-        table: r.table_name,
-        action: r.action,
-        userId: r.user_id,
-        detail: r.detail,
-      }));
+      return { entries: (data ?? []).map(toEntry), total: count ?? data?.length ?? 0 };
     },
   };
 }

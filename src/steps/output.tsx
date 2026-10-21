@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { downloadWorkbook } from '../excel';
 import { POLICIES, policyCodes } from '../content/notes';
 import { checklistFor, programmeFor } from '../content/packs';
 import { repo } from '../data';
@@ -945,25 +946,65 @@ const TABLE_LABEL: Record<string, string> = {
   request_links: 'Upload link',
 };
 
-export function TrailStep({ eng, ws }: Ctx) {
-  const { data, error } = useLoad(() => repo.listLog(eng.id), [eng.id]);
+const TRAIL_PAGE = 100;
+const ACTION_LABEL: Record<string, string> = { insert: 'added', update: 'changed', delete: 'removed' };
+const detailText = (d: Record<string, unknown> | null) =>
+  d ? Object.entries(d).map(([k, v]) => `${k}: ${typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v)}`).join('; ') : '';
+
+/** The file's audit trail, page by page, with the whole of it downloadable for the file or a reviewer. */
+export function TrailStep({ eng, client, ws }: Ctx) {
+  const [offset, setOffset] = useState(0);
+  const { data, error } = useLoad(() => repo.listLog(eng.id, { offset, limit: TRAIL_PAGE }), [eng.id, offset]);
+  const { busy, error: dlError, run } = useAction();
   const who = (id: string | null) => (id === null ? 'Client, by upload link' : ws.members.find((m) => m.userId === id)?.fullName || 'Unknown user');
+  const total = data?.total ?? 0;
+  const download = () =>
+    run(async () => {
+      const { entries } = await repo.listLog(eng.id);
+      const head = (v: string) => ({ value: v, type: String, fontWeight: 'bold' as const, textColor: '#ffffff', backgroundColor: '#1f3d33' });
+      const text = (v: string) => ({ value: v, type: String });
+      const sheet = {
+        sheet: 'Audit trail',
+        data: [
+          [{ value: client.name, type: String, fontWeight: 'bold' as const }],
+          [text(`Audit trail, year ended ${longDate(eng.yearEnd)}. ${entries.length.toLocaleString()} entries, newest first. Downloaded ${new Date().toLocaleString('en-GB')} by ${ws.me.fullName || 'a team member'}.`)],
+          [],
+          ['When', 'Who', 'Area', 'Action', 'Detail'].map(head),
+          ...entries.map((l) => [text(new Date(l.at).toLocaleString('en-GB')), text(who(l.userId)), text(TABLE_LABEL[l.table] ?? l.table), text(ACTION_LABEL[l.action] ?? l.action), text(detailText(l.detail))]),
+        ],
+        columns: [{ width: 20 }, { width: 24 }, { width: 18 }, { width: 10 }, { width: 90 }],
+        stickyRowsCount: 4,
+        stickyColumnsCount: 0,
+        orientation: 'landscape' as const,
+      };
+      await downloadWorkbook([sheet as never], `${client.name} audit trail ${eng.yearEnd.slice(0, 4)}`);
+    });
   return (
     <div className="stack">
       <div>
         <h2>Audit trail</h2>
         <p className="muted" style={{ marginTop: 4 }}>
-          Every change to this file, newest first. The trail is written by the database and cannot be edited.
+          Every change to this file, newest first. The trail is written by the database and cannot be edited. Download it whole for the file or for a reviewer.
         </p>
       </div>
-      <ErrorNote error={error} />
+      <ErrorNote error={error ?? dlError} />
+      <div className="between" style={{ flexWrap: 'wrap', gap: 10 }}>
+        <span className="small muted" aria-label="Trail position">
+          {data ? (total ? `Showing ${(offset + 1).toLocaleString()} to ${Math.min(offset + TRAIL_PAGE, total).toLocaleString()} of ${total.toLocaleString()} entries` : '') : ''}
+        </span>
+        <div className="row" style={{ gap: 8 }}>
+          <button disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - TRAIL_PAGE))}>Newer</button>
+          <button disabled={!data || offset + TRAIL_PAGE >= total} onClick={() => setOffset(offset + TRAIL_PAGE)}>Older</button>
+          <button disabled={busy || total === 0} onClick={() => void download()}>{busy ? 'Preparing…' : 'Download the full trail (Excel)'}</button>
+        </div>
+      </div>
       <div className="card scroll-x">
         {!data ? (
           <span className="muted">Loading…</span>
-        ) : data.length === 0 ? (
+        ) : data.entries.length === 0 ? (
           <span className="muted">Nothing recorded yet.</span>
         ) : (
-          <table className="data">
+          <table className="data" aria-label="Audit trail entries">
             <thead>
               <tr>
                 <th>When</th>
@@ -973,15 +1014,15 @@ export function TrailStep({ eng, ws }: Ctx) {
               </tr>
             </thead>
             <tbody>
-              {data.map((l) => (
+              {data.entries.map((l) => (
                 <tr key={l.id}>
                   <td style={{ whiteSpace: 'nowrap' }}>{new Date(l.at).toLocaleString('en-GB')}</td>
                   <td>{who(l.userId)}</td>
                   <td>
-                    {TABLE_LABEL[l.table] ?? l.table} {l.action}
+                    {TABLE_LABEL[l.table] ?? l.table} {ACTION_LABEL[l.action] ?? l.action}
                   </td>
                   <td className="small muted" style={{ wordBreak: 'break-word' }}>
-                    {l.detail ? JSON.stringify(l.detail).slice(0, 160) : ''}
+                    {detailText(l.detail).slice(0, 200)}
                   </td>
                 </tr>
               ))}

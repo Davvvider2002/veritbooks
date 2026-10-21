@@ -482,7 +482,8 @@ export interface Repo {
   reopen(engagementId: string, kind: AmendmentKind, reason: string, effect: string): Promise<void>;
   /** Every time the file was reopened after signing, oldest first. */
   listAmendments(engagementId: string): Promise<Amendment[]>;
-  listLog(engagementId: string): Promise<LogEntry[]>;
+  /** A page of the trail, newest first, and how many entries there are in all. Without a page, every entry. */
+  listLog(engagementId: string, page?: { offset: number; limit: number }): Promise<{ entries: LogEntry[]; total: number }>;
 
   /** Starts payment for a year of a plan. Partners only. Returns the checkout page to send the partner to, or a message when there is nowhere to go (demo mode). */
   startCheckout(checkout: Checkout): Promise<{ link?: string; message?: string }>;
