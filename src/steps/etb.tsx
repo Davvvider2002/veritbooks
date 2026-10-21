@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { currencyOf } from '../content/jurisdictions';
 import { extendedTrialBalance, leadSchedules, LEADS, UNMAPPED_LEAD, type Etb, type LeadSchedule } from '../engine/etb';
 import { etbWorkbook, pctText } from '../engine/etbSheets';
+import { journalRegister } from '../engine/journalRegister';
 import { cur, fmt2 } from '../engine/money';
 import { longDate } from '../engine/report';
 import { downloadWorkbook, sendWorkbook } from '../excel';
@@ -26,6 +27,7 @@ function useWorkbook(ctx: Ctx) {
       currency: currencyOf(eng.currency).name,
       etb,
       leads,
+      register: journalRegister(adjustments, lines),
     });
   const name = `${client.name} ETB and lead schedules ${year}`;
   return { etb, leads, book, name };
@@ -182,7 +184,7 @@ export function EtbStep(ctx: Ctx) {
         </table>
       </div>
       <p className="small muted" style={{ margin: 0 }}>
-        Amounts in {cur()}. Debit balances are positive; credit balances are in brackets. Adjustments are the journals posted in the Journals step.
+        Amounts in {cur()}. Debit balances are positive; credit balances are in brackets. Adjustments are the journals posted, as listed under Journals passed: those entered or imported in the Journals step, bank reconciliation journals (BR) and tax journals (TAX).
       </p>
     </div>
   );

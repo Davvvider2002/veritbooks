@@ -2,6 +2,7 @@
 // client. Totals, final balances, movements and differences are Excel formulas, so the figures can
 // be followed and checked in the sheet itself. Headings and the first two columns are frozen.
 import { changePct, type Etb, type LeadSchedule } from './etb';
+import { SOURCE_LABEL, type Register } from './journalRegister';
 import type { Kobo } from './types';
 
 type Cell = { value?: string | number; type?: 'Formula' | StringConstructor | NumberConstructor; format?: string; fontWeight?: 'bold'; fontStyle?: 'italic'; backgroundColor?: string; textColor?: string; topBorderStyle?: 'thin' | 'double'; bottomBorderStyle?: 'thin' | 'double'; align?: 'left' | 'right' | 'center'; wrap?: boolean; columnSpan?: number; indent?: number } | null;
@@ -25,6 +26,8 @@ export interface WorkbookInput {
   currency: string;
   etb: Etb;
   leads: LeadSchedule[];
+  /** The journals passed, listed on their own sheet when given. */
+  register?: Register;
 }
 
 const NUM = '#,##0.00;(#,##0.00);"-"';
@@ -39,7 +42,7 @@ const bold = { fontWeight: 'bold' as const };
 const totalStyle = { fontWeight: 'bold' as const, topBorderStyle: 'thin' as const, bottomBorderStyle: 'double' as const };
 
 /** The heading block every sheet starts with: who, what, which year, and space for sign-off. */
-function header(input: WorkbookInput, title: string, ref: string, width: number): Cell[][] {
+function header(input: Pick<WorkbookInput, 'client' | 'yearEndText' | 'currency' | 'preparedBy' | 'preparedOn'>, title: string, ref: string, width: number): Cell[][] {
   const pad = (c: Cell[]) => [...c, ...Array(Math.max(0, width - c.length)).fill(null)];
   return [
     pad([text(input.client, { fontWeight: 'bold', columnSpan: 4 })]),
@@ -199,7 +202,51 @@ export function etbWorkbook(input: WorkbookInput): SheetSpec[] {
       orientation: 'landscape',
     });
   }
+  if (input.register && input.register.entries.length) sheets.splice(1, 0, journalsSheet(input, input.register, used));
   return sheets;
+}
+
+type HeaderInput = Pick<WorkbookInput, 'client' | 'yearEndText' | 'currency' | 'preparedBy' | 'preparedOn'>;
+
+/** Every journal passed, whichever step made it, with a total and a summary by source. */
+function journalsSheet(input: HeaderInput, register: Register, used: Set<string>): SheetSpec {
+  {
+    const heads = ['Ref', 'Source', 'Description', 'Code', 'Account', 'Debit', 'Credit', 'Status'];
+    const data: Cell[][] = [...header(input, 'Journals passed', 'JNL', heads.length), heads.map((h, i) => th(h, i === 5 || i === 6))];
+    const first = data.length + 1;
+    for (const e of register.entries) {
+      e.lines.forEach((l, i) =>
+        data.push([
+          i === 0 ? text(e.ref, bold) : null,
+          i === 0 ? text(SOURCE_LABEL[e.source]) : null,
+          i === 0 ? text(e.description, { wrap: true }) : null,
+          text(l.code),
+          text(l.name),
+          l.debit ? num(units(l.debit)) : null,
+          l.credit ? num(units(l.credit)) : null,
+          i === 0 ? text(e.posted ? 'Posted' : 'Unadjusted difference') : null,
+        ]),
+      );
+    }
+    const last = data.length;
+    data.push([text('Total', bold), null, null, null, null, formula(`SUM(F${first}:F${last})`, totalStyle), formula(`SUM(G${first}:G${last})`, totalStyle), null]);
+    data.push(Array(heads.length).fill(null));
+    data.push([text('Summary by source', bold), null, null, null, null, text('Posted', { ...bold, align: 'right' }), text('Unadjusted', { ...bold, align: 'right' }), text('Journals', bold)]);
+    for (const b of register.bySource) data.push([text(SOURCE_LABEL[b.source]), null, null, null, null, num(units(b.posted)), num(units(b.unadjusted)), { value: b.count, type: Number }]);
+    return {
+      sheet: sheetName('Journals passed', used),
+      data,
+      columns: [{ width: 9 }, { width: 20 }, { width: 44 }, { width: 10 }, { width: 34 }, { width: 17 }, { width: 17 }, { width: 22 }],
+      stickyRowsCount: 6,
+      stickyColumnsCount: 1,
+      orientation: 'landscape',
+    };
+  }
+}
+
+/** The journals passed on their own, as a workbook. */
+export function registerWorkbook(input: HeaderInput, register: Register): SheetSpec[] {
+  return [journalsSheet(input, register, new Set())];
 }
 
 /** A plain-text rendering of the change percentage, for screens. */

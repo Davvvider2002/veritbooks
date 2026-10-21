@@ -2,7 +2,12 @@ import { newAccountCode, parseJournals, rowsToCsv, type Column, type MissingAcco
 import { NATURE_CODES } from '../engine/chart';
 import { AddAccount, LinePicker, addAccounts } from './accounts';
 import { readRows } from './input';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { currencyOf } from '../content/jurisdictions';
+import { registerWorkbook } from '../engine/etbSheets';
+import { journalRegister, SOURCE_LABEL, type JournalSource } from '../engine/journalRegister';
+import { longDate } from '../engine/report';
+import { downloadWorkbook } from '../excel';
 import { PACKS, PACK_VERSION, packOf, programmeFor } from '../content/packs';
 import { repo } from '../data';
 import { BENCHMARKS, benchmarkBase, computeMateriality, unadjustedEffect } from '../engine/checks';
@@ -321,17 +326,137 @@ interface DraftLine {
 }
 const blank = (): DraftLine => ({ lineId: '', debit: '', credit: '' });
 
-export function JournalsStep({ eng, lines, adjustments, statements, locked, reload }: Ctx) {
+/**
+ * The register of journals passed: every journal on the file in one list, whichever step made it.
+ * Bank reconciliation journals (BR1, BR2) and tax journals (TAX1, TAX2) sit with those entered or
+ * imported here, each series in number order, and can be filtered by source.
+ */
+function JournalsPassed({ ctx }: { ctx: Ctx }) {
+  const { eng, client, ws, lines, adjustments, locked, reload } = ctx;
+  const reg = useMemo(() => journalRegister(adjustments, lines), [adjustments, lines]);
+  const [only, setOnly] = useState<JournalSource | 'all'>('all');
+  const { busy, error, run } = useAction();
+  const shown = reg.entries.filter((e) => only === 'all' || e.source === only);
+  const dr = shown.reduce((t, e) => t + e.total, 0);
+  return (
+    <div className="card stack" aria-label="Journals passed">
+      <div className="between" style={{ flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <h3 style={{ margin: 0 }}>Journals passed ({reg.entries.length})</h3>
+          <p className="small muted" style={{ margin: '2px 0 0' }}>
+            Every journal on the file, wherever it was made: here, by import, on the Bank step (BR) or from the tax computation (TAX). Each series is listed in number order.
+          </p>
+        </div>
+        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <label className="row small">
+            Source
+            <select aria-label="Source of journals" value={only} onChange={(e) => setOnly(e.target.value as JournalSource | 'all')} style={{ width: 'auto' }}>
+              <option value="all">All sources</option>
+              {reg.bySource.map((b) => (
+                <option key={b.source} value={b.source}>
+                  {SOURCE_LABEL[b.source]} ({b.count})
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            disabled={busy}
+            onClick={() =>
+              void run(() =>
+                downloadWorkbook(
+                  registerWorkbook(
+                    { client: client.name, yearEndText: longDate(eng.yearEnd), currency: currencyOf(eng.currency).name, preparedBy: ws.me.fullName || 'The audit team', preparedOn: longDate(new Date().toISOString().slice(0, 10)) },
+                    reg,
+                  ),
+                  `${client.name} journals passed ${eng.yearEnd.slice(0, 4)}`,
+                ),
+              )
+            }
+          >
+            Download Excel
+          </button>
+        </div>
+      </div>
+      <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+        {reg.bySource.map((b) => (
+          <span key={b.source} className="tag">
+            {SOURCE_LABEL[b.source]}: {b.count} journal{b.count === 1 ? '' : 's'}, {cur()}{fmt2(b.posted)} posted{b.unadjusted ? `, ${cur()}${fmt2(b.unadjusted)} unadjusted` : ''}
+          </span>
+        ))}
+      </div>
+      <ErrorNote error={error} />
+      <div className="grid-view" style={{ maxHeight: 'none' }}>
+        <table className="data" aria-label="Register of journals passed">
+          <thead>
+            <tr>
+              <th className="freeze edge">Ref</th>
+              <th>Source</th>
+              <th>Description</th>
+              <th>Account</th>
+              <th className="num">Debit</th>
+              <th className="num">Credit</th>
+              <th>Status</th>
+              {!locked && <th />}
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map((e) =>
+              e.lines.map((l, i) => (
+                <tr key={`${e.id}-${i}`} className={i === 0 ? 'jnl-first' : undefined} style={i === 0 ? { borderTop: '2px solid var(--line, #d9d9d9)' } : undefined}>
+                  <td className="freeze edge">{i === 0 && <strong>{e.ref}</strong>}</td>
+                  <td className="small">{i === 0 && SOURCE_LABEL[e.source]}</td>
+                  <td className="small">{i === 0 && e.description}</td>
+                  <td>
+                    {l.code} {l.name}
+                  </td>
+                  <td className="num">{l.debit ? fmt2(l.debit) : ''}</td>
+                  <td className="num">{l.credit ? fmt2(l.credit) : ''}</td>
+                  <td>{i === 0 && <span className={`tag ${e.posted ? 'ok' : 'warn'}`}>{e.posted ? 'Posted' : 'Unadjusted'}</span>}</td>
+                  {!locked && (
+                    <td>
+                      {i === 0 && (
+                        <button
+                          className="link danger"
+                          aria-label={`Delete ${e.ref}`}
+                          onClick={() =>
+                            void run(async () => {
+                              await repo.deleteAdjustment(e.id);
+                              reload();
+                            })
+                          }
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </td>
+                  )}
+                </tr>
+              )),
+            )}
+            <tr className="sub">
+              <td className="freeze edge">Total</td>
+              <td colSpan={3} className="small muted">
+                {shown.length} journal{shown.length === 1 ? '' : 's'}
+              </td>
+              <td className="num">{fmt2(dr)}</td>
+              <td className="num">{fmt2(dr)}</td>
+              <td colSpan={locked ? 1 : 2} />
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+export function JournalsStep(ctx: Ctx) {
+  const { eng, lines, adjustments, statements, locked, reload } = ctx;
   const [ref, setRef] = useState('');
   const [description, setDescription] = useState('');
   const [posted, setPosted] = useState(true);
   const [draft, setDraft] = useState<DraftLine[]>([blank(), blank()]);
   const [newAccount, setNewAccount] = useState(false);
   const { busy, error, run, setError } = useAction();
-  const name = (id: string) => {
-    const l = lines.find((x) => x.id === id);
-    return l ? `${l.code} ${l.name}` : 'Unknown account';
-  };
   const m = eng.type === 'audit' ? computeMateriality(statements.cur, eng.planning) : null;
   const unadjusted = unadjustedEffect(lines, adjustments);
 
@@ -369,46 +494,11 @@ export function JournalsStep({ eng, lines, adjustments, statements, locked, relo
         </p>
       </div>
 
+      {adjustments.length > 0 && <JournalsPassed ctx={ctx} />}
       {adjustments.length > 0 && (
-        <div className="card">
-          {adjustments.map((a) => (
-            <div key={a.id} style={{ marginBottom: 14 }}>
-              <div className="between">
-                <div>
-                  <strong>{a.ref}</strong> {a.description}{' '}
-                  <span className={`tag ${a.posted ? 'ok' : 'warn'}`}>{a.posted ? 'Posted' : 'Unadjusted'}</span>
-                </div>
-                {!locked && (
-                  <button
-                    className="link danger"
-                    onClick={() =>
-                      void run(async () => {
-                        await repo.deleteAdjustment(a.id);
-                        reload();
-                      })
-                    }
-                  >
-                    Delete
-                  </button>
-                )}
-              </div>
-              <table className="data">
-                <tbody>
-                  {a.lines.map((j, i) => (
-                    <tr key={i}>
-                      <td>{name(j.lineId)}</td>
-                      <td className="num">{j.amount > 0 ? fmt2(j.amount) : ''}</td>
-                      <td className="num">{j.amount < 0 ? fmt2(-j.amount) : ''}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ))}
-          <div className={`banner ${m && Math.abs(unadjusted) >= m.overall ? 'bad' : 'info'}`}>
-            Net effect of unadjusted differences on profit before tax: {cur()}{fmt(unadjusted, { zero: '0' })}.
-            {m ? ` Overall materiality is ${cur()}${fmt(m.overall, { zero: '0' })}.` : eng.type === 'audit' ? ' Materiality has not been set.' : ''}
-          </div>
+        <div className={`banner ${m && Math.abs(unadjusted) >= m.overall ? 'bad' : 'info'}`}>
+          Net effect of unadjusted differences on profit before tax: {cur()}{fmt(unadjusted, { zero: '0' })}.
+          {m ? ` Overall materiality is ${cur()}${fmt(m.overall, { zero: '0' })}.` : eng.type === 'audit' ? ' Materiality has not been set.' : ''}
         </div>
       )}
 
