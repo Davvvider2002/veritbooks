@@ -754,5 +754,31 @@ ok('signing again locks it and closes the reopening', rs.status === 'locked' && 
 await denied('locked again: no changes', () => as(A, `update engagements set planning = '{}' where id = $1`, [e1.id]), /signed and locked/);
 await denied('an unsigned file cannot be reopened', () => as(GH1, `select reopen_engagement($1, 'documentation', 'Review notes answered after assembly of the file', 'None at all')`, [eg.id]), /nothing to reopen/);
 
+// --- 0023: journal integrity and merged saves ----------------------------------------
+await db.exec(readFileSync('supabase/migrations/0023_integrity.sql', 'utf8'));
+const [ga] = await as(GH1, `select id from tb_lines where engagement_id = $1 limit 2`, [eg.id]).then((r) => (r.length >= 2 ? [r] : [null]));
+let gl1, gl2;
+if (ga) [gl1, gl2] = ga.map((r) => r.id);
+else {
+  [{ id: gl1 }] = await as(GH1, `insert into tb_lines (engagement_id, code, name, balance) values ($1, '9001', 'Cash', 100) returning id`, [eg.id]);
+  [{ id: gl2 }] = await as(GH1, `insert into tb_lines (engagement_id, code, name, balance) values ($1, '9002', 'Capital', -100) returning id`, [eg.id]);
+}
+const jl = (a, b) => JSON.stringify([{ lineId: gl1, amount: a }, { lineId: gl2, amount: b }]);
+await as(GH1, `insert into adjustments (engagement_id, ref, lines) values ($1, 'AJ1', $2)`, [eg.id, jl(500, -500)]);
+await denied('a journal reference is used once on a file', () => as(GH1, `insert into adjustments (engagement_id, ref, lines) values ($1, ' aj1 ', $2)`, [eg.id, jl(5, -5)]), /adjustments_ref_idx|duplicate key/);
+await denied('a journal must balance', () => as(GH1, `insert into adjustments (engagement_id, ref, lines) values ($1, 'AJ2', $2)`, [eg.id, jl(500, -400)]), /does not balance/);
+await denied('a journal needs two lines', () => as(GH1, `insert into adjustments (engagement_id, ref, lines) values ($1, 'AJ3', $2)`, [eg.id, JSON.stringify([{ lineId: gl1, amount: 0 }])]), /two lines/);
+await denied('a journal posts only to accounts of its own file', () => as(GH1, `insert into adjustments (engagement_id, ref, lines) values ($1, 'AJ4', $2)`, [eg.id, JSON.stringify([{ lineId: gl1, amount: 5 }, { lineId: '00000000-0000-0000-0000-0000000000ff', amount: -5 }])]), /not in this file/);
+await as(GH1, `update engagements set programme = '{"a":{"done":true,"by":"Kofi"}}' where id = $1`, [eg.id]);
+await as(GH1, `select merge_engagement($1, 'programme', '{"b":{"done":true,"by":"Ama"}}')`, [eg.id]);
+await as(GH1, `select merge_engagement($1, 'programme', '{"a":{"done":true,"by":"Kofi","reviewedBy":"Partner"}}')`, [eg.id]);
+const pg2 = (await db.query(`select programme from engagements where id = $1`, [eg.id])).rows[0].programme;
+ok('two people signing off different steps both keep their sign-off', pg2.a.reviewedBy === 'Partner' && pg2.b.by === 'Ama');
+await as(GH1, `select merge_engagement($1, 'programme', '{}', array['b'])`, [eg.id]);
+ok('a key can be removed', !('b' in (await db.query(`select programme from engagements where id = $1`, [eg.id])).rows[0].programme));
+await denied('only the working paper columns can be merged', () => as(GH1, `select merge_engagement($1, 'status', '{}')`, [eg.id]), /cannot be merged/);
+await denied('another firm cannot merge into the file', () => as(B, `select merge_engagement($1, 'programme', '{"x":1}')`, [eg.id]), /not found/);
+await denied('a signed file cannot be merged into', () => as(A, `select merge_engagement($1, 'planning', '{"x":1}')`, [e1.id]), /signed and locked/);
+
 console.log(failed ? `\n${failed} check(s) failed` : '\nAll database checks passed');
 process.exit(failed ? 1 : 0);

@@ -689,6 +689,10 @@ export function createDemoRepo(): Repo {
     },
     async addAdjustment(id, a) {
       open(id);
+      // The same rules as the database (migration 0023).
+      if ((s.adjustments[id] ?? []).some((x) => x.ref.trim().toUpperCase() === a.ref.trim().toUpperCase())) throw new Error('Another journal on this file already uses that reference. Choose a different reference.');
+      if (a.lines.length < 2) throw new Error('A journal needs at least two lines.');
+      if (a.lines.reduce((t, l) => t + l.amount, 0) !== 0) throw new Error('The journal does not balance.');
       (s.adjustments[id] ??= []).push({ ...a, id: uid() });
       log(id, 'adjustments', 'insert', { ref: a.ref, posted: a.posted });
       save();

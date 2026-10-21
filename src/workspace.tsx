@@ -33,7 +33,7 @@ import { TYPE_LABEL } from './pages';
 import { ImportStep, MappingStep } from './steps/input';
 import { ReportStep, SignOffStep, StatementsStep, TrailStep } from './steps/output';
 import { JournalsStep, PlanningStep, ProgrammeStep } from './steps/work';
-import { ErrorNote, useAction, useLoad } from './ui';
+import { confirmLeave, ErrorNote, useAction, useLoad, useUnsavedGuard } from './ui';
 import { OpeningStep } from './steps/opening';
 import { ManagementStep } from './steps/management';
 
@@ -264,6 +264,7 @@ function CurrencyNote({ eng, jur, locked, reload }: { eng: Engagement; jur: Juri
 const FULL_KEY = 'veritbooks.fullWidth';
 export function EngagementPage({ ws }: { ws: Workspace }) {
   const { id = '', step } = useParams();
+  useUnsavedGuard(step);
   const navigate = useNavigate();
   // Wide reports can have the whole page: the step list is hidden and a menu takes its place.
   const [full, setFull] = useState(() => {
@@ -451,18 +452,16 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
         </nav>
         <main>
           <div className="between no-print" style={{ marginBottom: 10, minHeight: 22 }}>
-            {full ? (
-              <select aria-label="Go to step" value={current.slug} onChange={(e) => navigate(`/engagements/${id}/${e.target.value}`)} style={{ width: 'auto' }}>
+            {(
+              <select className={full ? 'step-jump shown' : 'step-jump'} aria-label="Go to step" value={current.slug} onChange={(e) => confirmLeave() && navigate(`/engagements/${id}/${e.target.value}`)} style={{ width: 'auto' }}>
                 {steps.map((s, i) => (
                   <option key={s.slug} value={s.slug}>
                     {i + 1}. {s.label}
                   </option>
                 ))}
               </select>
-            ) : (
-              <span />
             )}
-            <button className="link small" onClick={toggleFull} aria-pressed={full}>
+            <button className="link small full-toggle" onClick={toggleFull} aria-pressed={full}>
               {full ? 'Show the step list' : 'Full width'}
             </button>
           </div>

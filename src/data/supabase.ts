@@ -65,9 +65,12 @@ function fail(error: { message: string } | null): void {
   // Only reached when the session could not be renewed: the sign-in itself has run out.
   if (/jwt expired|"exp" claim|token is expired/i.test(error.message)) throw new Error('Your session has ended. Sign out and sign in again to carry on. Nothing you saved has been lost.');
   if (needs0006(error)) throw new Error(UPDATE_0006);
+  if (/failed to fetch|networkerror|network request failed|load failed/i.test(error.message)) throw new Error(OFFLINE);
+  if (/adjustments_ref_idx|adjustments.*duplicate key/i.test(error.message)) throw new Error('Another journal on this file already uses that reference. Choose a different reference.');
   throw new Error(error.message);
 }
 
+const OFFLINE = 'VeritBooks could not be reached. Check the internet connection and try again. This last action was not saved.';
 const PAGE = 1000;
 /** The API returns at most 1,000 rows a request, so large tables are read page by page. */
 async function fetchAll(page: (from: number, to: number) => PromiseLike<{ data: any[] | null; error: { message: string } | null }>) {
@@ -80,6 +83,14 @@ async function fetchAll(page: (from: number, to: number) => PromiseLike<{ data: 
   }
 }
 const CHUNK = 500;
+
+/** The working paper columns, saved key by key. */
+const MERGED = ['planning', 'programme', 'testing', 'disclosures', 'report'] as const;
+/** Each engagement's working papers as last read from the database, to tell what this person changed. */
+const loaded = new Map<string, Record<string, unknown>>();
+/** Set when the database does not yet have migration 0023. */
+let noMerge = false;
+const remember = (r: any) => loaded.set(r.id, Object.fromEntries(MERGED.map((f) => [f, structuredClone(r[f] ?? {})])));
 
 export function createSupabaseRepo(url: string, key: string): Repo {
   // A reset link, or an invitation to a new colleague, brings the visitor back signed in with
@@ -359,6 +370,7 @@ export function createSupabaseRepo(url: string, key: string): Repo {
     async listEngagements() {
       const { data, error } = await db.from('engagements').select('*').order('year_end', { ascending: false });
       fail(error);
+      (data ?? []).forEach(remember);
       return (data ?? []).map(toEngagement);
     },
     async createEngagement(e) {
@@ -382,10 +394,34 @@ export function createSupabaseRepo(url: string, key: string): Repo {
     async getEngagement(id) {
       const { data, error } = await db.from('engagements').select('*').eq('id', id).maybeSingle();
       fail(error);
+      if (data) remember(data);
       return data ? toEngagement(data) : null;
     },
     async updateEngagement(id, patch) {
       const { fileNo, ...rest } = patch;
+      // The working paper columns are saved as the keys this person changed, merged into what is
+      // stored, so a colleague's sign-off saved a moment ago is kept rather than overwritten.
+      const known = loaded.get(id);
+      for (const field of MERGED) {
+        const next = (rest as Record<string, unknown>)[field] as Record<string, unknown> | undefined;
+        if (next === undefined || !known || noMerge) continue;
+        const was = (known[field] ?? {}) as Record<string, unknown>;
+        const set: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(next)) if (v !== undefined && JSON.stringify(v) !== JSON.stringify(was[k])) set[k] = v;
+        const unset = Object.keys(was).filter((k) => next[k] === undefined);
+        if (Object.keys(set).length || unset.length) {
+          const { error } = await db.rpc('merge_engagement', { p_engagement: id, p_field: field, p_set: set, p_unset: unset });
+          if (error && /merge_engagement|function .* does not exist|PGRST202/i.test(error.message)) {
+            noMerge = true; // before migration 0023: saved whole below, as before
+            continue;
+          }
+          fail(error);
+          // The base stays as last read, matching what the screen holds until it reloads, so a
+          // second save before the reload cannot remove what the first one added.
+        }
+        delete (rest as Record<string, unknown>)[field];
+      }
+      if (Object.keys(rest).length === 0 && fileNo === undefined) return;
       const row: Record<string, unknown> = { ...rest };
       if (fileNo !== undefined) row.file_no = fileNo.trim();
       const { error } = await db.from('engagements').update(row).eq('id', id);
@@ -413,35 +449,34 @@ export function createSupabaseRepo(url: string, key: string): Repo {
     },
 
     async listLines(id) {
-      const { data, error } = await db.from('tb_lines').select('*').eq('engagement_id', id).order('code');
-      fail(error);
-      return (data ?? []).map(toLine);
+      const rows = await fetchAll((from, to) => db.from('tb_lines').select('*').eq('engagement_id', id).order('code').order('id').range(from, to));
+      return rows.map(toLine);
     },
     async replaceLines(id, lines) {
       // Upsert by account code so accounts keep their id and journals stay attached,
       // then remove accounts that are no longer in the trial balance.
-      const { error } = await db.from('tb_lines').upsert(
-        lines.map((l) => ({
-          engagement_id: id,
-          code: l.code,
-          name: l.name,
-          balance: l.balance,
-          prior_balance: l.prior,
-          prior2_balance: l.prior2 ?? null,
-          prior3_balance: l.prior3 ?? null,
-          prior4_balance: l.prior4 ?? null,
-          map_code: l.mapCode,
-          nature: l.nature,
-        })),
-        { onConflict: 'engagement_id,code' },
-      );
-      fail(error);
+      const rows = lines.map((l) => ({
+        engagement_id: id,
+        code: l.code,
+        name: l.name,
+        balance: l.balance,
+        prior_balance: l.prior,
+        prior2_balance: l.prior2 ?? null,
+        prior3_balance: l.prior3 ?? null,
+        prior4_balance: l.prior4 ?? null,
+        map_code: l.mapCode,
+        nature: l.nature,
+      }));
+      for (let i = 0; i < rows.length; i += CHUNK) {
+        const { error } = await db.from('tb_lines').upsert(rows.slice(i, i + CHUNK), { onConflict: 'engagement_id,code' });
+        fail(error);
+      }
       const keep = new Set(lines.map((l) => l.code));
-      const { data: existing, error: e2 } = await db.from('tb_lines').select('id, code').eq('engagement_id', id);
-      fail(e2);
-      const gone = (existing ?? []).filter((r) => !keep.has(r.code)).map((r) => r.id);
-      if (gone.length) {
-        const { error: e3 } = await db.from('tb_lines').delete().in('id', gone);
+      const existing = await fetchAll((from, to) => db.from('tb_lines').select('id, code').eq('engagement_id', id).order('id').range(from, to));
+      const gone = existing.filter((r) => !keep.has(r.code)).map((r) => r.id as string);
+      // A few hundred ids a request keeps the address within the server's limit.
+      for (let i = 0; i < gone.length; i += 200) {
+        const { error: e3 } = await db.from('tb_lines').delete().in('id', gone.slice(i, i + 200));
         fail(e3);
       }
     },
@@ -511,6 +546,7 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       let { error } = await db.from('gl_entries').delete().eq('engagement_id', id).eq('period', period);
       if (needs0006(error) && period === 'current') ({ error } = await db.from('gl_entries').delete().eq('engagement_id', id));
       fail(error);
+      try {
       for (let i = 0; i < entries.length; i += CHUNK) {
         const { error: e2 } = await db.from('gl_entries').insert(
           entries.slice(i, i + CHUNK).map((e, j) => ({
@@ -526,6 +562,11 @@ export function createSupabaseRepo(url: string, key: string): Repo {
           })),
         );
         fail(e2);
+      }
+      } catch (e) {
+        // Do not leave a ledger half imported: the tests would run on part of the year.
+        await db.from('gl_entries').delete().eq('engagement_id', id).eq('period', period);
+        throw new Error(`The ledger import stopped part way and was undone, so no part of it is kept. Import the file again. (${e instanceof Error ? e.message : String(e)})`);
       }
     },
     async listBankAccounts(id) {

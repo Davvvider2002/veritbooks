@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useRef, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { fmt, cur } from './engine/money';
 import type { Period, Row, Source } from './engine/statements';
 
@@ -30,20 +30,82 @@ export function ErrorNote({ error }: { error: string | null }) {
   );
 }
 
-export const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+export const message = (e: unknown) => {
+  const m = e instanceof Error ? e.message : String(e);
+  // A dropped connection reaches here as a bare browser error.
+  if (/^(TypeError: )?(failed to fetch|networkerror when attempting to fetch resource\.?|load failed|network request failed)$/i.test(m))
+    return 'VeritBooks could not be reached. Check the internet connection and try again. This last action was not saved.';
+  return m;
+};
+
+/**
+ * Typing on a step marks the step as having unsaved changes until an action succeeds. Leaving the
+ * step, or closing the tab, then asks first, so a long note is not lost to a stray click.
+ */
+export const unsaved = { dirty: false };
+const LEAVE = 'You have typed on this step and not saved it. Leave without saving?';
+const TYPED = new Set(['text', 'number', 'date', 'email', 'tel', 'url', '']);
+export const confirmLeave = () => {
+  if (!unsaved.dirty) return true;
+  if (!window.confirm(LEAVE)) return false;
+  unsaved.dirty = false;
+  return true;
+};
+export function useUnsavedGuard(step: string | undefined) {
+  useEffect(() => {
+    unsaved.dirty = false;
+  }, [step]);
+  useEffect(() => {
+    const onInput = (e: Event) => {
+      const t = e.target as HTMLElement | null;
+      if (!t || !t.closest('main') || t.closest('[data-no-dirty]')) return;
+      if (t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && TYPED.has((t as HTMLInputElement).type) && !(t as HTMLInputElement).readOnly)) unsaved.dirty = true;
+    };
+    const onClick = (e: MouseEvent) => {
+      if (!unsaved.dirty) return;
+      const a = (e.target as HTMLElement | null)?.closest('a[href]') as HTMLAnchorElement | null;
+      if (!a || a.hasAttribute('download') || a.target === '_blank' || a.href.startsWith('blob:') || a.href.startsWith('data:')) return;
+      if (new URL(a.href, location.href).pathname === location.pathname) return;
+      if (!confirmLeave()) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    const onUnload = (e: BeforeUnloadEvent) => {
+      if (!unsaved.dirty) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    document.addEventListener('input', onInput, true);
+    document.addEventListener('click', onClick, true);
+    window.addEventListener('beforeunload', onUnload);
+    return () => {
+      document.removeEventListener('input', onInput, true);
+      document.removeEventListener('click', onClick, true);
+      window.removeEventListener('beforeunload', onUnload);
+    };
+  }, []);
+}
 
 /** Runs an async action, tracking busy and error state. */
 export function useAction() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A second click, or Enter pressed while the first save is still going, is ignored, so one
+  // action cannot be saved twice before the screen has caught up.
+  const running = useRef(false);
   const run = useCallback(async (fn: () => Promise<void>) => {
+    if (running.current) return;
+    running.current = true;
     setBusy(true);
     setError(null);
     try {
       await fn();
+      unsaved.dirty = false;
     } catch (e) {
       setError(message(e));
     } finally {
+      running.current = false;
       setBusy(false);
     }
   }, []);

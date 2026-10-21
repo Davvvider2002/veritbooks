@@ -33,7 +33,20 @@ export function parseAmount(raw: unknown): Kobo | null {
   } else if (/dr\.?$/i.test(s)) {
     s = s.replace(/dr\.?$/i, '');
   }
-  s = s.replace(/GH[₵¢]|GHS|SLE|LRD|GMD|USD|ZAR|US\$|L\$|NGN|R(?=\s*\d)|Le(?=\s*\d)|D(?=\s*\d)|N(?=\s*\d)|[₦$,\s]/gi, '');
+  // A trailing minus, as SAP, Pastel and some bank exports write a negative: 1,000.00-
+  if (/\d-$/.test(s)) {
+    negative = !negative;
+    s = s.slice(0, -1);
+  }
+  s = s.replace(/GH[₵¢]|GHS|SLE|LRD|GMD|USD|ZAR|US\$|L\$|NGN|R(?=\s*\d)|Le(?=\s*\d)|D(?=\s*\d)|N(?=\s*\d)|[₦$]/gi, '').trim();
+  // A decimal comma, as South African and European exports write amounts: 1 234,56 or 1.234,56.
+  // A comma is read as the decimal point only when one or two digits follow it at the end and no
+  // other comma appears, so 1,234 and 1,234,567 stay thousands.
+  if (/^-?\d{1,3}([ .  ']\d{3})*,\d{1,2}$/.test(s) || /^-?\d+,\d{1,2}$/.test(s)) {
+    s = s.replace(/[ .  ']/g, '').replace(',', '.');
+  } else {
+    s = s.replace(/[,\s  ']/g, '');
+  }
   if (s.startsWith('-')) {
     negative = !negative;
     s = s.slice(1);

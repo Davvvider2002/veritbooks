@@ -336,3 +336,30 @@ describe('paragraphs the partner adds to a report', () => {
     expect(other).toContain('Our opinion on the consolidated and separate financial statements does not cover the other information');
   });
 });
+
+describe('amounts written the South African and European way', () => {
+  it('reads a decimal comma, and a trailing minus', () => {
+    expect(parseAmount('1 234,56')).toBe(123456);
+    expect(parseAmount('1.234,56')).toBe(123456);
+    expect(parseAmount('1 234 567,8')).toBe(123456780);
+    expect(parseAmount('12,50')).toBe(1250);
+    expect(parseAmount('-1 234,56')).toBe(-123456);
+    expect(parseAmount('1,000.00-')).toBe(-100000);
+    expect(parseAmount('(1 000,00)')).toBe(-100000);
+    expect(parseAmount('R 1 000,00 Cr')).toBe(-100000);
+  });
+  it('still reads thousands commas as thousands', () => {
+    expect(parseAmount('1,234')).toBe(123400);
+    expect(parseAmount('1,234,567')).toBe(123456700);
+    expect(parseAmount('1,234.56')).toBe(123456);
+    expect(parseAmount('1 234 567.89')).toBe(123456789);
+  });
+});
+
+describe('a trial balance row whose amount cannot be read', () => {
+  it('is reported, not dropped in silence', () => {
+    const r = parseTrialBalance([['Account code', 'Account name', 'Debit', 'Credit'], ['1000', 'Cash', '100', ''], ['ASSETS', '', '', ''], ['2000', 'Capital', '', '1OO.OO']]);
+    expect(r.lines.map((l) => l.code)).toEqual(['1000']);
+    expect(r.warnings.join(' ')).toMatch(/Row 4, 2000 Capital: the amount “1OO.OO” could not be read/);
+  });
+});

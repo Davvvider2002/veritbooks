@@ -475,6 +475,15 @@ export function JournalsStep(ctx: Ctx) {
     const sum = out.reduce((a, j) => a + j.amount, 0);
     if (sum !== 0) return setError(`The journal does not balance. Difference ${fmt2(Math.abs(sum))}.`);
     if (!ref.trim()) return setError('Give the journal a reference.');
+    if (adjustments.some((a) => a.ref.trim().toUpperCase() === ref.trim().toUpperCase())) {
+      const used = new Set(adjustments.map((a) => a.ref.trim().toUpperCase()));
+      const prefix = ref.trim().match(/^[A-Za-z]*/)?.[0].toUpperCase() || 'AJ';
+      let n = 1;
+      while (used.has(`${prefix}${n}`)) n++;
+      return setError(`${ref.trim()} is already used on this file. The next free reference is ${prefix}${n}.`);
+    }
+    if (new Set(out.map((j) => j.lineId)).size < 2) return setError('Every line posts to the same account, so the journal would change nothing. Choose the other account.');
+    if (out.some((j) => Math.abs(j.amount) > 1e15)) return setError('An amount is too large. Check the figures.');
     void run(async () => {
       await repo.addAdjustment(eng.id, { ref: ref.trim(), description: description.trim(), posted, lines: out });
       setRef('');

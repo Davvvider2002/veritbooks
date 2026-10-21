@@ -315,6 +315,14 @@ button.danger { color: var(--bad); border-color: var(--bad); }
 .page.workspace-page { max-width: 1440px; }
 .workspace.full { grid-template-columns: minmax(0, 1fr); }
 .workspace.full > .steps { display: none; }
+/* The step menu: a list beside the work on a wide screen, a drop-down above it on a phone. */
+.step-jump { display: none; }
+.step-jump.shown { display: inline-block; }
+@media (max-width: 860px) {
+  .workspace > .steps { display: none; }
+  .step-jump { display: inline-block; max-width: 100%; }
+  .full-toggle { display: none; }
+}
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chips button { padding: 3px 10px; border-radius: 999px; font-size: 13px; }
 .chips button.on { background: var(--ink); color: #fff; border-color: var(--ink); }

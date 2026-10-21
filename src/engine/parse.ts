@@ -110,7 +110,11 @@ export function parseColumns(rows: unknown[][], h: Columns): ParseResult {
       balance = parseAmount(row[h.balance]);
     }
     if (balance === null) {
-      // A heading row inside the trial balance, e.g. "ASSETS". Not an account.
+      // A heading row inside the trial balance, e.g. "ASSETS", has no amount. A row whose amount
+      // is there but cannot be read is an account that would go missing: say so.
+      const cells = h.debit >= 0 && h.credit >= 0 ? [row[h.debit], row[h.credit]] : [row[h.balance]];
+      const unread = cells.map((c) => txt(c)).filter((c) => c !== '' && c !== '-' && c !== '–');
+      if (unread.length) warnings.push(`Row ${r + 1}, ${code ? `${code} ` : ''}${name}: the amount “${unread.join(' / ')}” could not be read, so the account was left out. Correct it in the file and import again.`);
       continue;
     }
     if (balance === 0) {

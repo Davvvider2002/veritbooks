@@ -344,7 +344,7 @@ export function LedgerStep(ctx: Ctx) {
           <SourceGuide kind="gl" />
           <label className="field">
             <span>{ledger.length ? 'Replace the general ledger' : 'General ledger file (CSV or Excel)'}</span>
-            <input type="file" accept=".csv,.xlsx" onChange={(e) => void onFile(e.target.files?.[0])} style={{ padding: '6px 0' }} />
+            <input type="file" accept=".csv,.xlsx" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; void onFile(f); }} style={{ padding: '6px 0' }} />
           </label>
           <p className="small muted" style={{ margin: 0 }}>
             Needs a header row with a date, an account code, and Debit and Credit or one Amount column. Journal number, description and posted-by columns are used when present. Try the{' '}
@@ -788,8 +788,10 @@ export function BankStep(ctx: Ctx) {
   const [code, setCode] = useState('');
   const [manualClosing, setManualClosing] = useState('');
   const { busy, error, run, setError } = useAction();
+  const [alsoThisCode, setAlsoThisCode] = useState(false);
 
   const onFile = async (file: File | undefined) => {
+    setAlsoThisCode(false);
     setParsed(null);
     setParseError(null);
     if (!file) return;
@@ -830,6 +832,16 @@ export function BankStep(ctx: Ctx) {
     if (!name.trim()) return setError('Name the account, for example the bank and the last four digits.');
     if (!code) return setError('Choose the ledger account this statement supports.');
     if (c === null) return setError('Enter the closing balance shown on the statement at the year end.');
+    // The same statement imported twice would be reconciled twice and its items posted twice.
+    const first = parsed!.lines[0]?.date ?? '';
+    const last = parsed!.lines[parsed!.lines.length - 1]?.date ?? '';
+    const clash = recons.find((r) => {
+      if (r.account.accountCode !== code || !r.lines.length) return false;
+      const ds = r.lines.map((l) => l.date).sort();
+      return ds[0] <= last && first <= ds[ds.length - 1];
+    });
+    if (clash && !alsoThisCode)
+      return setError(`A statement for ledger account ${code} covering these dates is already imported: ${clash.account.name} (${clash.account.fileName}). Remove it first to import a corrected copy, or tick the box below if this is a different bank account posted to the same ledger account.`);
     void run(async () => {
       await repo.addBankStatement(
         eng.id,
@@ -875,7 +887,7 @@ export function BankStep(ctx: Ctx) {
             </Field>
             <label className="field">
               <span>Statement file (PDF, Excel or CSV)</span>
-              <input type="file" accept=".csv,.xlsx,.pdf" onChange={(e) => void onFile(e.target.files?.[0])} style={{ padding: '6px 0' }} />
+              <input type="file" accept=".csv,.xlsx,.pdf" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; void onFile(f); }} style={{ padding: '6px 0' }} />
             </label>
           </div>
           <p className="small muted" style={{ margin: 0 }}>
@@ -947,6 +959,12 @@ export function BankStep(ctx: Ctx) {
                 <Field label={`Closing balance per statement at the year end, ${cur()}`}>
                   <input type="text" inputMode="decimal" value={manualClosing} onChange={(e) => setManualClosing(e.target.value)} style={{ maxWidth: 240 }} />
                 </Field>
+              )}
+              {recons.some((r) => r.account.accountCode === code) && (
+                <label className="row small">
+                  <input type="checkbox" checked={alsoThisCode} onChange={(e) => setAlsoThisCode(e.target.checked)} style={{ width: 'auto' }} />
+                  This is a different bank account, also posted to ledger account {code}
+                </label>
               )}
               <div>
                 <button className="primary" disabled={busy} onClick={save}>{busy ? 'Importing…' : 'Import statement'}</button>
