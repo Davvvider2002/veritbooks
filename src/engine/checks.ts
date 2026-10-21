@@ -156,6 +156,8 @@ export interface GateInput {
   checklistOpen?: number;
   /** Client requests not yet accepted. Leave undefined to skip the check. */
   openRequests?: number;
+  /** Ids of the programme steps with a working paper or evidence file attached or linked. */
+  programmeWithFiles?: string[];
 }
 
 export interface BankGate {
@@ -395,6 +397,28 @@ export function signOffChecks(g: GateInput): Check[] {
     detail: open.length ? `${open.length} step(s) are still open.` : undefined,
     blocking: true,
   });
+  // A signed-off step should say where its work is: a working paper reference, or a file.
+  if (g.programmeWithFiles) {
+    const withFiles = new Set(g.programmeWithFiles);
+    const bare = g.programmeItemIds.filter((id) => g.programme[id]?.done && !g.programme[id]?.note?.trim() && !withFiles.has(id));
+    if (bare.length)
+      checks.push({
+        id: 'programme_referenced',
+        label: 'Every signed-off step has a working paper reference or file',
+        ok: false,
+        detail: `${bare.length} step(s) were signed off with no reference and no file.`,
+        blocking: false,
+      });
+    const unreviewed = g.programmeItemIds.filter((id) => g.programme[id]?.done && !g.programme[id]?.reviewedBy);
+    if (unreviewed.length)
+      checks.push({
+        id: 'programme_reviewed',
+        label: 'Every signed-off step has been reviewed',
+        ok: false,
+        detail: `${unreviewed.length} step(s) have no reviewer's sign-off.`,
+        blocking: false,
+      });
+  }
 
   if (g.type === 'audit') {
     checks.push({

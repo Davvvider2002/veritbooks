@@ -1,6 +1,6 @@
 # VeritBooks: platform definition
 
-Version 0.22, 20 October 2026.
+Version 0.23, 21 October 2026.
 
 ## What it is
 
@@ -346,7 +346,7 @@ A visitor who is not signed in sees the landing page at the front door. Sign-in 
 1. Numbers are computed, never generated. Every figure in a statement is a sum of mapped account balances. No language model produces or alters a figure.
 2. Amounts are stored as whole kobo, so there is no rounding drift.
 3. The statement of financial position must balance and the cash flow must reconcile to the movement in cash, or the difference is shown on the face of the draft.
-4. Only an engagement partner can sign. The database enforces this, not only the screen. Licence numbers (the partner's, the firm's, and in Nigeria the CEO's and CFO's) are optional from version 0.22: printed when held, flagged as advisory when not.
+4. Only an engagement partner can sign, and only an engagement partner can reopen a signed file, with a recorded reason. The database enforces both, not only the screen. Licence numbers (the partner's, the firm's, and in Nigeria the CEO's and CFO's) are optional from version 0.22: printed when held, flagged as advisory when not.
 5. A signed file cannot be edited or deleted by anyone, including the partner who signed it.
 6. Users cannot write to or delete from the audit trail.
 
@@ -424,6 +424,18 @@ Two steps appear only for a South African firm. The rules and their sources live
 **New GL accounts during the audit.** The Mapping step and the New journal card both have a form to create an account (code, name, line in the statements, nature for expense lines). It is added with a nil balance; codes must be unique. From the journal card, the new account goes onto the first empty journal line. A fresh trial balance import replaces the list, so the client should be asked to include such accounts in the next trial balance.
 
 Logic in `src/engine/journalImport.ts`; screens in `src/steps/work.tsx`, `src/steps/accounts.tsx` and the Mapping step in `src/steps/input.tsx`.
+
+## Release 0.23
+
+**Session renewal.** A sign-in token lasts an hour. A laptop that slept, or a tab the browser throttled, could wake with a lapsed token and the server answered "JWT expired". Every request now goes through a fetch that, on that answer, renews the session once and sends the request again. Returning to the tab renews a token close to expiry. Only when the sign-in itself has run out does the person see a message, asking them to sign in again. In `src/data/supabase.ts`.
+
+**Posting unmatched bank items.** On the Bank step, each statement item not in the ledger has an account menu, suggested from the narration (bank charges and fees, interest, transfers in from customers, transfers out to suppliers), with **Post** on the line and **Post N ticked items** for several. Each makes a posted journal BR1, BR2 and so on, against the bank account and the chosen account, described *Bank reconciliation: narration (date)*. A posted item shows *Posted in BR1* and is not posted twice. A new GL account can be created from the same panel. Logic in `src/engine/bankPost.ts`.
+
+**Working papers on programme steps.** Each programme step can carry a working paper reference, files attached to it, and files already in Evidence linked to it (a file can support several steps). **Sign off this step** records who and when; a manager or partner then **Mark reviewed**. Sign-off adds two advisories: *Every signed-off step has a working paper reference or file* and *Every signed-off step has been reviewed*.
+
+**Management letter wording and own letter.** Every part of the drafted letter can be reworded: salutation, title, opening, scope and use, the four point headings, the text while a response is awaited, closing and sign-off, with {client}, {year end}, {work} and {firm} filled in. Only changed parts are stored. A firm can instead upload its own letter (Word or PDF), kept under Evidence and issued in place of the drafted one, and switch back.
+
+**Reopening a signed file.** On a signed file, an engagement partner can reopen it for one of three reasons the standards recognise: adding to or correcting the documentation (ISA 230, paragraph 16); facts found after the report was dated, before issue (ISA 560, paragraphs 10 to 13); facts found after issue, with revision and reissue (ISA 560, paragraphs 14 to 17). A reason (at least 20 characters) and the effect on conclusions are required. The database keeps the signed report, who signed it and when, in `engagement_amendments`, returns the file to work in progress, and closes the record when a partner signs again. A reissue pre-fills an emphasis paragraph referring to the note on the revision. The Sign-off step shows the history and the previous report as signed. Migration 0022: `reopen_engagement`, the table, a revised lock guard that yields only to a reopening, and a trigger closing the record on re-signing.
 
 ## Channel partners
 

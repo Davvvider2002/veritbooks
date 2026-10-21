@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { repo } from '../data';
 import { longDate } from '../engine/report';
-import type { ManagementLetter, ManagementPoint } from '../engine/types';
+import type { LetterPart, ManagementLetter, ManagementPoint } from '../engine/types';
+import { LETTER_PARTS, letterText } from '../content/managementLetter';
+import type { Evidence } from '../data/repo';
 import { ErrorNote, Field, useAction } from '../ui';
 import type { Ctx } from '../workspace';
 import { BrandedHead, PageFoot } from './branding';
@@ -26,13 +28,16 @@ export function ManagementStep(ctx: Ctx) {
   const points = letter.points;
   const set = (patch: Partial<ManagementPoint>) => setEditing(editing && { ...editing, ...patch });
   const word = eng.type === 'audit' ? 'audit' : 'review';
+  const fill = { client: client.name, yearEnd: longDate(eng.yearEnd), work: word, firm: ws.firm.name };
+  const t = (key: LetterPart) => letterText(key, letter.wording, fill);
+  const own = letter.ownLetter ? ctx.evidence.find((e) => e.id === letter.ownLetter!.evidenceId) ?? null : null;
 
   return (
     <div>
       <div className="stack no-print" style={{ marginBottom: 20 }}>
         <div className="between">
           <h2>Management letter</h2>
-          <button onClick={() => window.print()} disabled={!points.length}>
+          <button onClick={() => window.print()} disabled={!points.length || !!letter.ownLetter}>
             Print or save as PDF
           </button>
         </div>
@@ -165,7 +170,10 @@ export function ManagementStep(ctx: Ctx) {
         )}
       </div>
 
-      {points.length > 0 && (
+      {!locked && <LetterWording letter={letter} save={save} busy={busy} fill={fill} />}
+      {(!locked || letter.ownLetter) && <OwnLetter ctx={ctx} letter={letter} own={own} save={save} />}
+
+      {points.length > 0 && !letter.ownLetter && (
         <section className={`sheet ${ws.firm.branding.font === 'sans' ? 'sans' : ''}`}>
           <BrandedHead ctx={ctx} />
           <p>{letter.date ? longDate(letter.date) : '[Date]'}</p>
@@ -174,40 +182,36 @@ export function ManagementStep(ctx: Ctx) {
             <br />
             {client.name}
           </p>
-          <p>Dear Sirs,</p>
+          <p>{t('salutation')}</p>
           <h2 style={{ marginBottom: 14 }}>
-            Report to management for the year ended {longDate(eng.yearEnd)}
+            {t('title')}
           </h2>
-          <p>
-            In the course of our {word} of the financial statements of {client.name} for the year ended {longDate(eng.yearEnd)}, we noted the matters set out below. We bring them to your attention with our recommendations.
-          </p>
-          <p>
-            Our {word} was not designed to identify every weakness in internal control, so this letter does not list all the weaknesses that may exist. It is written for the board and management of the company and should not be given to anyone else without our consent.
-          </p>
+          <p>{t('intro')}</p>
+          <p>{t('limitation')}</p>
           {points.map((p, i) => (
             <div key={p.id} className="ml-point">
               <h3>
                 {i + 1}. {p.title} <span className="small">({PRIORITY[p.priority]} priority)</span>
               </h3>
               <p>
-                <strong>Observation.</strong> {p.observation}
+                <strong>{t('observation')}</strong> {p.observation}
               </p>
               {p.implication && (
                 <p>
-                  <strong>Implication.</strong> {p.implication}
+                  <strong>{t('implication')}</strong> {p.implication}
                 </p>
               )}
               <p>
-                <strong>Recommendation.</strong> {p.recommendation}
+                <strong>{t('recommendation')}</strong> {p.recommendation}
               </p>
               <p>
-                <strong>Management’s response.</strong> {p.response || '[Awaiting management’s response]'}
+                <strong>{t('response')}</strong> {p.response || t('awaiting')}
               </p>
             </div>
           ))}
-          <p>We thank the directors and staff for their help during the {word}. We would be glad to discuss any of these matters.</p>
+          <p>{t('closing')}</p>
           <p>
-            Yours faithfully,
+            {t('signoff')}
             <br />
             <br />
             For: {ws.firm.name}
@@ -215,6 +219,119 @@ export function ManagementStep(ctx: Ctx) {
           <PageFoot ctx={ctx} />
         </section>
       )}
+    </div>
+  );
+}
+
+/** Every part of the letter's wording, editable. A part left as it is prints the standard wording. */
+function LetterWording({ letter, save, busy, fill }: { letter: ManagementLetter; save: (l: ManagementLetter) => Promise<void>; busy: boolean; fill: { client: string; yearEnd: string; work: string; firm: string } }) {
+  const [open, setOpen] = useState(false);
+  const [w, setW] = useState<Partial<Record<LetterPart, string>>>(() => Object.fromEntries(LETTER_PARTS.map((p) => [p.key, letter.wording?.[p.key] ?? p.standard])));
+  const changed = LETTER_PARTS.filter((p) => (letter.wording?.[p.key] ?? '').trim() && letter.wording?.[p.key] !== p.standard).length;
+  return (
+    <div className="card stack no-print" aria-label="Wording of the letter">
+      <div className="between">
+        <h3 style={{ margin: 0 }}>Wording of the letter</h3>
+        <button className="link" onClick={() => setOpen(!open)}>
+          {open ? 'Close' : 'Edit the wording'}
+        </button>
+      </div>
+      <p className="small muted" style={{ margin: 0 }}>
+        {changed ? `${changed} part${changed === 1 ? '' : 's'} in your firm’s own words. ` : 'The standard wording is in use. '}
+        Change any part to suit your firm or this client. {'{client}'}, {'{year end}'}, {'{work}'} and {'{firm}'} are filled in when the letter prints, for example {fill.client} and {fill.yearEnd}.
+      </p>
+      {open && (
+        <>
+          {LETTER_PARTS.map((p) => (
+            <Field key={p.key} label={p.label}>
+              {p.rows > 1 ? (
+                <textarea rows={p.rows} value={w[p.key] ?? ''} onChange={(e) => setW({ ...w, [p.key]: e.target.value })} />
+              ) : (
+                <input type="text" value={w[p.key] ?? ''} onChange={(e) => setW({ ...w, [p.key]: e.target.value })} />
+              )}
+            </Field>
+          ))}
+          <div className="row">
+            <button
+              className="primary"
+              disabled={busy}
+              onClick={() => {
+                // Only the parts that differ from the standard are kept, so later improvements to the standard still reach the rest.
+                const wording = Object.fromEntries(LETTER_PARTS.filter((p) => (w[p.key] ?? '').trim() && w[p.key] !== p.standard).map((p) => [p.key, w[p.key]!]));
+                void save({ ...letter, wording });
+              }}
+            >
+              Save wording
+            </button>
+            <button
+              disabled={busy}
+              onClick={() => {
+                setW(Object.fromEntries(LETTER_PARTS.map((p) => [p.key, p.standard])));
+                void save({ ...letter, wording: {} });
+              }}
+            >
+              Restore the standard wording
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** A letter the firm wrote itself, uploaded and issued in place of the drafted one. */
+function OwnLetter({ ctx, letter, own, save }: { ctx: Ctx; letter: ManagementLetter; own: Evidence | null; save: (l: ManagementLetter) => Promise<void> }) {
+  const { eng, ws, locked, reload } = ctx;
+  const [file, setFile] = useState<File | null>(null);
+  const { busy, error, run } = useAction();
+  return (
+    <div className="card stack no-print" aria-label="Your own letter">
+      <h3 style={{ margin: 0 }}>Your own letter</h3>
+      {letter.ownLetter ? (
+        <>
+          <div className="banner info">
+            The letter issued is your firm’s own: <strong>{letter.ownLetter.fileName}</strong>, uploaded by {letter.ownLetter.by} on {new Date(letter.ownLetter.at).toLocaleDateString('en-GB')}. The drafted letter below is set aside. The matters above stay on file.
+          </div>
+          <div className="row">
+            {own && (
+              <button disabled={busy} onClick={() => void run(async () => void window.open(await repo.evidenceUrl(own), '_blank', 'noopener'))}>
+                Open the letter
+              </button>
+            )}
+            {!locked && (
+              <button className="link" disabled={busy} onClick={() => void run(() => save({ ...letter, ownLetter: undefined }))}>
+                Go back to the drafted letter
+              </button>
+            )}
+          </div>
+        </>
+      ) : (
+        <p className="small muted" style={{ margin: 0 }}>
+          Prefer your firm’s own letter? Upload it, in Word or PDF, and it is issued in place of the drafted one and kept with the file under Evidence.
+        </p>
+      )}
+      {!locked && (
+        <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
+          <input type="file" aria-label="Your own management letter" accept=".pdf,.doc,.docx,.odt,.rtf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+          <button
+            disabled={busy || !file}
+            onClick={() =>
+              void run(async () => {
+                const by = ws.me.fullName || 'The audit team';
+                await repo.addEvidence(eng.id, file!, { refType: 'general', refId: '', note: 'Management letter, as issued', uploadedByName: by });
+                const list = await repo.listEvidence(eng.id);
+                const added = list.filter((e) => e.fileName === file!.name).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+                await save({ ...letter, ownLetter: { evidenceId: added?.id ?? '', fileName: file!.name, by, at: new Date().toISOString() } });
+                setFile(null);
+                reload();
+              })
+            }
+          >
+            {letter.ownLetter ? 'Replace the letter' : 'Upload and use this letter'}
+          </button>
+        </div>
+      )}
+      <ErrorNote error={error} />
     </div>
   );
 }

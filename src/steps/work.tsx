@@ -7,10 +7,11 @@ import { PACKS, PACK_VERSION, packOf, programmeFor } from '../content/packs';
 import { repo } from '../data';
 import { BENCHMARKS, benchmarkBase, computeMateriality, unadjustedEffect } from '../engine/checks';
 import { fmt, fmt2, parseAmount, cur } from '../engine/money';
-import type { JournalLine, Nature, Planning, TbLine } from '../engine/types';
+import type { JournalLine, Nature, Planning, ProgrammeState, TbLine } from '../engine/types';
+import type { Evidence } from '../data/repo';
 import { ErrorNote, Field, useAction } from '../ui';
 import type { Ctx } from '../workspace';
-import { FileCount } from './evidence';
+
 
 export function PlanningStep({ eng, statements, locked, reload }: Ctx) {
   const [p, setP] = useState<Planning>({
@@ -99,7 +100,8 @@ export function PlanningStep({ eng, statements, locked, reload }: Ctx) {
   );
 }
 
-export function ProgrammeStep({ eng, ws, jur, locked, reload, evidence }: Ctx) {
+export function ProgrammeStep(ctx: Ctx) {
+  const { eng, ws, jur, locked, reload } = ctx;
   const items = programmeFor(eng.type, eng.planning);
   const pack = packOf(eng.planning);
   const { error, run } = useAction();
@@ -108,16 +110,14 @@ export function ProgrammeStep({ eng, ws, jur, locked, reload, evidence }: Ctx) {
   );
   const areas = [...new Set(items.map((i) => i.area))];
 
-  const save = (id: string, done: boolean) =>
+  const save = (id: string, done: boolean, patch: Partial<ProgrammeState[string]> = {}) =>
     run(async () => {
+      const was = eng.programme[id];
+      // The sign-off keeps who did the work; unticking clears it and the review with it.
+      const signed = done && was?.done ? { by: was.by, at: was.at, reviewedBy: was.reviewedBy, reviewedAt: was.reviewedAt } : done ? { by: ws.me.fullName || ws.me.userId, at: new Date().toISOString() } : {};
       const programme = {
         ...eng.programme,
-        [id]: {
-          done,
-          note: notes[id] || undefined,
-          by: done ? ws.me.fullName || ws.me.userId : undefined,
-          at: done ? new Date().toISOString() : undefined,
-        },
+        [id]: { done, note: notes[id] || undefined, files: was?.files, ...signed, ...patch },
       };
       await repo.updateEngagement(eng.id, { programme });
       reload();
@@ -128,7 +128,7 @@ export function ProgrammeStep({ eng, ws, jur, locked, reload, evidence }: Ctx) {
       <div>
         <h2>Work programme</h2>
         <p className="muted" style={{ marginTop: 4 }}>
-          Tick each step when the work is done and referenced. Every step must be complete before sign-off.
+          Sign off each step when the work is done: record the working paper reference and attach or link the working papers and evidence that support it. A manager or partner then marks it reviewed. Every step must be signed off before the file is signed.
         </p>
       </div>
       <div className="banner warn">
@@ -173,41 +173,143 @@ export function ProgrammeStep({ eng, ws, jur, locked, reload, evidence }: Ctx) {
           <h3>{area}</h3>
           {items
             .filter((i) => i.area === area)
-            .map((i) => {
-              const st = eng.programme[i.id];
-              return (
-                <div className="programme-item" key={i.id}>
-                  <input
-                    type="checkbox"
-                    id={i.id}
-                    disabled={locked}
-                    checked={!!st?.done}
-                    onChange={(e) => void save(i.id, e.target.checked)}
-                  />
-                  <div>
-                    <label htmlFor={i.id}>{i.text}</label> <FileCount evidence={evidence} type="programme" id={i.id} />
-                    {st?.done && st.by && (
-                      <div className="small muted">
-                        Done by {st.by}, {new Date(st.at ?? '').toLocaleDateString('en-GB')}
-                      </div>
-                    )}
-                    <input
-                      type="text"
-                      aria-label={`Working paper reference or note for: ${i.text}`}
-                      placeholder="Working paper reference or note"
-                      disabled={locked}
-                      value={notes[i.id] ?? ''}
-                      onChange={(e) => setNotes({ ...notes, [i.id]: e.target.value })}
-                      onBlur={() => {
-                        if ((st?.note ?? '') !== (notes[i.id] ?? '')) void save(i.id, !!st?.done);
-                      }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+            .map((i) => (
+              <ProgrammeItem key={i.id} ctx={ctx} item={i} note={notes[i.id] ?? ''} setNote={(v) => setNotes({ ...notes, [i.id]: v })} save={save} />
+            ))}
         </div>
       ))}
+    </div>
+  );
+}
+
+/**
+ * One programme step: ticked off by the person who did the work, with the working paper reference
+ * and the files that support it, then reviewed by a manager or partner.
+ */
+function ProgrammeItem({ ctx, item, note, setNote, save }: { ctx: Ctx; item: { id: string; text: string }; note: string; setNote: (v: string) => void; save: (id: string, done: boolean, patch?: Partial<ProgrammeState[string]>) => Promise<void> }) {
+  const { eng, ws, evidence, locked, reload } = ctx;
+  const st = eng.programme[item.id];
+  const [open, setOpen] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+  const [inputKey, setInputKey] = useState(0);
+  const [pick, setPick] = useState('');
+  const { busy, error, run } = useAction();
+  const attached = evidence.filter((e) => e.refType === 'programme' && e.refId === item.id);
+  const linked = evidence.filter((e) => (st?.files ?? []).includes(e.id) && !attached.includes(e));
+  const all = [...attached, ...linked];
+  const others = evidence.filter((e) => !all.includes(e));
+  const me = ws.me.fullName || ws.me.userId;
+  const reviewer = ws.me.role === 'partner' || ws.me.role === 'manager';
+  const openFile = (e: Evidence) => void run(async () => void window.open(await repo.evidenceUrl(e), '_blank', 'noopener'));
+  return (
+    <div className="programme-item">
+      <input type="checkbox" id={item.id} disabled={locked} checked={!!st?.done} onChange={(e) => void save(item.id, e.target.checked)} />
+      <div>
+        <label htmlFor={item.id}>{item.text}</label> {all.length > 0 && <span className="tag ok">{all.length} file{all.length === 1 ? '' : 's'}</span>}{' '}
+        {st?.reviewedBy && <span className="tag ok">Reviewed</span>}
+        {st?.done && st.by && (
+          <div className="small muted">
+            Signed off by {st.by}, {new Date(st.at ?? '').toLocaleDateString('en-GB')}
+            {st.reviewedBy && <>. Reviewed by {st.reviewedBy}, {new Date(st.reviewedAt ?? '').toLocaleDateString('en-GB')}</>}
+          </div>
+        )}
+        <div className="row" style={{ gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input
+            type="text"
+            aria-label={`Working paper reference or note for: ${item.text}`}
+            placeholder="Working paper reference or note"
+            disabled={locked}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            onBlur={() => {
+              if ((st?.note ?? '') !== note) void save(item.id, !!st?.done);
+            }}
+            style={{ flex: '1 1 260px' }}
+          />
+          <button className="link small" aria-expanded={open} aria-label={`Working papers for: ${item.text}`} onClick={() => setOpen(!open)}>
+            {open ? 'Close' : all.length ? `Working papers (${all.length})` : 'Attach working papers'}
+          </button>
+          {!locked && reviewer && st?.done && !st.reviewedBy && (
+            <button className="link small" aria-label={`Mark reviewed: ${item.text}`} disabled={busy} onClick={() => void run(() => save(item.id, true, { reviewedBy: me, reviewedAt: new Date().toISOString() }))}>
+              Mark reviewed
+            </button>
+          )}
+        </div>
+        {open && (
+          <div className="stack" style={{ marginTop: 8, padding: 12, border: '1px solid var(--rule)', borderRadius: 6 }} aria-label={`Working papers: ${item.text}`}>
+            {all.length === 0 ? (
+              <span className="small muted">No working papers or evidence linked to this step yet.</span>
+            ) : (
+              <ul className="small files" style={{ margin: 0 }}>
+                {all.map((e) => (
+                  <li key={e.id}>
+                    <button className="link" onClick={() => openFile(e)}>{e.fileName}</button>{' '}
+                    <span className="muted">
+                      {e.note ? `${e.note}. ` : ''}
+                      {linked.includes(e) ? 'Linked from Evidence' : `Attached by ${e.uploadedByName || 'the team'}`}, {new Date(e.createdAt).toLocaleDateString('en-GB')}
+                    </span>{' '}
+                    {linked.includes(e) && !locked && (
+                      <button className="link danger small" disabled={busy} onClick={() => void run(() => save(item.id, !!st?.done, { files: (st?.files ?? []).filter((x) => x !== e.id) }))}>
+                        Unlink
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {!locked && (
+              <>
+                <div className="row" style={{ gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <input key={inputKey} type="file" multiple aria-label={`Attach working papers to: ${item.text}`} onChange={(e) => setFiles([...(e.target.files ?? [])])} />
+                  <button
+                    disabled={busy || files.length === 0}
+                    onClick={() =>
+                      void run(async () => {
+                        for (const f of files) await repo.addEvidence(eng.id, f, { refType: 'programme', refId: item.id, note: note.trim() ? `W/P ${note.trim()}` : '', uploadedByName: me });
+                        setFiles([]);
+                        setInputKey(inputKey + 1);
+                        reload();
+                      })
+                    }
+                  >
+                    {files.length > 1 ? `Attach ${files.length} files` : 'Attach'}
+                  </button>
+                </div>
+                {others.length > 0 && (
+                  <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
+                    <select aria-label={`Link a file from Evidence to: ${item.text}`} value={pick} onChange={(e) => setPick(e.target.value)} style={{ flex: '1 1 260px' }}>
+                      <option value="">Link a file already in Evidence</option>
+                      {others.map((e) => (
+                        <option key={e.id} value={e.id}>{e.fileName}{e.note ? `: ${e.note}` : ''}</option>
+                      ))}
+                    </select>
+                    <button
+                      disabled={busy || !pick}
+                      onClick={() =>
+                        void run(async () => {
+                          await save(item.id, !!st?.done, { files: [...(st?.files ?? []), pick] });
+                          setPick('');
+                        })
+                      }
+                    >
+                      Link
+                    </button>
+                  </div>
+                )}
+                {!st?.done && (
+                  <div>
+                    <button className="primary" disabled={busy} onClick={() => void run(() => save(item.id, true))}>
+                      Sign off this step
+                    </button>{' '}
+                    <span className="small muted">Records your name, the date, the reference and these files against the step.</span>
+                  </div>
+                )}
+              </>
+            )}
+            <ErrorNote error={error} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -3,7 +3,8 @@ import { repo } from '../data';
 import type { JournalExplanation } from '../data/repo';
 import { computeMateriality } from '../engine/checks';
 import { ITEM } from '../engine/chart';
-import { balanceAt, parseBankStatement, type BankParse } from '../engine/bank';
+import { balanceAt, parseBankStatement, type BankLine, type BankParse } from '../engine/bank';
+import { bankItemDescription, bankItemLines, nextBankRef, postedFor, suggestAccount } from '../engine/bankPost';
 import { shortDate } from '../engine/dates';
 import type { DateOrder } from '../engine/dates';
 import { FLAG_LABEL, HIGH_RISK_SCORE, parseLedger, priorAgreement, resolveAccounts, type Flag, type Journal, type LedgerParse } from '../engine/ledger';
@@ -12,6 +13,7 @@ import { PdfPasswordError } from '../pdf';
 import { ErrorNote, Field, message, useAction } from '../ui';
 import { invalidateAnalytics, type Ctx, type Recon } from '../workspace';
 import { FileCount } from './evidence';
+import { AddAccount } from './accounts';
 import { readRows, SourceGuide } from './input';
 
 function NotReady() {
@@ -501,6 +503,117 @@ export function LedgerStep(ctx: Ctx) {
   );
 }
 
+/**
+ * Statement items not in the ledger, each set against an account here: choose the account on the
+ * line and post it, and the journal is made for you. No trip to the Journals step.
+ */
+function BankOnlyItems({ ctx, r, items }: { ctx: Ctx; r: Recon; items: BankLine[] }) {
+  const { eng, lines, adjustments, locked, reload } = ctx;
+  const bankLine = lines.find((l) => l.code === r.account.accountCode);
+  const [choice, setChoice] = useState<Record<number, string>>(() =>
+    Object.fromEntries(items.map((b, i) => [i, bankLine ? (suggestAccount(b, lines, bankLine.id) ?? '') : ''])),
+  );
+  const [ticked, setTicked] = useState<Record<number, boolean>>({});
+  const [newAccount, setNewAccount] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const { busy, error, run } = useAction();
+  const shown = items.slice(0, 100);
+  const posted = shown.map((b) => (bankLine ? postedFor(b, bankLine.id, adjustments) : undefined));
+  const ready = shown.map((_, i) => i).filter((i) => !posted[i] && ticked[i] && choice[i]);
+  const post = (idx: number[]) =>
+    void run(async () => {
+      if (!bankLine) return;
+      const taken = new Set<string>();
+      const refs: string[] = [];
+      for (const i of idx) {
+        const b = shown[i];
+        const ref = nextBankRef(adjustments, taken);
+        taken.add(ref);
+        await repo.addAdjustment(eng.id, { ref, description: bankItemDescription(b), posted: true, lines: bankItemLines(b, bankLine.id, choice[i]) });
+        refs.push(ref);
+      }
+      setTicked({});
+      setNotice(`Posted ${refs.join(', ')}. ${refs.length === 1 ? 'It is' : 'They are'} in the Journals step and set against the statement items here.`);
+      reload();
+    });
+  const others = lines.filter((l) => l.id !== bankLine?.id);
+  return (
+    <div className="stack" aria-label="Statement items not in the ledger">
+      <div>
+        <h3>On the statement, not in the ledger ({items.length})</h3>
+        <p className="small muted" style={{ margin: '2px 0 0' }}>
+          Choose the account each item belongs to and post it. A journal is made against {r.account.accountCode} {bankLine?.name ?? ''} and appears in Journals as BR1, BR2 and so on. The account is suggested from the narration where it can be: check it.
+        </p>
+      </div>
+      <div className="grid-view" style={{ maxHeight: 460 }}>
+        <table className="data">
+          <thead>
+            <tr>
+              <th>Post</th>
+              <th>Date</th>
+              <th>Narration</th>
+              <th className="num">Amount</th>
+              <th>Account</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map((b, i) => (
+              <tr key={i}>
+                <td>
+                  {!posted[i] && !locked && (
+                    <input type="checkbox" aria-label={`Post ${b.description}`} checked={!!ticked[i]} disabled={!choice[i]} onChange={(e) => setTicked({ ...ticked, [i]: e.target.checked })} />
+                  )}
+                </td>
+                <td style={{ whiteSpace: 'nowrap' }}>{shortDate(b.date)}</td>
+                <td className="wrap">{b.description}</td>
+                <td className="num">{fmt2(b.amount)}</td>
+                <td style={{ minWidth: 240 }}>
+                  {posted[i] ? (
+                    <span className="small">{others.find((l) => posted[i]!.lines.some((j) => j.lineId === l.id))?.name ?? ''}</span>
+                  ) : (
+                    <select aria-label={`Account for ${b.description}`} disabled={locked} value={choice[i] ?? ''} onChange={(e) => { setChoice({ ...choice, [i]: e.target.value }); setTicked({ ...ticked, [i]: !!e.target.value }); }}>
+                      <option value="">Choose the account</option>
+                      {others.map((l) => (
+                        <option key={l.id} value={l.id}>{l.code} {l.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </td>
+                <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                  {posted[i] ? (
+                    <span className="tag ok">Posted in {posted[i]!.ref}</span>
+                  ) : (
+                    !locked && (
+                      <button disabled={busy || !choice[i] || !bankLine} aria-label={`Post the journal for ${b.description}`} onClick={() => post([i])}>
+                        Post
+                      </button>
+                    )
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {items.length > 100 && <p className="small muted" style={{ margin: 0 }}>Showing the first 100.</p>}
+      <ErrorNote error={error} />
+      {notice && <div className="banner info">{notice}</div>}
+      {!locked && (
+        <div className="row" style={{ flexWrap: 'wrap', gap: 12 }}>
+          <button className="primary" disabled={busy || ready.length === 0} onClick={() => post(ready)}>
+            Post {ready.length || ''} ticked item{ready.length === 1 ? '' : 's'}
+          </button>
+          <button className="link" onClick={() => setNewAccount(!newAccount)}>
+            {newAccount ? 'Close' : 'Create and map a new GL account'}
+          </button>
+        </div>
+      )}
+      {newAccount && <AddAccount engagementId={eng.id} lines={lines} onAdded={() => reload()} />}
+    </div>
+  );
+}
+
 function ReconCard({ ctx, r }: { ctx: Ctx; r: Recon }) {
   const { eng, locked, reload, ledger } = ctx;
   const saved = eng.testing.bank?.[r.account.id];
@@ -595,23 +708,7 @@ function ReconCard({ ctx, r }: { ctx: Ctx; r: Recon }) {
             {x.matched.toLocaleString()} statement lines matched to the ledger on exact amount, within 3 days before and 10 days after the ledger date. Any difference includes reconciling items brought forward from the prior year.
           </p>
 
-          {x.bankOnly.length > 0 && (
-            <div>
-              <h3>On the statement, not in the ledger ({x.bankOnly.length})</h3>
-              <p className="small muted" style={{ margin: '2px 0 6px' }}>These usually need an adjusting journal. Post it in Journals and it is set against them here.</p>
-              <div className="scroll-x">
-                <table className="data">
-                  <thead><tr><th>Date</th><th>Narration</th><th className="num">Amount</th></tr></thead>
-                  <tbody>
-                    {x.bankOnly.slice(0, 100).map((b, i) => (
-                      <tr key={i}><td style={{ whiteSpace: 'nowrap' }}>{shortDate(b.date)}</td><td>{b.description}</td><td className="num">{fmt2(b.amount)}</td></tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {x.bankOnly.length > 100 && <p className="small muted">Showing the first 100.</p>}
-            </div>
-          )}
+          {x.bankOnly.length > 0 && <BankOnlyItems ctx={ctx} r={r} items={x.bankOnly} />}
           {x.ledgerOnly.length > 0 && (
             <div>
               <h3>In the ledger, not on the statement at the year end ({x.ledgerOnly.length})</h3>

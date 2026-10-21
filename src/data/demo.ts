@@ -28,6 +28,7 @@ import {
   type Repo,
   type StoredBankLine,
   type User,
+  type Amendment,
 } from './repo';
 
 /**
@@ -1575,8 +1576,40 @@ export function createDemoRepo(): Repo {
       e.signedByFrc = m.frcNumber;
       e.firmFrc = f.firm.frcNumber;
       e.signedAt = new Date().toISOString();
+      for (const a of ((s as any).amendments?.[id] ?? []) as Amendment[]) if (!a.resignedAt) Object.assign(a, { resignedByName: e.signedByName, resignedAt: e.signedAt });
       log(id, 'engagements', 'update', { status: 'locked' });
       save();
+    },
+    async reopen(id, kind, reason, effect) {
+      const e = eng(id);
+      const f = s.firms[firmId()];
+      const m = f.members.find((x) => x.userId === me().id)!;
+      if (m.role !== 'partner') throw new Error('Only an engagement partner can reopen a signed file.');
+      if (e.status !== 'locked') throw new Error('This file is not signed, so there is nothing to reopen.');
+      if (reason.trim().length < 20) throw new Error('Give the specific reason for reopening the file, in at least 20 characters.');
+      if (effect.trim().length < 10) throw new Error('Say what effect the change has on the conclusions reached.');
+      const list = (((s as any).amendments ??= {})[id] ??= []) as Amendment[];
+      list.push({
+        id: uid(),
+        kind,
+        reason: reason.trim(),
+        effect: effect.trim(),
+        reopenedByName: m.fullName,
+        reopenedAt: new Date().toISOString(),
+        previousSignedByName: e.signedByName,
+        previousSignedAt: e.signedAt,
+        previousReport: { ...e.report },
+        resignedByName: null,
+        resignedAt: null,
+      });
+      const { signedReport: _signed, ...report } = e.report;
+      Object.assign(e, { status: 'in_progress', signedByName: null, signedByFrc: null, firmFrc: null, signedAt: null, report });
+      log(id, 'engagements', 'update', { status: 'in_progress', reopened: kind, reason: reason.trim() });
+      save();
+    },
+    async listAmendments(id) {
+      eng(id);
+      return [...(((s as any).amendments?.[id] ?? []) as Amendment[])];
     },
     async listLog(id) {
       eng(id);

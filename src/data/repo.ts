@@ -327,6 +327,22 @@ export interface Evidence {
   page: number | null;
 }
 
+export type AmendmentKind = 'documentation' | 'subsequent_before_issue' | 'subsequent_after_issue';
+export interface Amendment {
+  id: string;
+  kind: AmendmentKind;
+  reason: string;
+  effect: string;
+  reopenedByName: string;
+  reopenedAt: string;
+  previousSignedByName: string | null;
+  previousSignedAt: string | null;
+  /** The report settings and the signed wording as they stood before the file was reopened. */
+  previousReport: Record<string, unknown>;
+  resignedByName: string | null;
+  resignedAt: string | null;
+}
+
 export type RequestStatus = 'open' | 'received' | 'accepted' | 'returned';
 
 export interface ClientRequest {
@@ -462,6 +478,10 @@ export interface Repo {
   portalUpload(token: string, view: PortalView, requestId: string, file: File): Promise<void>;
 
   sign(engagementId: string): Promise<void>;
+  /** A partner reopens a signed file under ISA 230 or ISA 560, with the reason and its effect. */
+  reopen(engagementId: string, kind: AmendmentKind, reason: string, effect: string): Promise<void>;
+  /** Every time the file was reopened after signing, oldest first. */
+  listAmendments(engagementId: string): Promise<Amendment[]>;
   listLog(engagementId: string): Promise<LogEntry[]>;
 
   /** Starts payment for a year of a plan. Partners only. Returns the checkout page to send the partner to, or a message when there is nowhere to go (demo mode). */

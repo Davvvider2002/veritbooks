@@ -730,5 +730,29 @@ await denied('a partner with no licence number reaches the other checks', () => 
 const why = await as(B, `select sign_engagement($1)`, [e3.id]).then(() => '', (e) => e.message);
 ok('signing no longer asks for an FRC number', !/number is missing|licence number/.test(why));
 
+// --- 0022: a partner reopens a signed file (ISA 230, ISA 560) ---------------------
+await db.exec(readFileSync('supabase/migrations/0022_reopen_signed.sql', 'utf8'));
+const st0 = (await db.query(`select status, signed_by_name, signed_at from engagements where id = $1`, [e1.id])).rows[0];
+ok('the file is signed before it is reopened', st0.status === 'locked');
+await denied('staff cannot reopen a signed file', () => as(C, `select reopen_engagement($1, 'documentation', 'Review notes answered after assembly of the file', 'None, the opinion stands')`, [e1.id]), /Only an engagement partner/);
+await denied('another firm cannot reopen it', () => as(B, `select reopen_engagement($1, 'documentation', 'Review notes answered after assembly of the file', 'None')`, [e1.id]), /not found/);
+await denied('a reason is required', () => as(A, `select reopen_engagement($1, 'documentation', 'too short', 'None, the opinion stands')`, [e1.id]), /specific reason/);
+await denied('the effect is required', () => as(A, `select reopen_engagement($1, 'documentation', 'Review notes answered after assembly of the file', '')`, [e1.id]), /effect/);
+await denied('the kind must be one the standards recognise', () => as(A, `select reopen_engagement($1, 'whim', 'Review notes answered after assembly of the file', 'None, the opinion stands')`, [e1.id]), /Choose why/);
+await denied('nobody writes the history directly', () => as(A, `insert into engagement_amendments (engagement_id, kind, reason, effect) values ($1, 'documentation', 'A reason long enough to pass', 'None at all')`, [e1.id]), /permission denied/);
+const [ro] = await as(A, `select * from reopen_engagement($1, 'subsequent_before_issue', 'Debtor went into liquidation on 20 February, before the statements were issued', 'Statements to be amended and a new report signed')`, [e1.id]);
+ok('the partner reopens it and it returns to work in progress', ro.status === 'in_progress' && ro.signed_by === null && ro.signed_at === null);
+const am = await as(C, `select * from engagement_amendments where engagement_id = $1`, [e1.id]);
+ok('the reopening is recorded with the previous signature, for the team to read', am.length === 1 && am[0].previous_signed_by_name === st0.signed_by_name && am[0].reopened_by_name !== '' && am[0].resigned_at === null && am[0].kind === 'subsequent_before_issue');
+ok('another firm cannot read it', (await as(B, `select * from engagement_amendments`)).length === 0);
+await as(A, `update engagements set disclosures = '{"subsequentEvents":"Debtor liquidation"}' where id = $1`, [e1.id]);
+ok('the reopened file can be changed', (await db.query(`select disclosures from engagements where id = $1`, [e1.id])).rows[0].disclosures.subsequentEvents === 'Debtor liquidation');
+await denied('it still cannot be marked signed by hand', () => as(A, `update engagements set status = 'locked' where id = $1`, [e1.id]), /sign_engagement/);
+const [rs] = await as(A, `select * from sign_engagement($1)`, [e1.id]);
+const am2 = (await as(A, `select * from engagement_amendments where engagement_id = $1`, [e1.id]))[0];
+ok('signing again locks it and closes the reopening', rs.status === 'locked' && am2.resigned_at !== null && am2.resigned_by_name === rs.signed_by_name);
+await denied('locked again: no changes', () => as(A, `update engagements set planning = '{}' where id = $1`, [e1.id]), /signed and locked/);
+await denied('an unsigned file cannot be reopened', () => as(GH1, `select reopen_engagement($1, 'documentation', 'Review notes answered after assembly of the file', 'None at all')`, [eg.id]), /nothing to reopen/);
+
 console.log(failed ? `\n${failed} check(s) failed` : '\nAll database checks passed');
 process.exit(failed ? 1 : 0);

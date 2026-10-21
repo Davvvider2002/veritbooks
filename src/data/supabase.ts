@@ -62,6 +62,8 @@ const UPDATE_0006 = 'This needs a database update. Run supabase/migrations/0006_
 function fail(error: { message: string } | null): void {
   if (!error) return;
   if (/signed and locked/i.test(error.message)) throw new LockedError();
+  // Only reached when the session could not be renewed: the sign-in itself has run out.
+  if (/jwt expired|"exp" claim|token is expired/i.test(error.message)) throw new Error('Your session has ended. Sign out and sign in again to carry on. Nothing you saved has been lost.');
   if (needs0006(error)) throw new Error(UPDATE_0006);
   throw new Error(error.message);
 }
@@ -85,7 +87,42 @@ export function createSupabaseRepo(url: string, key: string): Repo {
   // That is noted before the client tidies the address away, and kept for this browser tab.
   const RECOVER = 'veritbooks.recovering';
   if (/type=(recovery|invite)/.test(window.location.hash + window.location.search)) sessionStorage.setItem(RECOVER, '1');
-  const db: SupabaseClient = createClient(url, key);
+  // A token expires an hour after it is issued. The client renews it on a timer, but a laptop
+  // that slept or a tab the browser throttled can wake with a lapsed token and send it before the
+  // timer runs, and the server answers "JWT expired". Every request goes through this fetch: when
+  // the server refuses an expired token, the session is renewed once and the request sent again
+  // with the new one, so the person never sees the error.
+  let db: SupabaseClient;
+  let renewing: Promise<string | null> | null = null;
+  const renew = () =>
+    (renewing ??= db.auth
+      .refreshSession()
+      .then(({ data }) => data.session?.access_token ?? null, () => null)
+      .finally(() => setTimeout(() => (renewing = null), 0)));
+  const EXPIRED = /jwt expired|"exp" claim|token is expired|invalid jwt/i;
+  const fetchRenewing: typeof fetch = async (input, init) => {
+    const res = await fetch(input, init);
+    const href = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    // Sign-in and renewal requests are left alone, or a failed renewal would loop.
+    if (href.includes('/auth/v1/') || (res.status !== 401 && res.status !== 403 && res.status !== 400)) return res;
+    const text = await res.clone().text().catch(() => '');
+    if (!EXPIRED.test(text)) return res;
+    const token = await renew();
+    if (!token) return res;
+    const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+    headers.set('Authorization', `Bearer ${token}`);
+    return fetch(input instanceof Request ? input.url : input, { ...init, method: init?.method ?? (input instanceof Request ? input.method : undefined), headers });
+  };
+  db = createClient(url, key, { auth: { autoRefreshToken: true, persistSession: true }, global: { fetch: fetchRenewing } });
+  // Coming back to the tab renews a token that lapsed while it was hidden or the machine slept.
+  if (typeof document !== 'undefined')
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return;
+      void db.auth.getSession().then(({ data }) => {
+        const exp = data.session?.expires_at;
+        if (data.session && exp && exp * 1000 - Date.now() < 120_000) void renew();
+      });
+    });
 
   /** Calls the assist function, which holds the AI service key. The browser never sees it. */
   const assist = async (body: Record<string, unknown>) => {
@@ -918,6 +955,29 @@ export function createSupabaseRepo(url: string, key: string): Repo {
     async sign(id) {
       const { error } = await db.rpc('sign_engagement', { p_engagement: id });
       fail(error);
+    },
+    async reopen(id, kind, reason, effect) {
+      const { error } = await db.rpc('reopen_engagement', { p_engagement: id, p_kind: kind, p_reason: reason, p_effect: effect });
+      fail(error);
+    },
+    async listAmendments(id) {
+      const { data, error } = await db.from('engagement_amendments').select('*').eq('engagement_id', id).order('reopened_at');
+      // Before migration 0022 the table is missing: there is simply no history yet.
+      if (error && /engagement_amendments/.test(error.message)) return [];
+      fail(error);
+      return (data ?? []).map((r: any) => ({
+        id: r.id,
+        kind: r.kind,
+        reason: r.reason,
+        effect: r.effect,
+        reopenedByName: r.reopened_by_name,
+        reopenedAt: r.reopened_at,
+        previousSignedByName: r.previous_signed_by_name,
+        previousSignedAt: r.previous_signed_at,
+        previousReport: r.previous_report ?? {},
+        resignedByName: r.resigned_by_name,
+        resignedAt: r.resigned_at,
+      }));
     },
     async listLog(id) {
       const { data, error } = await db

@@ -52,7 +52,18 @@ export interface Planning {
 }
 
 export interface ProgrammeState {
-  [itemId: string]: { done: boolean; by?: string; at?: string; note?: string };
+  [itemId: string]: {
+    done: boolean;
+    by?: string;
+    at?: string;
+    /** The working paper reference, or a note on the work. */
+    note?: string;
+    /** Evidence files already in the file that support this step, by id, besides those attached to it. */
+    files?: string[];
+    /** The manager or partner who reviewed the step, and when. */
+    reviewedBy?: string;
+    reviewedAt?: string;
+  };
 }
 
 export interface ReportSettings {
@@ -104,7 +115,13 @@ export interface ManagementLetter {
   addressee?: string;
   date?: string;
   points: ManagementPoint[];
+  /** The firm's own wording for any part of the letter. A part left out prints the standard wording. */
+  wording?: Partial<Record<LetterPart, string>>;
+  /** A letter the firm wrote itself and uploaded, issued in place of the drafted one. */
+  ownLetter?: { evidenceId: string; fileName: string; by: string; at: string };
 }
+
+export type LetterPart = 'salutation' | 'title' | 'intro' | 'limitation' | 'closing' | 'signoff' | 'observation' | 'implication' | 'recommendation' | 'response' | 'awaiting';
 
 export interface RelatedParty {
   name: string;

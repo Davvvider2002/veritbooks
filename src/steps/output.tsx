@@ -16,6 +16,7 @@ import { canOpen, ErrorNote, Field, StatementTable, useAction, useLoad, type OnT
 import { BrandedHead, ContentsSheet, CoverSheet, PageFoot } from './branding';
 import type { Ctx } from '../workspace';
 import { ChecksList } from './input';
+import { Amendments } from './reopen';
 
 function DraftMark({ locked }: { locked: boolean }) {
   return locked ? null : <div className="draft-mark">DRAFT · NOT SIGNED</div>;
@@ -818,6 +819,7 @@ export function SignOffStep(ctx: Ctx) {
       ? checklistOpen(buildChecklist(checklistFor(eng.planning), { statements, lines, adjustments, disclosures: eng.disclosures, principalActivity: eng.report.principalActivity, policyCodes: policyCodes(statements) })).length
       : undefined,
     openRequests: requests.length ? requests.filter((r) => r.status !== 'accepted').length : undefined,
+    programmeWithFiles: [...new Set([...ctx.evidence.filter((e) => e.refType === 'programme').map((e) => e.refId), ...Object.entries(eng.programme).filter(([, v]) => (v.files ?? []).some((f) => ctx.evidence.some((e) => e.id === f))).map(([k]) => k)])],
     disclosureGaps: disclosureGaps(eng.disclosures, statements, lines, adjustments, eng.yearEnd),
   });
   const ready = canSign(checks);
@@ -831,6 +833,7 @@ export function SignOffStep(ctx: Ctx) {
           Signing records the engagement partner’s name, and their {ctx.jur.licenceShort} when it is on file, on the report and locks the file. A locked file cannot be changed.
         </p>
       </div>
+      <Amendments ctx={ctx} />
       {signed && (
         <div className="card">
           <h3>Signed</h3>
