@@ -7,6 +7,10 @@ import type { PartnerProgramme } from '../engine/partners';
  */
 export function partnerTerms(p: PartnerProgramme): { heading: string; text: string }[] {
   const months = p.months === null ? 'for as long as the firm pays' : `for ${p.months} months from the date the firm was referred`;
+  const later =
+    p.months !== null && Number(p.later_percent ?? 0) > 0
+      ? `, and ${Number(p.later_percent)}% of every payment after that ${p.later_months == null ? 'for as long as the firm pays' : `for a further ${p.later_months} months`}`
+      : '';
   const mins = Object.entries(p.min_payout)
     .map(([c, v]) => priceText(v, c))
     .join(', ');
@@ -17,7 +21,7 @@ export function partnerTerms(p: PartnerProgramme): { heading: string; text: stri
     },
     {
       heading: 'Commission',
-      text: `You earn ${p.percent}% of every payment a firm you referred makes ${months}, measured on the amount paid excluding VAT, in the currency the firm paid in. Trials, credits and amounts given without payment earn nothing. VeritBooks may set a different rate in writing for your account.`,
+      text: `You earn ${p.percent}% of every payment a firm you referred makes ${months}${later}, measured on the amount paid excluding VAT, in the currency the firm paid in. Trials, credits and amounts given without payment earn nothing. VeritBooks may set a different rate in writing for your account.`,
     },
     {
       heading: 'Hold and reversals',

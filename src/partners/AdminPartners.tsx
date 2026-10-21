@@ -12,6 +12,7 @@ import {
   type AdminPartner,
   type AdminPartners as Data,
   type Balance,
+  termsText,
 } from '../engine/partners';
 import { longDate } from '../engine/report';
 import { ErrorNote, Field, message, useAction } from '../ui';
@@ -128,6 +129,7 @@ function Overview({ d, go }: { d: Data; go: (s: Section) => void }) {
 function Applications({ d, act, busy }: { d: Data; act: Act; busy: boolean }) {
   const pending = d.partners.filter((p) => p.status === 'pending');
   const [rate, setRate] = useState<Record<string, string>>({});
+  const [later, setLater] = useState<Record<string, string>>({});
   if (pending.length === 0) return <div className="card muted">No applications waiting.</div>;
   return (
     <div className="stack">
@@ -155,11 +157,19 @@ function Applications({ d, act, busy }: { d: Data; act: Act; busy: boolean }) {
                 <input type="number" min="0" max="100" step="0.5" value={rate[p.id] ?? String(p.commission_percent)} onChange={(e) => setRate({ ...rate, [p.id]: e.target.value })} />
               </Field>
             </div>
+            {p.commission_months !== null && (
+              <div style={{ width: 200 }}>
+                <Field label={`Then, % after ${p.commission_months} months`}>
+                  <input type="number" min="0" max="100" step="0.5" value={later[p.id] ?? String(p.later_percent ?? 0)} onChange={(e) => setLater({ ...later, [p.id]: e.target.value })} />
+                </Field>
+              </div>
+            )}
             <button
               className="primary"
               disabled={busy}
               onClick={async () => {
                 if (rate[p.id] !== undefined && Number(rate[p.id]) !== Number(p.commission_percent) && !(await act('update', { id: p.id, percent: Number(rate[p.id]) }))) return;
+                if (later[p.id] !== undefined && Number(later[p.id]) !== Number(p.later_percent ?? 0) && !(await act('update', { id: p.id, later_percent: Number(later[p.id] || 0) }))) return;
                 await act('status', { id: p.id, status: 'active' }, `${p.name} approved. Their link is live.`);
               }}
             >
@@ -176,7 +186,7 @@ function Applications({ d, act, busy }: { d: Data; act: Act; busy: boolean }) {
 }
 
 function AddPartner({ d, act, busy }: { d: Data; act: Act; busy: boolean }) {
-  const blank = { email: '', name: '', company: '', country: 'NG', code: '', percent: String(d.settings.default_percent), months: d.settings.default_months === null ? '' : String(d.settings.default_months) };
+  const blank = { email: '', name: '', company: '', country: 'NG', code: '', percent: String(d.settings.default_percent), months: d.settings.default_months === null ? '' : String(d.settings.default_months), later_percent: String(d.settings.default_later_percent ?? 0), later_months: d.settings.default_later_months == null ? '' : String(d.settings.default_later_months) };
   const [f, setF] = useState(blank);
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
   return (
@@ -187,7 +197,7 @@ function AddPartner({ d, act, busy }: { d: Data; act: Act; busy: boolean }) {
         style={{ marginTop: 12 }}
         onSubmit={async (e) => {
           e.preventDefault();
-          if (await act('create', { ...f, code: f.code || undefined, percent: Number(f.percent), months: f.months }, `${f.name} added. They take the account up by signing in at /partners with ${f.email}.`)) setF(blank);
+          if (await act('create', { ...f, code: f.code || undefined, percent: Number(f.percent), months: f.months, later_percent: Number(f.later_percent || 0), later_months: f.later_months }, `${f.name} added. They take the account up by signing in at /partners with ${f.email}.`)) setF(blank);
         }}
       >
         <div className="grid3">
@@ -201,7 +211,9 @@ function AddPartner({ d, act, busy }: { d: Data; act: Act; busy: boolean }) {
           </Field>
           <Field label="Code" hint="Blank makes one from the name."><input type="text" value={f.code} maxLength={20} onChange={(e) => setF({ ...f, code: e.target.value.toUpperCase() })} /></Field>
           <Field label="Commission, %"><input type="number" min="0" max="100" step="0.5" value={f.percent} onChange={set('percent')} /></Field>
-          <Field label="For months" hint="Blank: for as long as the firm pays."><input type="number" min="1" max="120" value={f.months} onChange={set('months')} /></Field>
+          <Field label="First period, months" hint="Blank: the first rate for as long as the firm pays."><input type="number" min="1" max="120" value={f.months} onChange={set('months')} /></Field>
+          <Field label="Then, % in later years" hint="After the first period. 0: nothing after it."><input type="number" min="0" max="100" step="0.5" value={f.later_percent} disabled={f.months === ''} onChange={set('later_percent')} /></Field>
+          <Field label="For further months" hint="Blank: for as long as the firm pays."><input type="number" min="1" max="240" value={f.later_months} disabled={f.months === '' || !Number(f.later_percent)} onChange={set('later_months')} /></Field>
         </div>
         <div><button className="primary" disabled={busy}>Add partner</button></div>
       </form>
@@ -210,9 +222,9 @@ function AddPartner({ d, act, busy }: { d: Data; act: Act; busy: boolean }) {
 }
 
 function PartnerDetail({ p, d, act, busy }: { p: AdminPartner; d: Data; act: Act; busy: boolean }) {
-  const [f, setF] = useState({ name: p.name, company: p.company, phone: p.phone, country: p.country, code: p.code, percent: String(p.commission_percent), months: p.commission_months === null ? '' : String(p.commission_months), admin_notes: p.admin_notes });
+  const [f, setF] = useState({ name: p.name, company: p.company, phone: p.phone, country: p.country, code: p.code, percent: String(p.commission_percent), months: p.commission_months === null ? '' : String(p.commission_months), later_percent: String(p.later_percent ?? 0), later_months: p.later_months == null ? '' : String(p.later_months), admin_notes: p.admin_notes });
   useEffect(() => {
-    setF({ name: p.name, company: p.company, phone: p.phone, country: p.country, code: p.code, percent: String(p.commission_percent), months: p.commission_months === null ? '' : String(p.commission_months), admin_notes: p.admin_notes });
+    setF({ name: p.name, company: p.company, phone: p.phone, country: p.country, code: p.code, percent: String(p.commission_percent), months: p.commission_months === null ? '' : String(p.commission_months), later_percent: String(p.later_percent ?? 0), later_months: p.later_months == null ? '' : String(p.later_months), admin_notes: p.admin_notes });
   }, [p]);
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
   const refs = d.referrals.filter((r) => r.partner_id === p.id);
@@ -233,7 +245,7 @@ function PartnerDetail({ p, d, act, busy }: { p: AdminPartner; d: Data; act: Act
         className="stack"
         onSubmit={(e) => {
           e.preventDefault();
-          void act('update', { id: p.id, ...f, percent: Number(f.percent) }, 'Partner saved.');
+          void act('update', { id: p.id, ...f, percent: Number(f.percent), later_percent: Number(f.later_percent || 0) }, 'Partner saved.');
         }}
       >
         <div className="grid3">
@@ -247,8 +259,11 @@ function PartnerDetail({ p, d, act, busy }: { p: AdminPartner; d: Data; act: Act
           </Field>
           <Field label="Code" hint="Changing it stops the old link working."><input type="text" value={f.code} maxLength={20} onChange={(e) => setF({ ...f, code: e.target.value.toUpperCase() })} /></Field>
           <Field label="Commission, %" hint="Applies to payments from now on."><input type="number" min="0" max="100" step="0.5" value={f.percent} onChange={set('percent')} /></Field>
-          <Field label="For months" hint="Blank: for as long as the firm pays."><input type="number" min="1" max="120" value={f.months} onChange={set('months')} /></Field>
+          <Field label="First period, months" hint="Blank: the first rate for as long as the firm pays."><input type="number" min="1" max="120" value={f.months} onChange={set('months')} /></Field>
+          <Field label="Then, % in later years" hint="After the first period. 0: nothing after it."><input type="number" min="0" max="100" step="0.5" value={f.later_percent} disabled={f.months === ''} onChange={set('later_percent')} /></Field>
+          <Field label="For further months" hint="Blank: for as long as the firm pays."><input type="number" min="1" max="240" value={f.later_months} disabled={f.months === '' || !Number(f.later_percent)} onChange={set('later_months')} /></Field>
         </div>
+        <p className="small muted" style={{ margin: 0 }}>Terms, counted from each referral: {termsText({ commission_percent: Number(f.percent || 0), commission_months: f.months === '' ? null : Number(f.months), later_percent: Number(f.later_percent || 0), later_months: f.later_months === '' ? null : Number(f.later_months) })}.</p>
         <Field label="Notes for VeritBooks only"><textarea rows={2} value={f.admin_notes} onChange={set('admin_notes')} /></Field>
         <div className="row">
           <button className="primary" disabled={busy}>Save</button>
@@ -343,7 +358,7 @@ function Partners({ d, act, busy }: { d: Data; act: Act; busy: boolean }) {
                     <td>{shown(p)}{p.company && <div className="small muted">{p.name}</div>}</td>
                     <td>{p.code}</td>
                     <td><span className={`tag ${p.status === 'active' ? 'ok' : p.status === 'pending' ? 'warn' : 'bad'}`}>{p.status}</span></td>
-                    <td className="num">{Number(p.commission_percent)}%{p.commission_months ? ` · ${p.commission_months} mo` : ''}</td>
+                    <td className="num">{Number(p.commission_percent)}%{p.commission_months ? ` · ${p.commission_months} mo` : ''}{p.commission_months && Number(p.later_percent ?? 0) ? `, then ${Number(p.later_percent)}%${p.later_months ? ` · ${p.later_months} mo` : ''}` : ''}</td>
                     <td className="num">{p.clicks30}</td>
                     <td className="num">{p.referred}</td>
                     <td className="num">{p.paying}</td>
@@ -477,7 +492,7 @@ function Commissions({ d, act, busy }: { d: Data; act: Act; busy: boolean }) {
                     <td>{by.get(c.partner_id ?? '') ? shown(by.get(c.partner_id ?? '')!) : ''}</td>
                     <td>{c.firm}{c.status === 'review' && <div className="small muted">{d.referrals.find((r) => r.firm_id === c.firm_id)?.review}</div>}</td>
                     <td className="num">{money(c.base_kobo, c.currency)}</td>
-                    <td className="num">{money(c.amount_kobo, c.currency)} <span className="small muted">({Number(c.percent)}%)</span></td>
+                    <td className="num">{money(c.amount_kobo, c.currency)} <span className="small muted">({Number(c.percent)}%{c.period === 'later' ? ', later years' : ''})</span></td>
                     <td>{commissionState(c)}{c.status === 'void' && <div className="small muted">{c.void_reason}</div>}</td>
                     <td>
                       {(c.status === 'review' || c.status === 'pending') && (
@@ -540,8 +555,8 @@ function Reports({ d }: { d: Data }) {
   const stamp = new Date().toISOString().slice(0, 10);
   const files: [string, () => string][] = [
     ['Monthly report', () => toCsv([['Month', 'Partner', 'Code', 'Currency', 'Clicks', 'Firms referred', 'Sales excl. VAT', 'Commission earned', 'Paid out'], ...rows.map((r) => [r.month, r.partner, r.code, r.currency, r.clicks, r.referrals, major(r.sales), major(r.commission), major(r.paid)])])],
-    ['Partners', () => toCsv([['Name', 'Company', 'Email', 'Phone', 'Country', 'Code', 'Status', 'Rate %', 'Months', 'Clicks', 'Referred', 'Paying', 'Joined', 'Approved'], ...d.partners.map((p) => [p.name, p.company, p.email, p.phone, p.country, p.code, p.status, Number(p.commission_percent), p.commission_months ?? 'lifetime', p.clicks, p.referred, p.paying, p.created_at.slice(0, 10), p.approved_at?.slice(0, 10) ?? ''])])],
-    ['Commissions', () => toCsv([['Date', 'Partner', 'Code', 'Firm', 'Currency', 'Paid excl. VAT', 'Rate %', 'Commission', 'Status', 'Available from', 'Payout', 'Void reason'], ...d.commissions.map((c) => { const p = by.get(c.partner_id ?? ''); return [c.created_at.slice(0, 10), p ? shown(p) : '', p?.code ?? '', c.firm, c.currency, major(c.base_kobo), Number(c.percent), major(c.amount_kobo), commissionState(c), c.available_at.slice(0, 10), c.payout_id ?? '', c.void_reason]; })])],
+    ['Partners', () => toCsv([['Name', 'Company', 'Email', 'Phone', 'Country', 'Code', 'Status', 'Rate %', 'Months', 'Later rate %', 'Later months', 'Clicks', 'Referred', 'Paying', 'Joined', 'Approved'], ...d.partners.map((p) => [p.name, p.company, p.email, p.phone, p.country, p.code, p.status, Number(p.commission_percent), p.commission_months ?? 'lifetime', Number(p.later_percent ?? 0), p.commission_months === null || !Number(p.later_percent ?? 0) ? '' : (p.later_months ?? 'lifetime'), p.clicks, p.referred, p.paying, p.created_at.slice(0, 10), p.approved_at?.slice(0, 10) ?? ''])])],
+    ['Commissions', () => toCsv([['Date', 'Partner', 'Code', 'Firm', 'Currency', 'Paid excl. VAT', 'Rate %', 'Period', 'Commission', 'Status', 'Available from', 'Payout', 'Void reason'], ...d.commissions.map((c) => { const p = by.get(c.partner_id ?? ''); return [c.created_at.slice(0, 10), p ? shown(p) : '', p?.code ?? '', c.firm, c.currency, major(c.base_kobo), Number(c.percent), c.period === 'later' ? 'Later years' : 'First period', major(c.amount_kobo), commissionState(c), c.available_at.slice(0, 10), c.payout_id ?? '', c.void_reason]; })])],
     ['Payouts', () => toCsv([['Requested', 'Partner', 'Code', 'Currency', 'Amount', 'Status', 'Decided', 'Reference', 'Method', 'Note', 'Bank', 'Account name', 'Account or mobile number', 'Branch code', 'Tax number'], ...d.payouts.map((o) => { const p = by.get(o.partner_id ?? ''); const pd = o.payout_details ?? {}; return [o.requested_at.slice(0, 10), p ? shown(p) : '', p?.code ?? '', o.currency, major(o.amount_kobo), o.status, o.decided_at?.slice(0, 10) ?? '', o.reference, o.method, o.note, pd.bank, pd.account_name, pd.account_number || pd.mobile_number, pd.branch_code, pd.tax_number]; })])],
   ];
   return (
@@ -634,6 +649,8 @@ function Settings({ d, act, busy }: { d: Data; act: Act; busy: boolean }) {
     open: s.open,
     default_percent: String(s.default_percent),
     default_months: s.default_months === null ? '' : String(s.default_months),
+    default_later_percent: String(s.default_later_percent ?? 0),
+    default_later_months: s.default_later_months == null ? '' : String(s.default_later_months),
     hold_days: String(s.hold_days),
     cookie_days: String(s.cookie_days),
     terms_version: s.terms_version,
@@ -650,6 +667,8 @@ function Settings({ d, act, busy }: { d: Data; act: Act; busy: boolean }) {
             open: f.open,
             default_percent: Number(f.default_percent),
             default_months: f.default_months,
+            default_later_percent: Number(f.default_later_percent || 0),
+            default_later_months: f.default_later_months,
             hold_days: Number(f.hold_days),
             cookie_days: Number(f.cookie_days),
             terms_version: f.terms_version,
@@ -666,7 +685,9 @@ function Settings({ d, act, busy }: { d: Data; act: Act; busy: boolean }) {
       </label>
       <div className="grid3">
         <Field label="Default commission, %" hint="For new partners. Each partner’s own rate is set on their record."><input type="number" min="0" max="100" step="0.5" value={f.default_percent} onChange={(e) => setF({ ...f, default_percent: e.target.value })} /></Field>
-        <Field label="Default commission period, months" hint="Blank: for as long as the firm pays."><input type="number" min="1" max="120" value={f.default_months} onChange={(e) => setF({ ...f, default_months: e.target.value })} /></Field>
+        <Field label="Default first period, months" hint="Blank: the first rate for as long as the firm pays."><input type="number" min="1" max="120" value={f.default_months} onChange={(e) => setF({ ...f, default_months: e.target.value })} /></Field>
+        <Field label="Default rate in later years, %" hint="After the first period. 0: nothing after it."><input type="number" min="0" max="100" step="0.5" value={f.default_later_percent} disabled={f.default_months === ''} onChange={(e) => setF({ ...f, default_later_percent: e.target.value })} /></Field>
+        <Field label="Later years run for, months" hint="Blank: for as long as the firm pays."><input type="number" min="1" max="240" value={f.default_later_months} disabled={f.default_months === '' || !Number(f.default_later_percent)} onChange={(e) => setF({ ...f, default_later_months: e.target.value })} /></Field>
         <Field label="Hold, days" hint="Before a commission can be paid. Longer than your refund window."><input type="number" min="0" max="365" value={f.hold_days} onChange={(e) => setF({ ...f, hold_days: e.target.value })} /></Field>
         <Field label="Link remembered for, days"><input type="number" min="1" max="365" value={f.cookie_days} onChange={(e) => setF({ ...f, cookie_days: e.target.value })} /></Field>
         <Field label="Terms version" hint="Change it when the terms change."><input type="text" value={f.terms_version} onChange={(e) => setF({ ...f, terms_version: e.target.value })} /></Field>
@@ -679,7 +700,7 @@ function Settings({ d, act, busy }: { d: Data; act: Act; busy: boolean }) {
           </Field>
         ))}
       </div>
-      <p className="small muted" style={{ margin: 0 }}>A change to the hold applies to commissions earned from now on. A change to the rate or period applies to payments from now on.</p>
+      <p className="small muted" style={{ margin: 0 }}>A change to the hold applies to commissions earned from now on. A change to the rates or periods applies to payments from now on, and the defaults to partners added from now on. Each existing partner’s terms are changed on their record.</p>
       <div><button className="primary" disabled={busy}>Save settings</button></div>
     </form>
   );

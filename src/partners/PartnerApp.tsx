@@ -13,6 +13,7 @@ import {
   type PartnerMe,
   type PartnerProgramme,
   type PayoutDetails,
+  termsText,
 } from '../engine/partners';
 import { longDate } from '../engine/report';
 import { ErrorNote, Field, message, useAction } from '../ui';
@@ -83,7 +84,7 @@ function ProgrammePage({ p, onSignedIn }: { p: PartnerProgramme | null; onSigned
       </div>
       {p && (
         <div className="grid3">
-          <Stat label="of what each referred firm pays, excluding VAT" value={`${p.percent}%`} note={p.months === null ? 'For as long as the firm pays' : `For ${p.months} months`} />
+          <Stat label="of what each referred firm pays, excluding VAT" value={`${p.percent}%`} note={p.months === null ? 'For as long as the firm pays' : Number(p.later_percent ?? 0) > 0 ? `For ${p.months} months, then ${Number(p.later_percent)}% ${p.later_months == null ? 'for as long as the firm pays' : `for ${p.later_months} more months`}` : `For ${p.months} months`} />
           <Stat label="days a click is remembered" value={p.cookie_days} note="Or the firm types your code" />
           <Stat label="days before a commission can be paid" value={p.hold_days} note="Then paid out on request" />
         </div>
@@ -315,7 +316,7 @@ function Overview({ me, go }: { me: Me; go: (t: Tab) => void }) {
         )}
       </div>
       <p className="small muted">
-        Your terms: {p.commission_percent}% of payments, net of VAT, {p.commission_months === null ? 'for as long as each firm pays' : `for ${p.commission_months} months from each referral`}. Commissions are held {me.programme.hold_days} days.
+        Your terms, counted from each referral and on payments net of VAT: {termsText(p)}. Commissions are held {me.programme.hold_days} days.
       </p>
     </div>
   );
@@ -451,7 +452,7 @@ function Earnings({ me }: { me: Me }) {
                 <td>{c.firm}</td>
                 <td>{KIND[c.kind] ?? c.kind}</td>
                 <td className="num">{money(c.base_kobo, c.currency)}</td>
-                <td className="num">{Number(c.percent)}%</td>
+                <td className="num">{Number(c.percent)}%{c.period === 'later' && <div className="small muted">later years</div>}</td>
                 <td className="num">{money(c.amount_kobo, c.currency)}</td>
                 <td>
                   {commissionState(c)}
@@ -664,7 +665,7 @@ function Profile({ me, reload }: { me: Me; reload: () => Promise<void> }) {
           Partner terms <span className="small muted">accepted {day(p.terms_accepted_at)}, version {p.terms_version}</span>
         </summary>
         <div style={{ marginTop: 10 }}>
-          <TermsList p={{ ...me.programme, percent: p.commission_percent, months: p.commission_months }} />
+          <TermsList p={{ ...me.programme, percent: p.commission_percent, months: p.commission_months, later_percent: p.later_percent ?? 0, later_months: p.later_months ?? null }} />
         </div>
       </details>
     </form>

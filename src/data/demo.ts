@@ -149,7 +149,7 @@ import {
   newCode,
   normaliseCode,
   sameCompanyDomain,
-  withinPeriod,
+  rateFor,
   type AdminPartners,
   type Commission,
   type PartnerAsset,
@@ -313,26 +313,28 @@ export function createDemoRepo(): Repo {
     const ref = firm ? pp.referrals[firm] : undefined;
     if (!firm || !ref) return;
     const p = pp.partners.find((x) => x.id === ref.partner_id);
-    if (!p || p.status !== 'active' || !withinPeriod(ref.referred_at, pay.paidAt, p.commission_months)) return;
+    if (!p || p.status !== 'active') return;
+    const rate = rateFor(ref.referred_at, pay.paidAt, p);
+    if (!rate) return;
     const base = pay.amountKobo - pay.vatKobo;
     if (base <= 0) return;
     pp.commissions.push({
       id: uid(), partner_id: p.id, firm_id: firm, payment_id: pay.id, firm: s.firms[firm].firm.name, currency: pay.currency ?? 'NGN', base_kobo: base,
-      percent: p.commission_percent, amount_kobo: commissionOn(base, p.commission_percent), status: ref.review ? 'review' : 'pending',
-      created_at: pay.paidAt, available_at: addDays(pay.paidAt, pp.settings.hold_days), payout_id: null, void_reason: '', kind: pay.kind,
+      percent: rate.percent, amount_kobo: commissionOn(base, rate.percent), status: ref.review ? 'review' : 'pending',
+      created_at: pay.paidAt, available_at: addDays(pay.paidAt, pp.settings.hold_days), payout_id: null, void_reason: '', kind: pay.kind, period: rate.period,
     });
   };
   const programme = (): DemoPartners =>
     (s.partnerProgramme ??= {
       settings: {
-        open: DEFAULT_PROGRAMME.open, default_percent: DEFAULT_PROGRAMME.percent, default_months: DEFAULT_PROGRAMME.months, hold_days: DEFAULT_PROGRAMME.hold_days,
+        open: DEFAULT_PROGRAMME.open, default_percent: DEFAULT_PROGRAMME.percent, default_months: DEFAULT_PROGRAMME.months, default_later_percent: 0, default_later_months: null, hold_days: DEFAULT_PROGRAMME.hold_days,
         cookie_days: DEFAULT_PROGRAMME.cookie_days, min_payout: { ...DEFAULT_PROGRAMME.min_payout }, terms_version: DEFAULT_PROGRAMME.terms_version, updated_at: new Date().toISOString(),
       },
       partners: [], clicks: [], commissions: [], payouts: [], assets: [], referrals: {},
     });
   const publicProgramme = () => {
     const x = programme().settings;
-    return { open: x.open, percent: x.default_percent, months: x.default_months, hold_days: x.hold_days, cookie_days: x.cookie_days, min_payout: x.min_payout, terms_version: x.terms_version };
+    return { open: x.open, percent: x.default_percent, months: x.default_months, later_percent: x.default_later_percent ?? 0, later_months: x.default_later_months ?? null, hold_days: x.hold_days, cookie_days: x.cookie_days, min_payout: x.min_payout, terms_version: x.terms_version };
   };
   const liveCode = (code: string) => programme().partners.find((p) => p.code === normaliseCode(code) && p.status === 'active');
   const shownName = (p: { company: string; name: string }) => p.company || p.name;
@@ -978,7 +980,7 @@ export function createDemoRepo(): Repo {
         pp.partners.push({
           id: uid(), user_id: u.id, email: u.email.toLowerCase(), name: a.name.trim(), company: a.company.trim(), phone: a.phone, country: a.country || 'NG', website: a.website,
           promotion: a.promotion, code: newCode(a.name, (c) => pp.partners.some((p) => p.code === c)), status: 'pending', commission_percent: pp.settings.default_percent,
-          commission_months: pp.settings.default_months, payout_details: {}, admin_notes: '', created_by_admin: false, terms_version: pp.settings.terms_version,
+          commission_months: pp.settings.default_months, later_percent: pp.settings.default_later_percent ?? 0, later_months: pp.settings.default_later_months ?? null, payout_details: {}, admin_notes: '', created_by_admin: false, terms_version: pp.settings.terms_version,
           terms_accepted_at: new Date().toISOString(), created_at: new Date().toISOString(), approved_at: null,
         });
       }
@@ -1095,6 +1097,8 @@ export function createDemoRepo(): Repo {
             id: uid(), user_id: null, email, name: (str('name') ?? '').trim(), company: str('company') ?? '', phone: str('phone') ?? '', country: (str('country') || 'NG').toUpperCase(),
             website: '', promotion: '', code: code ?? newCode(str('name') ?? '', (c) => pp.partners.some((x) => x.code === c)), status: 'active' as const,
             commission_percent: a.percent !== undefined && a.percent !== '' ? Number(a.percent) : pp.settings.default_percent, commission_months: months(a.months, pp.settings.default_months),
+            later_percent: a.later_percent !== undefined && a.later_percent !== '' ? Number(a.later_percent) : (pp.settings.default_later_percent ?? 0),
+            later_months: months(a.later_months, pp.settings.default_later_months ?? null),
             payout_details: {}, admin_notes: str('admin_notes') ?? '', created_by_admin: true, terms_version: null, terms_accepted_at: null, created_at: now, approved_at: now,
           };
           if (!np.name) throw new Error("Enter the partner's name.");
@@ -1110,6 +1114,8 @@ export function createDemoRepo(): Repo {
           if (code) x.code = code;
           if (a.percent !== undefined && a.percent !== '') x.commission_percent = Number(a.percent);
           if ('months' in a) x.commission_months = months(a.months, x.commission_months);
+          if (a.later_percent !== undefined && a.later_percent !== '') x.later_percent = Number(a.later_percent);
+          if ('later_months' in a) x.later_months = months(a.later_months, x.later_months ?? null);
           break;
         }
         case 'status': {
@@ -1167,6 +1173,8 @@ export function createDemoRepo(): Repo {
           if (a.open !== undefined) st.open = !!a.open;
           if (a.default_percent !== undefined) st.default_percent = Number(a.default_percent);
           if ('default_months' in a) st.default_months = months(a.default_months, st.default_months);
+          if (a.default_later_percent !== undefined && a.default_later_percent !== '') st.default_later_percent = Number(a.default_later_percent);
+          if ('default_later_months' in a) st.default_later_months = months(a.default_later_months, st.default_later_months ?? null);
           if (a.hold_days !== undefined) st.hold_days = Number(a.hold_days);
           if (a.cookie_days !== undefined) st.cookie_days = Number(a.cookie_days);
           if (a.min_payout && typeof a.min_payout === 'object') st.min_payout = { ...st.min_payout, ...(a.min_payout as Record<string, number>) };

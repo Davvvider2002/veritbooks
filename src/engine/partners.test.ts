@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   balancesOf,
   campaignTag,
+  rateFor,
+  termsText,
   commissionOn,
   commissionState,
   monthlyReport,
@@ -98,5 +100,25 @@ describe('reports', () => {
     expect(toCsv([['Name', 'Note'], ['A, B', '=HYPERLINK("x")'], ['-12.50', 'He said "hi"']])).toBe(
       'Name,Note\r\n"A, B","\'=HYPERLINK(""x"")"\r\n-12.50,"He said ""hi"""\r\n',
     );
+  });
+});
+
+describe('commission in the years after the first', () => {
+  const t = { commission_percent: 20, commission_months: 12, later_percent: 10, later_months: 24 };
+  it('earns the first rate, then the later rate, then nothing', () => {
+    expect(rateFor('2026-01-15', '2026-12-31', t)).toEqual({ percent: 20, period: 'first' });
+    expect(rateFor('2026-01-15', '2027-06-01', t)).toEqual({ percent: 10, period: 'later' });
+    expect(rateFor('2026-01-15', '2029-02-01', t)).toBeNull();
+  });
+  it('runs the later rate for as long as the firm pays when no end is set', () => {
+    expect(rateFor('2026-01-15', '2035-01-01', { ...t, later_months: null })).toEqual({ percent: 10, period: 'later' });
+  });
+  it('keeps the old rule when the later rate is 0', () => {
+    expect(rateFor('2026-01-15', '2027-06-01', { ...t, later_percent: 0 })).toBeNull();
+    expect(termsText({ ...t, later_percent: 0 })).toBe('20% for the first 12 months, then nothing');
+  });
+  it('describes the terms in words', () => {
+    expect(termsText(t)).toBe('20% for the first 12 months, then 10% for the next 24 months');
+    expect(termsText({ ...t, commission_months: null })).toBe('20% for as long as each firm pays');
   });
 });

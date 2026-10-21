@@ -780,5 +780,34 @@ await denied('only the working paper columns can be merged', () => as(GH1, `sele
 await denied('another firm cannot merge into the file', () => as(B, `select merge_engagement($1, 'programme', '{"x":1}')`, [eg.id]), /not found/);
 await denied('a signed file cannot be merged into', () => as(A, `select merge_engagement($1, 'planning', '{"x":1}')`, [e1.id]), /signed and locked/);
 
+// --- 0024: commission for the years after the first -----------------------------------
+await db.exec(readFileSync('supabase/migrations/0024_partner_later_years.sql', 'utf8'));
+const l_id = (await as2(Z, `select admin_partners() as a`))[0].a.partners.find((x) => x.email === 'lindiwe@growthagency.co.za').id;
+ok('existing partners keep today’s rule: nothing after the first period', Number((await as2(Z, `select admin_partners() as a`))[0].a.partners.find((x) => x.id === l_id).later_percent) === 0);
+await p_pact('status', { id: l_id, status: 'active' });
+await p_pact('update', { id: l_id, months: 1, later_percent: 10, later_months: 2 });
+await db.exec(`update firms set referred_at = now() - interval '2 months' where id = '${p_fr1.id}'`);
+const l_q1 = await co(p_R1, { kind: 'engagement', type: 'compilation' });
+await svc(`select apply_payment($1, 'l1', $2, $3)`, [l_q1.tx_ref, l_q1.amount_kobo, l_q1.currency]);
+let l_me = (await as(p_P1, `select partner_me() as m`))[0].m;
+const l_c = l_me.commissions.find((c) => c.period === 'later');
+ok('after the first period, a payment earns the later rate', l_c && Number(l_c.percent) === 10 && l_c.amount_kobo === Math.floor((l_q1.amount_kobo - (l_q1.vat_kobo ?? 0)) * 0.1));
+ok('the partner sees their later-years terms', Number(l_me.partner.later_percent) === 10 && l_me.partner.later_months === 2);
+await db.exec(`update firms set referred_at = now() - interval '5 months' where id = '${p_fr1.id}'`);
+const l_q2 = await co(p_R1, { kind: 'engagement', type: 'compilation' });
+await svc(`select apply_payment($1, 'l2', $2, $3)`, [l_q2.tx_ref, l_q2.amount_kobo, l_q2.currency]);
+ok('after the later period too, payments earn nothing', (await as(p_P1, `select partner_me() as m`))[0].m.commissions.length === l_me.commissions.length);
+await p_pact('update', { id: l_id, later_months: '' });
+const l_q3 = await co(p_R1, { kind: 'engagement', type: 'compilation' });
+await svc(`select apply_payment($1, 'l3', $2, $3)`, [l_q3.tx_ref, l_q3.amount_kobo, l_q3.currency]);
+ok('with no end set, the later rate runs for as long as the firm pays', (await as(p_P1, `select partner_me() as m`))[0].m.commissions.length === l_me.commissions.length + 1);
+await p_pact('settings', { default_later_percent: 7.5, default_later_months: 24 });
+const l_prog = (await anon(`select partner_programme() as p`))[0].p;
+ok('the programme shows the default later-years terms', Number(l_prog.later_percent) === 7.5 && l_prog.later_months === 24);
+const l_made = (await p_pact('create', { email: 'ama@kumasi.gh', name: 'Ama Owusu', country: 'GH' }))[0].r;
+const l_new = (await as2(Z, `select admin_partners() as a`))[0].a.partners.find((x) => x.id === l_made.id);
+ok('a new partner takes the default later-years terms', Number(l_new.later_percent) === 7.5 && l_new.later_months === 24);
+await denied('a partner cannot change their own later rate', () => as(p_P1, `update partners set later_percent = 50`), /permission denied/);
+
 console.log(failed ? `\n${failed} check(s) failed` : '\nAll database checks passed');
 process.exit(failed ? 1 : 0);

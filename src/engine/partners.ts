@@ -19,6 +19,9 @@ export interface PartnerProgramme {
   open: boolean;
   percent: number;
   months: number | null;
+  /** The rate after the first period, and for how many further months (null: as long as the firm pays). 0: nothing after the first period. */
+  later_percent?: number;
+  later_months?: number | null;
   hold_days: number;
   cookie_days: number;
   min_payout: Record<string, number>;
@@ -49,6 +52,8 @@ export interface PartnerProfile {
   status: PartnerStatus;
   commission_percent: number;
   commission_months: number | null;
+  later_percent?: number;
+  later_months?: number | null;
   payout_details: PayoutDetails;
   terms_version: string | null;
   terms_accepted_at: string | null;
@@ -71,6 +76,8 @@ export interface Commission {
   payout_id: string | null;
   void_reason: string;
   kind: string;
+  /** Earned in the first period from the referral, or in the years after it. */
+  period?: 'first' | 'later';
 }
 
 export interface Payout {
@@ -147,6 +154,8 @@ export interface AdminPartners {
     open: boolean;
     default_percent: number;
     default_months: number | null;
+    default_later_percent?: number;
+    default_later_months?: number | null;
     hold_days: number;
     cookie_days: number;
     min_payout: Record<string, number>;
@@ -167,6 +176,8 @@ export const DEFAULT_PROGRAMME: PartnerProgramme = {
   open: true,
   percent: 20,
   months: 12,
+  later_percent: 0,
+  later_months: null,
   hold_days: 45,
   cookie_days: 90,
   min_payout: { NGN: 2_000_000, GHS: 20_000, USD: 2_000, ZAR: 30_000 },
@@ -215,6 +226,37 @@ export function withinPeriod(referredAt: string, paidAt: string, months: number 
   const end = new Date(referredAt);
   end.setUTCMonth(end.getUTCMonth() + months);
   return new Date(paidAt) <= end;
+}
+
+export interface CommissionTerms {
+  commission_percent: number;
+  commission_months: number | null;
+  later_percent?: number;
+  later_months?: number | null;
+}
+
+/**
+ * The rate a payment earns, and in which period, or null when it earns nothing. The first period
+ * earns the partner's rate; after it, the later rate for as many further months as set (none set:
+ * for as long as the firm pays). A later rate of 0 means nothing after the first period.
+ */
+export function rateFor(referredAt: string, paidAt: string, t: CommissionTerms): { percent: number; period: 'first' | 'later' } | null {
+  if (t.commission_months === null || withinPeriod(referredAt, paidAt, t.commission_months)) return { percent: Number(t.commission_percent), period: 'first' };
+  const later = Number(t.later_percent ?? 0);
+  if (later <= 0) return null;
+  if (t.later_months != null) {
+    const end = new Date(referredAt);
+    end.setUTCMonth(end.getUTCMonth() + t.commission_months + t.later_months);
+    if (new Date(paidAt) > end) return null;
+  }
+  return { percent: later, period: 'later' };
+}
+
+/** The terms in words, for the partner and the admin. */
+export function termsText(t: CommissionTerms): string {
+  const first = `${Number(t.commission_percent)}% ${t.commission_months === null ? 'for as long as each firm pays' : `for the first ${t.commission_months} months`}`;
+  if (t.commission_months === null || !Number(t.later_percent ?? 0)) return t.commission_months === null ? first : `${first}, then nothing`;
+  return `${first}, then ${Number(t.later_percent)}% ${t.later_months == null ? 'for as long as the firm pays' : `for the next ${t.later_months} months`}`;
 }
 
 export function addDays(iso: string, days: number): string {
