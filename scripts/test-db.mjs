@@ -809,5 +809,13 @@ const l_new = (await as2(Z, `select admin_partners() as a`))[0].a.partners.find(
 ok('a new partner takes the default later-years terms', Number(l_new.later_percent) === 7.5 && l_new.later_months === 24);
 await denied('a partner cannot change their own later rate', () => as(p_P1, `update partners set later_percent = 50`), /permission denied/);
 
+// --- 0025: settings updates name their row (the live API refuses an UPDATE without WHERE) ---
+await db.exec(readFileSync('supabase/migrations/0025_settings_where.sql', 'utf8'));
+const w_src = (await db.query(`select prosrc from pg_proc where proname = 'admin_partner_act'`)).rows[0].prosrc;
+ok('the partner settings update names its row', /updated_at = now\(\)\s+where id;/.test(w_src));
+ok('the seller details update names its row', /200\)\s+where id;/.test((await db.query(`select prosrc from pg_proc where proname = 'admin_act_net'`)).rows[0].prosrc));
+await p_pact('settings', { default_later_percent: 5 });
+ok('partner settings still save', Number((await anon(`select partner_programme() as p`))[0].p.later_percent) === 5);
+
 console.log(failed ? `\n${failed} check(s) failed` : '\nAll database checks passed');
 process.exit(failed ? 1 : 0);
