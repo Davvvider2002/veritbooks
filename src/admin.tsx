@@ -1,3 +1,4 @@
+import { showMobile } from './engine/phone';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AdminPartners } from './partners/AdminPartners';
 import { Link } from 'react-router-dom';
@@ -7,7 +8,7 @@ import { repo } from './data';
 import type { AdminCountry, AdminData, AdminFirm, User } from './data/repo';
 import { FOUNDING_PLACES, daysLeft, priceText } from './engine/billing';
 import { longDate } from './engine/report';
-import { ErrorNote, Field, message, useAction } from './ui';
+import { ErrorNote, Field, message, useAction, useLoad } from './ui';
 
 const day = (iso: string | null | undefined) => (iso ? longDate(iso.slice(0, 10)) : '–');
 const STATE: Record<AdminFirm['state'], { label: string; tag: string }> = {
@@ -364,11 +365,13 @@ function FirmRow({ f, d, act, busy, open, toggle }: { f: AdminFirm; d: AdminData
 
 function Users({ d, act, busy, me, resetMfa }: { d: AdminData; act: Act; busy: boolean; me: User; resetMfa: (id: string) => void }) {
   const [q, setQ] = useState('');
-  const rows = d.users.filter((u) => !q.trim() || `${u.email} ${u.name ?? ''} ${u.firm ?? ''}`.toLowerCase().includes(q.trim().toLowerCase()));
+  const contacts = useLoad(() => repo.adminUserContacts(), [d]);
+  const mobileOf = new Map((contacts.data ?? []).map((c) => [c.id, c.mobile]));
+  const rows = d.users.filter((u) => !q.trim() || `${u.email} ${u.name ?? ''} ${u.firm ?? ''} ${mobileOf.get(u.id) ?? ''}`.toLowerCase().includes(q.trim().toLowerCase()));
   return (
     <div className="stack">
       <div className="row">
-        <input type="search" aria-label="Search sign-ups" placeholder="Search by email, name or firm" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 340 }} />
+        <input type="search" aria-label="Search sign-ups" placeholder="Search by email, name, mobile or firm" value={q} onChange={(e) => setQ(e.target.value)} style={{ maxWidth: 340 }} />
         <span className="small muted">
           {rows.length} of {d.users.length} accounts
         </span>
@@ -379,6 +382,7 @@ function Users({ d, act, busy, me, resetMfa }: { d: AdminData; act: Act; busy: b
             <tr>
               <th>Email</th>
               <th>Name</th>
+              <th>Mobile</th>
               <th>Firm</th>
               <th>Role</th>
               <th>Signed up</th>
@@ -395,6 +399,7 @@ function Users({ d, act, busy, me, resetMfa }: { d: AdminData; act: Act; busy: b
                   {u.admin && <span className="tag ok" style={{ marginLeft: 8 }}>Admin</span>}
                 </td>
                 <td>{u.name || '–'}</td>
+                <td style={{ whiteSpace: 'nowrap' }}>{mobileOf.get(u.id) ? <a href={`tel:${mobileOf.get(u.id)}`}>{showMobile(mobileOf.get(u.id))}</a> : <span className="muted">–</span>}</td>
                 <td>{u.firm ?? <span className="muted">No firm yet</span>}</td>
                 <td>{u.role ?? '–'}</td>
                 <td>{day(u.created_at)}</td>

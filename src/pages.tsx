@@ -1,3 +1,4 @@
+import { MOBILE_HINT, normaliseMobile, showMobile } from './engine/phone';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { PROGRAMME_VERSION } from './content/programmes';
@@ -21,6 +22,7 @@ export function AuthPage({ start = 'in' }: { start?: 'in' | 'up' }) {
   const [mode, setMode] = useState<'in' | 'up'>(start);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [mobile, setMobile] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
   const { busy, error, run } = useAction();
 
@@ -39,7 +41,7 @@ export function AuthPage({ start = 'in' }: { start?: 'in' | 'up' }) {
           setNotice(null);
           void run(async () => {
             if (mode === 'in') await repo.signIn(email, password);
-            else if (await repo.signUp(email, password)) {
+            else if (await repo.signUp(email, password, mobile)) {
               setNotice('Check your email to confirm the account, then sign in.');
               setMode('in');
             }
@@ -59,6 +61,11 @@ export function AuthPage({ start = 'in' }: { start?: 'in' | 'up' }) {
             onChange={(e) => setPassword(e.target.value)}
           />
         </Field>
+        {mode === 'up' && (
+          <Field label="Mobile phone number" hint={MOBILE_HINT}>
+            <input type="tel" required autoComplete="tel" inputMode="tel" value={mobile} onChange={(e) => setMobile(e.target.value)} />
+          </Field>
+        )}
         <ErrorNote error={error} />
         {notice && <div className="banner info">{notice}</div>}
         <button className="primary" disabled={busy}>
@@ -166,7 +173,7 @@ export function NewPasswordPage({ onDone }: { onDone: () => Promise<void> }) {
 }
 
 /** Joining the firm that sent the invitation. The firm's details come with it; the person adds only their own. */
-function JoinFirm({ invites, onDone }: { invites: PendingInvite[]; onDone: () => Promise<void> }) {
+function JoinFirm({ invites, onDone, user }: { invites: PendingInvite[]; onDone: () => Promise<void>; user?: User }) {
   return (
     <div className="narrow stack" style={{ maxWidth: 560 }}>
       <div>
@@ -176,7 +183,7 @@ function JoinFirm({ invites, onDone }: { invites: PendingInvite[]; onDone: () =>
         </p>
       </div>
       {invites.map((i) => (
-        <JoinCard key={i.id} invite={i} onDone={onDone} />
+        <JoinCard key={i.id} invite={i} onDone={onDone} needMobile={!user?.mobile} />
       ))}
     </div>
   );
@@ -184,9 +191,9 @@ function JoinFirm({ invites, onDone }: { invites: PendingInvite[]; onDone: () =>
 
 const ROLE_WORD: Record<string, string> = { partner: 'Partner', manager: 'Manager', staff: 'Staff' };
 
-function JoinCard({ invite: i, onDone }: { invite: PendingInvite; onDone: () => Promise<void> }) {
+function JoinCard({ invite: i, onDone, needMobile }: { invite: PendingInvite; onDone: () => Promise<void>; needMobile: boolean }) {
   const j = jurisdictionOf(i.country);
-  const [f, setF] = useState({ fullName: '', frcNumber: '' });
+  const [f, setF] = useState({ fullName: '', frcNumber: '', mobile: '' });
   const { busy, error, run, setError } = useAction();
   const detail = (label: string, value: string | undefined) =>
     value ? (
@@ -202,7 +209,12 @@ function JoinCard({ invite: i, onDone }: { invite: PendingInvite; onDone: () => 
       onSubmit={(e) => {
         e.preventDefault();
         if (!f.fullName.trim()) return setError('Enter your full name.');
+        if (needMobile) {
+          const m = normaliseMobile(f.mobile);
+          if (!m.ok) return setError(m.message);
+        }
         void run(async () => {
+          if (needMobile) await repo.setMyMobile(f.mobile);
           await repo.acceptInvite(i.id, f.fullName, f.frcNumber);
           await onDone();
         });
@@ -224,6 +236,11 @@ function JoinCard({ invite: i, onDone }: { invite: PendingInvite; onDone: () => 
           <input type="text" value={f.frcNumber} onChange={(e) => setF({ ...f, frcNumber: e.target.value })} />
         </Field>
       </div>
+      {needMobile && (
+        <Field label="Your mobile phone number" hint={MOBILE_HINT}>
+          <input type="tel" required autoComplete="tel" inputMode="tel" value={f.mobile} onChange={(e) => setF({ ...f, mobile: e.target.value })} />
+        </Field>
+      )}
       <ErrorNote error={error} />
       <div>
         <button className="primary" disabled={busy}>
@@ -236,6 +253,8 @@ function JoinCard({ invite: i, onDone }: { invite: PendingInvite; onDone: () => 
 
 export function FirmSetup({ onDone, user }: { onDone: () => Promise<void>; user?: User }) {
   const [f, setF] = useState({ country: chosenCountry(), name: '', frcNumber: '', address: '', fullName: '', memberFrc: '' });
+  const [mobile, setMobile] = useState('');
+  const needMobile = !user?.mobile;
   const offered = useLoad(() => repo.publicPrices().then((p) => p.countries.map((c) => c.code)).catch(() => COUNTRY_CODES), []);
   const j = jurisdictionOf(f.country);
   const { busy, error, run } = useAction();
@@ -269,7 +288,7 @@ export function FirmSetup({ onDone, user }: { onDone: () => Promise<void>; user?
 
   // An invited colleague joins the firm that invited them. They never set up a firm of their own.
   if (invites.data === undefined) return <div className="page muted">Loading…</div>;
-  if (pending.length > 0) return <JoinFirm invites={pending} onDone={onDone} />;
+  if (pending.length > 0) return <JoinFirm invites={pending} onDone={onDone} user={user} />;
   if (user?.invitedTo)
     return (
       <div className="narrow stack" style={{ maxWidth: 560 }}>
@@ -297,8 +316,13 @@ export function FirmSetup({ onDone, user }: { onDone: () => Promise<void>; user?
         onSubmit={(e) => {
           e.preventDefault();
           void run(async () => {
+            if (needMobile) {
+              const m = normaliseMobile(mobile);
+              if (!m.ok) throw new Error(m.message);
+            }
             const code = refCode.trim();
             if (code && !(await repo.partnerLookup(code).catch(() => null))) throw new Error('That referral code was not found. Check it, or leave it blank.');
+            if (needMobile) await repo.setMyMobile(mobile);
             await repo.createFirm(f);
             if (code) {
               // The firm is set up either way. A code that cannot be applied now is not worth stopping for.
@@ -333,6 +357,11 @@ export function FirmSetup({ onDone, user }: { onDone: () => Promise<void>; user?
             <input type="text" value={f.memberFrc} onChange={set('memberFrc')} />
           </Field>
         </div>
+        {needMobile && (
+          <Field label="Partner’s mobile phone number" hint={MOBILE_HINT}>
+            <input type="tel" required autoComplete="tel" inputMode="tel" value={mobile} onChange={(e) => setMobile(e.target.value)} />
+          </Field>
+        )}
         <Field label="Referral code (optional)" hint={refName ? `Referred by ${refName}.` : refName === '' ? 'That code was not found.' : 'If a VeritBooks partner introduced you, enter their code.'}>
           <input type="text" value={refCode} maxLength={20} onChange={(e) => { setRefCode(e.target.value.toUpperCase()); setRefName(null); }} onBlur={() => void checkCode(refCode)} style={{ textTransform: 'uppercase' }} />
         </Field>
@@ -746,6 +775,41 @@ function AssistSetting({ ws, onChanged }: { ws: Workspace; onChanged: () => Prom
   );
 }
 
+/** The signed-in person's own mobile number. */
+function MyMobile() {
+  const user = useLoad(() => repo.currentUser(), []);
+  const [value, setValue] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const { busy, error, run } = useAction();
+  if (user.data === undefined) return null;
+  const current = user.data?.mobile ?? '';
+  const shown = value ?? showMobile(current);
+  return (
+    <form
+      className="card stack"
+      aria-label="Your mobile number"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setSaved(false);
+        void run(async () => {
+          await repo.setMyMobile(shown);
+          setSaved(true);
+          user.reload();
+        });
+      }}
+    >
+      <h3>Your mobile number</h3>
+      {!current && <div className="banner warn">Add your mobile number. VeritBooks uses it to reach you about your account.</div>}
+      <Field label="Mobile phone number" hint={MOBILE_HINT}>
+        <input type="tel" required autoComplete="tel" inputMode="tel" value={shown} onChange={(e) => { setValue(e.target.value); setSaved(false); }} style={{ maxWidth: 320 }} />
+      </Field>
+      <ErrorNote error={error} />
+      {saved && <div className="banner info">Saved.</div>}
+      <div><button disabled={busy}>Save number</button></div>
+    </form>
+  );
+}
+
 export function FirmSettings({ ws, onSaved }: { ws: Workspace; onSaved: () => Promise<void> }) {
   const [firm, setFirm] = useState({ name: ws.firm.name, frcNumber: ws.firm.frcNumber, address: ws.firm.address });
   const [me, setMe] = useState({ fullName: ws.me.fullName, frcNumber: ws.me.frcNumber });
@@ -798,6 +862,7 @@ export function FirmSettings({ ws, onSaved }: { ws: Workspace; onSaved: () => Pr
           </button>
         </div>
       </form>
+      <MyMobile />
       <CountrySetting ws={ws} onChanged={onSaved} />
       {ws.me.role === 'partner' && <TwoFactorSetting />}
       <BrandingSetting ws={ws} onChanged={onSaved} />

@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { BREACHED_MESSAGE, isBreached } from '../engine/breached';
+import { normaliseMobile } from '../engine/phone';
 import type { GlEntry } from '../engine/ledger';
 import type { AdminPartners, PartnerMe, PartnerProgramme } from '../engine/partners';
 import type { Adjustment, Nature, TbLine } from '../engine/types';
@@ -180,7 +181,7 @@ export function createSupabaseRepo(url: string, key: string): Repo {
     async currentUser() {
       const { data } = await db.auth.getSession();
       const u = data.session?.user;
-      return u ? { id: u.id, email: u.email ?? '', invitedTo: (u.user_metadata?.invited_to as string | undefined) || null } : null;
+      return u ? { id: u.id, email: u.email ?? '', invitedTo: (u.user_metadata?.invited_to as string | undefined) || null, mobile: (u.user_metadata?.phone as string | undefined) || null } : null;
     },
     onAuthChange(cb) {
       const { data } = db.auth.onAuthStateChange((event) => {
@@ -194,17 +195,31 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       const { error } = await db.auth.signInWithPassword({ email, password });
       fail(error);
     },
-    async signUp(email, password) {
+    async signUp(email, password, mobile) {
+      const m = normaliseMobile(mobile);
+      if (!m.ok) throw new Error(m.message);
       if (await isBreached(password)) throw new Error(BREACHED_MESSAGE);
       // Send the confirmation link back to whichever site the user signed up on.
       const { data, error } = await db.auth.signUp({
         email,
         password,
         // A partner's confirmation link opens the partner portal.
-        options: { emailRedirectTo: window.location.origin + (window.location.pathname.startsWith('/partners') ? '/partners' : '') },
+        options: { emailRedirectTo: window.location.origin + (window.location.pathname.startsWith('/partners') ? '/partners' : ''), data: { phone: m.value } },
       });
       fail(error);
       return !data.session;
+    },
+    async setMyMobile(mobile) {
+      const m = normaliseMobile(mobile);
+      if (!m.ok) throw new Error(m.message);
+      const { error } = await db.auth.updateUser({ data: { phone: m.value } });
+      fail(error);
+    },
+    async adminUserContacts() {
+      const { data, error } = await db.rpc('admin_user_contacts');
+      if (error && /admin_user_contacts|PGRST202/i.test(error.message)) return [];
+      fail(error);
+      return (data as { id: string; mobile: string | null }[] | null) ?? [];
     },
     async requestPasswordReset(email) {
       // The link returns to the front door, which is already an allowed address.

@@ -441,6 +441,8 @@ Logic in `src/engine/journalImport.ts`; screens in `src/steps/work.tsx`, `src/st
 
 **Audit trail and passwords.** The audit trail is shown 100 entries at a time and downloads whole to Excel. Passwords found in known data breaches are refused at sign-up and password change, checked against Have I Been Pwned with only the first five characters of the password's hash leaving the browser.
 
+**Mobile numbers.** Every new account gives a mobile phone number at sign-up, kept in international form (+234 803 123 4567). Setting up a firm, joining one by invitation and applying as a partner each require it, in the screens and in the database (migration 0026), so accounts made before the change are asked for it at those steps. Each person can change theirs under Firm settings, and the platform owner sees every account's number on the Sign-ups tab.
+
 ## Channel partners
 
 Partners promote VeritBooks to firms and earn on what those firms pay. Database: `supabase/migrations/0019_partners.sql`. Rules shared with the demo store: `src/engine/partners.ts`. Partner portal: `/partners` (`src/partners/PartnerApp.tsx`). Platform owner: the admin console's Partners tab (`src/partners/AdminPartners.tsx`).

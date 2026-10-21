@@ -8,7 +8,7 @@ await db.exec(`
   create role anon nologin; create role authenticated nologin; create role service_role nologin;
   create schema auth;
   create table auth.mfa_factors (id uuid primary key default gen_random_uuid(), user_id uuid, status text);
-  create table auth.users (id uuid primary key, email text, email_confirmed_at timestamptz, created_at timestamptz default now(), last_sign_in_at timestamptz);
+  create table auth.users (id uuid primary key, email text, email_confirmed_at timestamptz, created_at timestamptz default now(), last_sign_in_at timestamptz, raw_user_meta_data jsonb default '{}');
   -- Stand-in for Supabase Storage: enough to run the bucket row and the object policies.
   create schema storage;
   create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint);
@@ -816,6 +816,25 @@ ok('the partner settings update names its row', /updated_at = now\(\)\s+where id
 ok('the seller details update names its row', /200\)\s+where id;/.test((await db.query(`select prosrc from pg_proc where proname = 'admin_act_net'`)).rows[0].prosrc));
 await p_pact('settings', { default_later_percent: 5 });
 ok('partner settings still save', Number((await anon(`select partner_programme() as p`))[0].p.later_percent) === 5);
+
+// --- 0026: a mobile number for every new account ---------------------------------------
+await db.exec(readFileSync('supabase/migrations/0026_mobile_numbers.sql', 'utf8'));
+const MB = '00000000-0000-0000-0000-000000000061';
+await db.exec(`insert into auth.users (id, email, email_confirmed_at) values ('${MB}', 'tolu@newfirm.ng', now())`);
+await denied('a firm cannot be set up without a mobile number', () => as(MB, `select * from create_firm('New Firm', '', 'Lagos', 'Tolu Ade', '', 'NG')`), /mobile phone number/);
+await db.exec(`update auth.users set raw_user_meta_data = '{"phone":"08031234567"}' where id = '${MB}'`);
+await denied('nor with a number lacking its country code', () => as(MB, `select * from create_firm('New Firm', '', 'Lagos', 'Tolu Ade', '', 'NG')`), /mobile phone number/);
+await db.exec(`update auth.users set raw_user_meta_data = '{"phone":"+2348031234567"}' where id = '${MB}'`);
+const [mbf] = await as(MB, `select * from create_firm('New Firm', '', 'Lagos', 'Tolu Ade', '', 'NG')`);
+ok('with one, the firm is set up', !!mbf?.id);
+const MI = '00000000-0000-0000-0000-000000000062';
+await db.exec(`insert into auth.users (id, email, email_confirmed_at) values ('${MI}', 'kemi@newfirm.ng', now())`);
+const [mbi] = await as(MB, `insert into firm_invites (firm_id, email, role) values ($1, 'kemi@newfirm.ng', 'staff') returning *`, [mbf.id]);
+await denied('joining by invitation needs a mobile number too', () => as(MI, `select accept_invite($1, 'Kemi Staff', '')`, [mbi.id]), /mobile phone number/);
+await denied('and so does applying as a partner', () => as(MI, `select partner_apply($1::jsonb)`, [JSON.stringify({ name: 'Kemi', accept_terms: true })]), /mobile phone number/);
+const mbc = (await as2(Z, `select admin_user_contacts() as c`))[0].c;
+ok('the platform owner sees each account’s number', mbc.find((x) => x.id === MB)?.mobile === '+2348031234567');
+await denied('nobody else does', () => as2(MB, `select admin_user_contacts()`), /Not found/);
 
 console.log(failed ? `\n${failed} check(s) failed` : '\nAll database checks passed');
 process.exit(failed ? 1 : 0);

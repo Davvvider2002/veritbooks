@@ -1,3 +1,4 @@
+import { normaliseMobile } from '../engine/phone';
 import type { GlEntry } from '../engine/ledger';
 import { chargeOf, COUNTRY_PRICING, DEFAULT_VAT_PERCENT, ENGAGEMENT_PRICES, FOUNDING_PLACES, PLANS, PRICE_HOLD_YEARS, TRIAL_DAYS, addYears, firmState, planQuote, vatOn, vatWithin, type CountryPricing, type Plan, type Subscription } from '../engine/billing';
 import { checkCode, newSecret } from '../totp';
@@ -77,7 +78,7 @@ interface DemoPartners {
 interface Store {
   partnerProgramme?: DemoPartners;
   user: User | null;
-  accounts: Record<string, { id: string; password: string }>;
+  accounts: Record<string, { id: string; password: string; mobile?: string }>;
   firms: Record<string, { firm: Firm; members: Member[]; sub?: DemoSub }>; // keyed by firm id
   platform?: Platform;
   memberOf: Record<string, string>; // user id -> firm id
@@ -405,7 +406,7 @@ export function createDemoRepo(): Repo {
   return {
     mode: 'demo',
     async currentUser() {
-      return s.user;
+      return s.user ? { ...s.user, mobile: s.accounts[s.user.email]?.mobile ?? null } : null;
     },
     onAuthChange(cb) {
       listeners.add(cb);
@@ -420,11 +421,13 @@ export function createDemoRepo(): Repo {
       save();
       listeners.forEach((l) => l());
     },
-    async signUp(email, password) {
+    async signUp(email, password, mobile) {
       const key = email.toLowerCase();
+      const m = normaliseMobile(mobile);
+      if (!m.ok) throw new Error(m.message);
       if (s.accounts[key]) throw new Error('An account with this email already exists.');
       if (password.length < 8) throw new Error('Use a password of at least 8 characters.');
-      s.accounts[key] = { id: uid(), password, createdAt: new Date().toISOString() } as { id: string; password: string };
+      s.accounts[key] = { id: uid(), password, mobile: m.value, createdAt: new Date().toISOString() } as { id: string; password: string; mobile: string };
       s.user = { id: s.accounts[key].id, email: key };
       save();
       listeners.forEach((l) => l());
@@ -441,6 +444,15 @@ export function createDemoRepo(): Repo {
     },
     recovering() {
       return sessionStorage.getItem('veritbooks.demo.recovering') === '1';
+    },
+    async setMyMobile(mobile) {
+      const m = normaliseMobile(mobile);
+      if (!m.ok) throw new Error(m.message);
+      s.accounts[me().email].mobile = m.value;
+      save();
+    },
+    async adminUserContacts() {
+      return Object.values(s.accounts).map((a) => ({ id: a.id, mobile: a.mobile ?? null }));
     },
     async setPassword(password) {
       if (password.length < 8) throw new Error('Use a password of at least 8 characters.');

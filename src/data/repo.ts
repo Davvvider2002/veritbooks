@@ -18,6 +18,8 @@ export interface User {
   email: string;
   /** The firm named in the invitation email this account was created from, if any. */
   invitedTo?: string | null;
+  /** The mobile number given at sign-up, in international form. Required from October 2026; older accounts may have none. */
+  mobile?: string | null;
 }
 
 export interface Firm {
@@ -398,7 +400,11 @@ export interface Repo {
   onAuthChange(cb: () => void): () => void;
   signIn(email: string, password: string): Promise<void>;
   /** Returns true when the account still needs email confirmation before sign-in. */
-  signUp(email: string, password: string): Promise<boolean>;
+  signUp(email: string, password: string, mobile: string): Promise<boolean>;
+  /** Saves the signed-in person's mobile number, in international form. */
+  setMyMobile(mobile: string): Promise<void>;
+  /** The platform owner's list of each account's mobile number. */
+  adminUserContacts(): Promise<{ id: string; mobile: string | null }[]>;
   signOut(): Promise<void>;
   /** Emails a link for choosing a new password. Says nothing about whether the address has an account. */
   requestPasswordReset(email: string): Promise<void>;

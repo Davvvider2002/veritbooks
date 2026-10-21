@@ -1,3 +1,4 @@
+import { MOBILE_HINT, normaliseMobile, showMobile } from '../engine/phone';
 import { useEffect, useState, type ReactNode } from 'react';
 import QRCode from 'qrcode';
 import { JURISDICTIONS, COUNTRY_CODES } from '../content/jurisdictions';
@@ -72,6 +73,7 @@ function ProgrammePage({ p, onSignedIn }: { p: PartnerProgramme | null; onSigned
   const [mode, setMode] = useState<'in' | 'up'>('up');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [mobile, setMobile] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
   const { busy, error, run } = useAction();
   return (
@@ -112,7 +114,7 @@ function ProgrammePage({ p, onSignedIn }: { p: PartnerProgramme | null; onSigned
                 // Storage unavailable: the account still opens here after sign-in.
               }
               if (mode === 'in') await repo.signIn(email, password);
-              else if (await repo.signUp(email, password)) {
+              else if (await repo.signUp(email, password, mobile)) {
                 setNotice('Check your email to confirm the account, then sign in here to apply.');
                 setMode('in');
                 return;
@@ -128,6 +130,11 @@ function ProgrammePage({ p, onSignedIn }: { p: PartnerProgramme | null; onSigned
           <Field label="Password">
             <input type="password" required minLength={8} autoComplete={mode === 'in' ? 'current-password' : 'new-password'} value={password} onChange={(e) => setPassword(e.target.value)} />
           </Field>
+          {mode === 'up' && (
+            <Field label="Mobile phone number" hint={MOBILE_HINT}>
+              <input type="tel" required autoComplete="tel" inputMode="tel" value={mobile} onChange={(e) => setMobile(e.target.value)} />
+            </Field>
+          )}
           <ErrorNote error={error} />
           {notice && <div className="banner info">{notice}</div>}
           <button className="primary" disabled={busy}>
@@ -160,7 +167,7 @@ function ProgrammePage({ p, onSignedIn }: { p: PartnerProgramme | null; onSigned
  * ---------------------------------------------------------------------------------------------- */
 
 function ApplyForm({ p, invited, user, onDone }: { p: PartnerProgramme; invited: { name: string; company: string } | null; user: User; onDone: () => void }) {
-  const [f, setF] = useState({ name: invited?.name ?? '', company: invited?.company ?? '', phone: '', country: 'NG', website: '', promotion: '', accept_terms: false });
+  const [f, setF] = useState({ name: invited?.name ?? '', company: invited?.company ?? '', phone: showMobile(user.mobile), country: 'NG', website: '', promotion: '', accept_terms: false });
   const { busy, error, run } = useAction();
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
   return (
@@ -178,7 +185,10 @@ function ApplyForm({ p, invited, user, onDone }: { p: PartnerProgramme; invited:
         onSubmit={(e) => {
           e.preventDefault();
           void run(async () => {
-            await repo.partnerApply(f);
+            const m = normaliseMobile(f.phone);
+            if (!m.ok) throw new Error(m.message);
+            if (!user.mobile) await repo.setMyMobile(m.value);
+            await repo.partnerApply({ ...f, phone: m.value });
             onDone();
           });
         }}
@@ -190,8 +200,8 @@ function ApplyForm({ p, invited, user, onDone }: { p: PartnerProgramme; invited:
           <Field label="Company or organisation" hint="Leave blank if you promote in your own name.">
             <input type="text" value={f.company} onChange={set('company')} disabled={!!invited} />
           </Field>
-          <Field label="Phone or WhatsApp number">
-            <input type="tel" value={f.phone} onChange={set('phone')} />
+          <Field label="Mobile or WhatsApp number" hint={MOBILE_HINT}>
+            <input type="tel" required autoComplete="tel" inputMode="tel" value={f.phone} onChange={set('phone')} />
           </Field>
           {!invited && (
             <Field label="Country you mainly work in">
