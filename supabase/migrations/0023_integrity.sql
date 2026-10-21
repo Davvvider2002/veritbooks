@@ -42,7 +42,6 @@ end;
 $$;
 
 -- Named to fire after adjustments_guard, so a signed file still answers "signed and locked".
-drop trigger if exists adjustments_zcheck on public.adjustments;
 create trigger adjustments_zcheck before insert or update on public.adjustments
   for each row execute function private.check_adjustment();
 
