@@ -31,7 +31,9 @@ const LINES: [string, string, string][] = [
   ['share_capital', 'Share capital', 'equity'],
   ['share_premium', 'Share premium', 'equity'],
   ['other_reserves', 'Other reserves', 'equity'],
-  ['retained_earnings', 'Retained earnings brought forward', 'equity'],
+  ['retained_earnings', 'Retained earnings brought forward (unrestricted funds of a not-for-profit)', 'equity'],
+  ['restricted_funds', 'Restricted funds of a not-for-profit, brought forward', 'equity'],
+  ['endowment_funds', 'Endowment funds of a not-for-profit', 'equity'],
   ['borrowings_nc', 'Borrowings due after one year', 'non-current liability'],
   ['deferred_tax_liability', 'Deferred tax liability', 'non-current liability'],
   ['provisions', 'Provisions', 'non-current liability'],
@@ -41,17 +43,21 @@ const LINES: [string, string, string][] = [
   ['current_tax_payable', 'Current income tax payable', 'current liability'],
   ['revenue', 'Revenue', 'income'],
   ['other_income', 'Other income, including dividends received', 'income'],
+  ['grant_income', 'Grants received by a not-for-profit', 'income'],
+  ['donations', 'Donations and gifts received by a not-for-profit', 'income'],
   ['finance_income', 'Finance income', 'income'],
   ['cost_of_sales', 'Cost of sales', 'expense'],
   ['distribution_costs', 'Selling and distribution costs', 'expense'],
   ['admin_expenses', 'Administrative expenses', 'expense'],
   ['other_expenses', 'Other operating expenses', 'expense'],
+  ['programme_expenses', 'Programme and charitable activity costs of a not-for-profit', 'expense'],
+  ['fundraising_costs', 'Fundraising costs of a not-for-profit', 'expense'],
   ['finance_costs', 'Finance costs', 'expense'],
   ['income_tax_expense', 'Income tax expense', 'expense'],
   ['dividends', 'Dividends declared to shareholders', 'distribution'],
 ];
 const CODES = new Set(LINES.map((l) => l[0]));
-const NATURE_LINES = new Set(['cost_of_sales', 'distribution_costs', 'admin_expenses', 'other_expenses']);
+const NATURE_LINES = new Set(['cost_of_sales', 'distribution_costs', 'admin_expenses', 'other_expenses', 'programme_expenses', 'fundraising_costs']);
 const DAILY_LIMIT = 300;
 const text = (v: unknown, max: number) => String(v ?? '').replace(/[\u0000-\u001f]/g, ' ').slice(0, max);
 

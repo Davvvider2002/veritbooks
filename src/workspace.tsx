@@ -5,6 +5,7 @@ import { testLedger, type GlEntry, type LedgerTest } from './engine/ledger';
 import { adjustedBalances } from './engine/statements';
 import type { BankAccount, ClientRequest, Evidence, StoredBankLine } from './data/repo';
 import { RequestsStep } from './steps/requests';
+import { legalFormOf, npoJurisdiction } from './content/entities';
 import { EvidenceStep } from './steps/evidence';
 import { BankStep, LedgerStep } from './steps/analytics';
 import { DisclosuresStep } from './steps/disclosures';
@@ -299,7 +300,7 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
   }, [id]);
 
   const statements = useMemo(
-    () => (data ? buildStatements(data.lines, data.adjustments) : null),
+    () => (data ? buildStatements(data.lines, data.adjustments, { npo: data.eng.planning.entity === 'npo' }) : null),
     [data],
   );
 
@@ -369,11 +370,14 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
     );
 
   // Review and compilation engagements have no materiality step in this version.
-  const jur = jurisdictionOf(ws.firm.country);
+  const country = jurisdictionOf(ws.firm.country);
+  const form = legalFormOf(data.eng.planning, country.code);
+  // A not-for-profit reads its own law in place of the companies law, and drops company-only pages.
+  const jur = form ? npoJurisdiction(country, form) : country;
   const steps = STEPS.filter((s) => {
     // The SARS tax working and the CIPC filing are South African.
     if (s.slug === 'tax' || s.slug === 'cipc') return jur.code === 'ZA';
-    if (s.slug === 'planning' || s.slug === 'analytical' || s.slug === 'opening' || s.slug === 'management') return data.eng.type !== 'compilation';
+    if (s.slug === 'analytical' || s.slug === 'opening' || s.slug === 'management') return data.eng.type !== 'compilation';
     if (s.slug === 'ledger' || s.slug === 'bank') return data.eng.type === 'audit';
     return true;
   });

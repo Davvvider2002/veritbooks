@@ -56,12 +56,12 @@ function lineUp(lists: Row[][]): MultiRow[] {
 }
 
 /** Statements for each year held, latest first, up to the number asked for. */
-export function multiYear(lines: TbLine[], adjustments: Adjustment[], yearEnd: string, max = 5): MultiYear {
+export function multiYear(lines: TbLine[], adjustments: Adjustment[], yearEnd: string, max = 5, npo = false): MultiYear {
   const held = Math.min(yearsHeld(lines), max);
   const year = Number(yearEnd.slice(0, 4));
   const cols: YearColumn[] = Array.from({ length: held }, (_, i) => ({
     year: year - i,
-    statements: i === 0 ? buildStatements(lines, adjustments, { comparativeCashFlow: false }) : buildStatements(shiftYears(lines, i), [], { comparativeCashFlow: false }),
+    statements: i === 0 ? buildStatements(lines, adjustments, { comparativeCashFlow: false, npo }) : buildStatements(shiftYears(lines, i), [], { comparativeCashFlow: false, npo }),
   }));
   const flows = cols.filter((c) => c.statements.cashFlow !== null);
   return {

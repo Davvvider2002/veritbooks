@@ -46,7 +46,8 @@ export interface Branding {
   watermark?: boolean;
   /** Show the firm's logo at the top of the auditor's report and the management letter. */
   logoOnReport?: boolean;
-  font?: 'serif' | 'sans';
+  /** The report typeface, by id from content/typefaces. 'serif' (Classic) when not set. */
+  font?: string;
   /** Printed at the foot of every page, for example the firm's name, address and telephone. */
   footer?: string;
   /** Print a cover page and a contents page before the directors' report. */
@@ -447,6 +448,8 @@ export interface Repo {
   /** Replaces the whole trial balance of an engagement. */
   replaceLines(engagementId: string, lines: ImportLine[]): Promise<void>;
   setMapping(engagementId: string, clientId: string, line: TbLine, mapCode: string | null, nature: Nature | null): Promise<void>;
+  /** Not-for-profit: tags an account to a restricted fund, or clears the tag with null. */
+  setFund(engagementId: string, line: TbLine, fund: string | null): Promise<void>;
   savedMappings(clientId: string): Promise<Map<string, { mapCode: string; nature: Nature | null }>>;
 
   listAdjustments(engagementId: string): Promise<Adjustment[]>;

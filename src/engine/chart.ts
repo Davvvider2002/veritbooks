@@ -33,6 +33,9 @@ export const CHART: LineItem[] = [
   { code: 'share_premium', label: 'Share premium', section: 'equity' },
   { code: 'other_reserves', label: 'Other reserves', section: 'equity' },
   { code: 'retained_earnings', label: 'Retained earnings', section: 'equity' },
+  // Not-for-profit funds. Unrestricted funds are the retained surplus, on retained_earnings.
+  { code: 'restricted_funds', label: 'Restricted funds', section: 'equity' },
+  { code: 'endowment_funds', label: 'Endowment funds', section: 'equity' },
 
   { code: 'borrowings_nc', label: 'Borrowings', section: 'ncl' },
   { code: 'deferred_tax_liability', label: 'Deferred tax liability', section: 'ncl' },
@@ -45,12 +48,16 @@ export const CHART: LineItem[] = [
 
   { code: 'revenue', label: 'Revenue', section: 'income' },
   { code: 'other_income', label: 'Other income', section: 'income' },
+  { code: 'grant_income', label: 'Grants', section: 'income' },
+  { code: 'donations', label: 'Donations and gifts', section: 'income' },
   { code: 'finance_income', label: 'Finance income', section: 'income' },
 
   { code: 'cost_of_sales', label: 'Cost of sales', section: 'expense' },
   { code: 'distribution_costs', label: 'Selling and distribution costs', section: 'expense' },
   { code: 'admin_expenses', label: 'Administrative expenses', section: 'expense' },
   { code: 'other_expenses', label: 'Other operating expenses', section: 'expense' },
+  { code: 'programme_expenses', label: 'Programme and charitable activities', section: 'expense' },
+  { code: 'fundraising_costs', label: 'Fundraising costs', section: 'expense' },
   { code: 'finance_costs', label: 'Finance costs', section: 'expense' },
   { code: 'income_tax_expense', label: 'Income tax expense', section: 'expense' },
 
@@ -76,7 +83,21 @@ export const NATURE_CODES = new Set([
   'distribution_costs',
   'admin_expenses',
   'other_expenses',
+  'programme_expenses',
+  'fundraising_costs',
 ]);
+
+/** Lines used only by not-for-profit entities. Offered in mapping only for them. */
+export const NPO_CODES = new Set(['grant_income', 'donations', 'programme_expenses', 'fundraising_costs', 'restricted_funds', 'endowment_funds']);
+
+/** How a not-for-profit entity names some company lines. */
+export const NPO_LABEL: Record<string, string> = {
+  retained_earnings: 'Unrestricted funds',
+  revenue: 'Income from activities and services',
+  admin_expenses: 'Administration and governance',
+  cost_of_sales: 'Cost of goods and services provided',
+  other_expenses: 'Other expenditure',
+};
 
 export const isBalanceSheet = (s: Section) =>
   s === 'nca' || s === 'ca' || s === 'equity' || s === 'ncl' || s === 'cl';

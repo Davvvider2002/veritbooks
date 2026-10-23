@@ -683,6 +683,14 @@ export function createDemoRepo(): Repo {
       log(id, 'tb_lines', 'import', { accounts: lines.length });
       save();
     },
+    async setFund(id, line, fund) {
+      open(id);
+      const l = (s.lines[id] ?? []).find((x) => x.id === line.id);
+      if (!l) throw new Error('Account not found.');
+      l.fund = fund?.trim() ? fund.trim().slice(0, 80) : null;
+      log(id, 'tb_lines', 'update', { code: l.code, fund: l.fund });
+      save();
+    },
     async setMapping(id, clientId, line, mapCode, nature) {
       open(id);
       const l = (s.lines[id] ?? []).find((x) => x.id === line.id);

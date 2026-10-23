@@ -46,7 +46,7 @@ Reviewer: ______________________  Date: ____________  Accepted / Accepted with c
 
 ## 3. Statement lines
 
-Every account is mapped to one of 29 lines. The statements are built from these lines only. Review whether the set is enough for the entities in scope, and whether any line is missing, such as investment property, biological assets, government grants, and employee benefit obligations.
+Every account is mapped to one of 35 lines. The statements are built from these lines only. Review whether the set is enough for the entities in scope, and whether any line is missing, such as investment property, biological assets, government grants, and employee benefit obligations.
 
 | Code | Line | Section |
 | --- | --- | --- |
@@ -62,6 +62,8 @@ Every account is mapped to one of 29 lines. The statements are built from these 
 | share_premium | Share premium | Equity |
 | other_reserves | Other reserves | Equity |
 | retained_earnings | Retained earnings | Equity |
+| restricted_funds | Restricted funds | Equity |
+| endowment_funds | Endowment funds | Equity |
 | borrowings_nc | Borrowings | Non-current liabilities |
 | deferred_tax_liability | Deferred tax liability | Non-current liabilities |
 | provisions | Provisions | Non-current liabilities |
@@ -71,11 +73,15 @@ Every account is mapped to one of 29 lines. The statements are built from these 
 | current_tax_payable | Current tax payable | Current liabilities |
 | revenue | Revenue | Income |
 | other_income | Other income | Income |
+| grant_income | Grants | Income |
+| donations | Donations and gifts | Income |
 | finance_income | Finance income | Income |
 | cost_of_sales | Cost of sales | Expenses |
 | distribution_costs | Selling and distribution costs | Expenses |
 | admin_expenses | Administrative expenses | Expenses |
 | other_expenses | Other operating expenses | Expenses |
+| programme_expenses | Programme and charitable activities | Expenses |
+| fundraising_costs | Fundraising costs | Expenses |
 | finance_costs | Finance costs | Expenses |
 | income_tax_expense | Income tax expense | Expenses |
 | dividends | Dividends declared | Distributions |
@@ -143,7 +149,7 @@ Reviewer: ______________________  Date: ____________  Accepted / Accepted with c
 
 ## 5. Industry packs
 
-Version 0.1-starter. A pack adds to the general content. It never removes anything.
+Version 0.2-starter. A pack adds to the general content. It never removes anything.
 
 ### Trading and manufacturing
 Companies that buy, make and sell goods, where inventories and cost of sales carry most of the risk.
@@ -190,8 +196,687 @@ Added client requests:
 | Last goods received and despatch notes | The last five of each before the count and the first five after it, at every location. |
 | Product costing records | Bills of materials, labour rates and the overhead absorption calculation for manufactured goods. |
 | Slow-moving and damaged inventory report | Items with no movement in six months, and items damaged, expired or written down in the year. |
-| Import documentation | For significant imports: Form M, bills of lading, customs duty assessments and clearing agents’ invoices. |
+| Import documentation | For significant imports: import permits or forms (Form M in Nigeria), bills of lading, customs duty assessments and clearing agents’ invoices. |
 | Inventories held elsewhere | A list of goods held by third parties, on consignment or in transit at the year end, with confirmations. |
+
+### Not-for-profit: NGOs, charities, foundations and faith-based organisations
+Organisations funded by grants and donations, where the risks are that restricted money is spent outside its purpose, income is recognised in the wrong period, and donor conditions are not met.
+
+Added audit steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| np-a-1 | Grants and donations | Obtain every grant agreement in force in the year. List each grant’s amount, period, conditions, reporting and audit requirements, and any restriction on use. |
+| np-a-2 | Grants and donations | Agree grant receipts to the agreements, bank statements and donor remittance advices, and confirm significant grants directly with the donor. |
+| np-a-3 | Grants and donations | Test income recognition: a grant is income when the organisation is entitled to it; a grant with conditions not yet met is deferred, and amounts that must be returned are a liability. |
+| np-a-4 | Restricted funds | Reconcile each restricted fund: brought forward, received, spent and carried forward, to the fund tags on the Mapping step and to the donor reports. |
+| np-a-5 | Restricted funds | Test a sample of expenditure charged to each restricted fund for eligibility under the grant agreement, the approved budget, and supporting documents. |
+| np-a-6 | Restricted funds | Review shared and indirect costs allocated to grants: the basis, its consistency, and the caps in each agreement. |
+| np-a-7 | Restricted funds | Identify funds in deficit and transfers between funds, and confirm each was authorised and is disclosed. |
+| np-a-8 | Expenditure and procurement | Test procurement for significant purchases against the organisation’s policy and donor rules: quotations, tender records, approvals and conflicts of interest. |
+| np-a-9 | Expenditure and procurement | Test cash advances to staff and implementing partners for retirement within the agreed time, with receipts, and review sub-grants for monitoring and partner audit reports. |
+| np-a-10 | Donations | Assess controls over cash donations, offerings and collections: counting by two people, prompt banking, and reconciliation of collection records to bank. |
+| np-a-11 | Donations | Identify gifts in kind and donated services, and test how they are recognised and measured. |
+| np-a-12 | Governance and compliance | Read the constitution and governing body minutes. Confirm activities are within the objectives, and that the registrations and returns the law requires are up to date. |
+| np-a-13 | Governance and compliance | Confirm the tax-exempt status relied on, and that payroll taxes, pension contributions and withholding taxes on payments were deducted and remitted. |
+| np-a-14 | Governance and compliance | Obtain related party declarations from the governors and senior staff, and test payments to them and to entities they control. |
+
+Added review steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| np-r-1 | Grants and donations | Enquire about each significant grant: its conditions, what has been received and spent, and whether any amount may have to be returned. |
+| np-r-2 | Restricted funds | Compare restricted fund balances to donor reports and enquire about funds in deficit and transfers between funds. |
+| np-r-3 | Expenditure | Compare programme, fundraising and administration costs to budget and to last year, and obtain explanations for significant differences. |
+| np-r-4 | Governance | Enquire whether the organisation’s registrations, tax exemption and statutory returns are current. |
+
+Added disclosure checklist items:
+
+| Id | Section | Item |
+| --- | --- | --- |
+| np-funds | Not-for-profit presentation | Funds are analysed between unrestricted, restricted and endowment funds, with each material restricted fund’s purpose and movement in the year. |
+| np-income | Not-for-profit presentation | The policy for grants and donations explains when they are recognised, how conditions and restrictions are dealt with, and how gifts in kind are measured. |
+| np-expenditure | Not-for-profit presentation | Expenditure is analysed between programme and charitable activities, fundraising, and administration and governance, with the basis for allocating shared costs. |
+| np-deferred | Not-for-profit presentation | Grants received with conditions not yet met, and amounts repayable to donors, are shown as liabilities and explained. |
+| np-governors | Section 33: Related party disclosures | Payments to governors, and transactions with them and their related parties, are disclosed, including that none were made where that is so. |
+| np-going-concern | Section 3: Financial statement presentation | Going concern is assessed against funding secured beyond twelve months, and dependence on a few donors is disclosed where significant. |
+
+Added client requests:
+
+| Request | Detail |
+| --- | --- |
+| Constitution and registration documents | The constitution or trust deed, certificate of registration, and evidence that the statutory returns for the year were filed. |
+| Grant agreements and amendments | Every grant agreement in force in the year, with budgets, amendments and the donors’ reporting and audit requirements. |
+| Donor reports | Financial reports submitted to each donor for the year, with the reconciliation to the accounts. |
+| Fund ledger | Income and expenditure by fund or project, with balances brought and carried forward. |
+| Governing body minutes | Minutes of the trustees’ or board meetings for the year and up to the date of the audit. |
+| Advances and sub-grants | Staff and partner advances outstanding at the year end, and sub-grant agreements with partner reports. |
+| Tax exemption | Evidence of tax-exempt status, and payroll and withholding tax remittance receipts. |
+
+### Construction and engineering contracts
+Contractors who build or install over months, where revenue and profit depend on estimates of progress and costs to complete.
+
+Added audit steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| cn-a-1 | Contracts | Obtain the contract register: contract value, variations, costs to date, estimated costs to complete, revenue recognised and amounts billed for each contract. |
+| cn-a-2 | Contracts | Agree contract values and approved variations to signed contracts and client instructions. Treat unapproved claims and variations with caution. |
+| cn-a-3 | Contracts | Test the measure of progress, whether costs incurred or surveys of work performed, and agree it to quantity surveyor or engineer certificates. |
+| cn-a-4 | Contracts | Challenge estimated costs to complete against budgets, recent cost overruns and after-date costs. Provide in full for expected losses on onerous contracts. |
+| cn-a-5 | Contracts | Reconcile amounts due from and to customers for contract work, retentions held by clients, and advances received. |
+| cn-a-6 | Costs | Test site costs, subcontractor certificates and materials on site to source documents and cut-off at the year end. |
+| cn-a-7 | Plant | Inspect significant plant and equipment, review its utilisation and impairment, and test plant hire income and costs. |
+| cn-a-8 | Contingencies | Enquire of management and legal advisers about disputes, liquidated damages, defects liability and performance bonds. |
+
+Added review steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| cn-r-1 | Contracts | Enquire how progress and costs to complete are estimated, and compare margins on each significant contract to tender and to last year. |
+| cn-r-2 | Contracts | Enquire about loss-making contracts, disputes, claims and liquidated damages. |
+| cn-r-3 | Receivables | Compare retentions and amounts due from customers to last year and enquire about their recovery. |
+
+Added disclosure checklist items:
+
+| Id | Section | Item |
+| --- | --- | --- |
+| cn-revenue | Section 23: Revenue | The policy explains how revenue from construction contracts is recognised over time and how progress is measured. |
+| cn-balances | Section 23: Revenue | Contract assets, contract liabilities, retentions and advances from customers are shown or disclosed. |
+| cn-losses | Section 21: Provisions and contingencies | Provisions for expected losses on contracts, and contingent liabilities from claims and guarantees, are disclosed. |
+
+Added client requests:
+
+| Request | Detail |
+| --- | --- |
+| Contract register | Every contract open in the year: value, variations, costs to date, estimated costs to complete, billings and retentions. |
+| Valuation certificates | Interim certificates from the client’s engineer or quantity surveyor issued before and after the year end. |
+| Subcontractor certificates | Certificates and invoices from subcontractors for work done up to the year end. |
+| Claims and disputes | Details of claims made by or against the company, liquidated damages and legal correspondence. |
+| Performance bonds and guarantees | Bonds, guarantees and advance payment guarantees outstanding at the year end. |
+
+### Real estate: property investment and development
+Owners and developers of property, where the risks are valuation, the line between investment property and inventory, and rental income.
+
+Added audit steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| re-a-1 | Property | Obtain the property register and agree title documents (certificates of occupancy, deeds, title deeds) for each property, and check for charges over them. |
+| re-a-2 | Property | Classify each property: held to earn rent or for capital appreciation (investment property), held for sale in the ordinary course (inventory), or owner-occupied. |
+| re-a-3 | Valuation | Evaluate the valuer’s competence, objectivity and terms, and test the valuation inputs: rents, yields, comparable sales and condition. |
+| re-a-4 | Development | For development property, test costs capitalised to source documents, borrowing costs, and net realisable value against current selling prices and costs to complete. |
+| re-a-5 | Rental income | Agree rental income to tenancy agreements and the rent roll, test cut-off and rent received in advance, and analyse arrears for recoverability. |
+| re-a-6 | Sales | For units sold, test when control passed to the buyer, deposits received, and amounts still due under instalment sales. |
+| re-a-7 | Service charges | Review service charge income and costs, and any amounts held for tenants or residents. |
+
+Added review steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| re-r-1 | Valuation | Enquire how fair values were determined and by whom, and compare them to last year and to recent transactions. |
+| re-r-2 | Rental income | Compare rental income to the rent roll and occupancy, and enquire about arrears and vacancies. |
+| re-r-3 | Development | Enquire about the status, costs to complete and expected selling prices of developments. |
+
+Added disclosure checklist items:
+
+| Id | Section | Item |
+| --- | --- | --- |
+| re-ip | Section 16: Investment property | Investment property is disclosed with the measurement basis, the methods and significant assumptions used to determine fair value, and whether a qualified independent valuer was used. |
+| re-ip-rec | Section 16: Investment property | A reconciliation of the carrying amount of investment property at the start and end of the year is given. |
+| re-restrictions | Section 16: Investment property | Restrictions on realising property, and contractual obligations to purchase, construct or develop it, are disclosed. |
+| re-leases | Section 20: Leases | As lessor, future minimum lease payments receivable under operating leases are disclosed by period. |
+
+Added client requests:
+
+| Request | Detail |
+| --- | --- |
+| Property register and title documents | Every property held, with title documents, cost, additions and any charges or encumbrances. |
+| Valuation reports | Valuation reports at the year end, with the valuer’s terms of engagement. |
+| Rent roll and tenancy agreements | Tenants, rents, lease terms, amounts received in advance and arrears at the year end. |
+| Development cost reports | Costs to date and to complete for each development, with sales and reservations. |
+
+### Professional services: consulting, legal, accounting, engineering and agencies
+Firms that sell people’s time, where the risks are unbilled work, fee recoverability, client money and staff costs.
+
+Added audit steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| ps-a-1 | Revenue | Agree fees to engagement letters and time records, and test cut-off of invoices around the year end. |
+| ps-a-2 | Revenue | Test unbilled work at the year end: time recorded, rates, stage of completion and recoverability, and remove time that will not be billed. |
+| ps-a-3 | Receivables | Analyse fees receivable by age, test after-date receipts, and review disputed and written-off fees. |
+| ps-a-4 | Client money | Identify money held for clients, reconcile client accounts, and confirm it is kept separate from the firm’s own money and not recorded as revenue. |
+| ps-a-5 | Staff costs | Test payroll to staff records and contracts, bonuses and accrued leave, and the remittance of payroll taxes and pension contributions. |
+| ps-a-6 | Related parties | Review drawings, remuneration and transactions with partners, directors and their related parties. |
+| ps-a-7 | Contingencies | Enquire about professional negligence claims, professional indemnity cover and regulatory matters. |
+
+Added review steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| ps-r-1 | Revenue | Compare fees and utilisation to last year and enquire about significant changes in clients or rates. |
+| ps-r-2 | Revenue | Enquire how unbilled work is valued and how much of it was billed after the year end. |
+| ps-r-3 | Contingencies | Enquire about claims against the firm and the professional indemnity cover. |
+
+Added disclosure checklist items:
+
+| Id | Section | Item |
+| --- | --- | --- |
+| ps-revenue | Section 23: Revenue | The policy explains how service revenue is recognised, including work in progress and contract assets for unbilled work. |
+| ps-client-money | Section 8: Notes | Money held on behalf of clients is excluded from the firm’s assets and liabilities, or shown separately where it is the firm’s responsibility, and explained. |
+| ps-claims | Section 21: Provisions and contingencies | Claims against the firm are provided for or disclosed as contingent liabilities. |
+
+Added client requests:
+
+| Request | Detail |
+| --- | --- |
+| Time and billing report | Time recorded, billed and unbilled for each client at the year end, with the rates used. |
+| Engagement letters | Engagement letters for the largest clients by fees. |
+| Client account reconciliations | Reconciliations of money held for clients at the year end, with bank statements. |
+| Claims and indemnity insurance | Details of claims against the firm and the professional indemnity insurance policy. |
+
+### Hotels, restaurants and hospitality
+Cash-heavy businesses selling rooms, food and drink, where the risks are completeness of revenue, food and beverage stock, and the condition of property.
+
+Added audit steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| hp-a-1 | Revenue | Reconcile room revenue to the property management system: rooms available, occupancy and average rate, and test a sample of guest folios to payments. |
+| hp-a-2 | Revenue | Reconcile point-of-sale reports for food and beverage to cash, card settlements and bank, and review voids, complimentaries and discounts. |
+| hp-a-3 | Revenue | Test deposits and advance bookings, corporate accounts receivable and agency commissions. |
+| hp-a-4 | Inventories | Attend the food, beverage and consumables count, and compare gross profit percentages to expected margins. |
+| hp-a-5 | Property | Review capital expenditure versus repairs on refurbishment, and assess the property for impairment where occupancy has fallen. |
+| hp-a-6 | Taxes and levies | Test consumption, sales or tourism taxes and levies charged to guests and remitted. |
+| hp-a-7 | Staff costs | Test payroll, casual staff, service charge distributions and tips. |
+
+Added review steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| hp-r-1 | Revenue | Compare occupancy, average room rate and food and beverage margins to last year and enquire about changes. |
+| hp-r-2 | Inventories | Enquire how stock is counted and how wastage and breakages are recorded. |
+| hp-r-3 | Property | Enquire about refurbishment spending and any indication that the property is impaired. |
+
+Added disclosure checklist items:
+
+| Id | Section | Item |
+| --- | --- | --- |
+| hp-revenue | Section 23: Revenue | Revenue is analysed between rooms, food and beverage and other services, and deposits received in advance are shown as liabilities. |
+| hp-impairment | Section 27: Impairment of assets | Any impairment of the property, and the assumptions used, are disclosed. |
+
+Added client requests:
+
+| Request | Detail |
+| --- | --- |
+| Property management system reports | Monthly occupancy, average room rate and revenue reports, and the night audit for the last and first days around the year end. |
+| Point-of-sale reports | Daily sales summaries with card settlement reports for the last month of the year. |
+| Stock count sheets | Food, beverage and consumables count sheets at the year end. |
+| Taxes and levies returns | Consumption, sales or tourism tax and levy returns and payment receipts for the year. |
+
+### Healthcare: hospitals, clinics, laboratories and pharmacies
+Providers paid by patients, insurers and health schemes, where the risks are billing, claims rejections, drugs inventory and regulatory compliance.
+
+Added audit steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| hc-a-1 | Revenue | Reconcile patient billing to the hospital information system and cash, and test a sample of patient bills to services and the price list. |
+| hc-a-2 | Revenue | Test claims to insurers, health maintenance organisations and schemes: submission, rejection rates and after-date settlements, and capitation income. |
+| hc-a-3 | Receivables | Analyse receivables by payer and age, and provide for claims likely to be rejected or reduced. |
+| hc-a-4 | Inventories | Attend the drugs and consumables count, check expiry dates and controlled drugs registers, and test cost. |
+| hc-a-5 | Equipment | Inspect significant medical equipment, test additions and leases, and review for impairment and obsolescence. |
+| hc-a-6 | Staff costs | Test payroll and payments to visiting consultants, and the withholding tax deducted from them. |
+| hc-a-7 | Compliance | Confirm the facility’s licences and registrations are current, and enquire about malpractice claims and insurance. |
+
+Added review steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| hc-r-1 | Revenue | Compare revenue by service line and payer to last year, and enquire about claim rejection rates. |
+| hc-r-2 | Inventories | Enquire how drugs are counted and how expired stock is identified and written off. |
+| hc-r-3 | Contingencies | Enquire about malpractice claims and the insurance in place. |
+
+Added disclosure checklist items:
+
+| Id | Section | Item |
+| --- | --- | --- |
+| hc-revenue | Section 23: Revenue | Revenue is analysed between patient services, pharmacy and other income, and the policy explains how insurer and scheme income is measured. |
+| hc-inventory | Section 13: Inventories | Write-downs of expired or obsolete drugs and consumables are disclosed. |
+| hc-claims | Section 21: Provisions and contingencies | Provisions and contingent liabilities for malpractice claims are disclosed. |
+
+Added client requests:
+
+| Request | Detail |
+| --- | --- |
+| Billing and claims reports | Revenue by service and payer, claims submitted, rejected and settled, and capitation statements. |
+| Receivables by payer | Amounts due from insurers, schemes, corporates and patients, aged, at the year end. |
+| Drugs stock count | Drugs and consumables count sheets with expiry dates, and the controlled drugs register. |
+| Licences and insurance | Facility licences and registrations, and the malpractice insurance policy. |
+
+### Education: schools, colleges and training providers
+Institutions paid in advance by term or year, where the risks are fees in advance, scholarships and discounts, and grants.
+
+Added audit steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| ed-a-1 | Fees | Reconcile tuition fee income to the student register and the approved fee schedule, allowing for scholarships, sibling and staff discounts. |
+| ed-a-2 | Fees | Test fees received in advance for terms after the year end, and recognise income over the period taught. |
+| ed-a-3 | Fees | Analyse fees outstanding by student and age, and provide for those unlikely to be collected, including from students who have left. |
+| ed-a-4 | Other income | Test boarding, transport, uniform, examination and development levy income, and amounts collected on behalf of examining bodies. |
+| ed-a-5 | Grants | Agree grants and endowments to agreements and test that conditions are met before they are recognised as income. |
+| ed-a-6 | Staff costs | Test teaching and non-teaching payroll to staff records and contracts. |
+| ed-a-7 | Property | Review buildings and equipment, capital projects and their funding, and land title. |
+
+Added review steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| ed-r-1 | Fees | Compare fee income to student numbers multiplied by fees, and enquire about differences. |
+| ed-r-2 | Fees | Enquire how fees in advance and outstanding fees are dealt with at the year end. |
+| ed-r-3 | Grants | Enquire about grants received and their conditions. |
+
+Added disclosure checklist items:
+
+| Id | Section | Item |
+| --- | --- | --- |
+| ed-revenue | Section 23: Revenue | The policy explains that tuition is recognised over the period taught, and fees received in advance are shown as liabilities. |
+| ed-grants | Section 24: Government grants | Grants are disclosed with their nature, the amounts recognised, and conditions not yet met. |
+
+Added client requests:
+
+| Request | Detail |
+| --- | --- |
+| Student register and fee schedule | Students enrolled each term, with the approved fees and the scholarships and discounts given. |
+| Fees received in advance | Fees received before the year end for terms that start after it. |
+| Outstanding fees | Fees owed by each student at the year end, with what has been collected since. |
+| Grant and endowment agreements | Agreements for grants and endowments received in the year. |
+
+### Agriculture, livestock and agro-processing
+Farms and processors, where the risks are measuring biological assets and produce, seasonal inventories and grants.
+
+Added audit steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| ag-a-1 | Biological assets | Attend the count of livestock, poultry, fish and standing crops at or near the year end, and record numbers, age and condition. |
+| ag-a-2 | Biological assets | Test how biological assets are measured: fair value less costs to sell where it is readily determinable, otherwise cost less depreciation and impairment, and the market prices used. |
+| ag-a-3 | Biological assets | Reconcile movements in the year: births, purchases, growth, harvest, sales and deaths, with mortality records. |
+| ag-a-4 | Produce and inventories | Test agricultural produce at the point of harvest and its measurement, and inventories of feed, fertiliser, seed and processed goods. |
+| ag-a-5 | Revenue | Test sales to off-takers, commodity contracts and prices, and cut-off of deliveries. |
+| ag-a-6 | Grants and land | Agree government grants and subsidised loans to agreements, and confirm the title or lease of farmland. |
+| ag-a-7 | Plant | Inspect tractors, processing plant and irrigation, and review for impairment. |
+
+Added review steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| ag-r-1 | Biological assets | Enquire how livestock and crops are counted and valued, and compare quantities and values to last year. |
+| ag-r-2 | Revenue | Compare yields, prices and margins to last year and enquire about weather, disease and price effects. |
+| ag-r-3 | Grants | Enquire about grants and subsidised loans and their conditions. |
+
+Added disclosure checklist items:
+
+| Id | Section | Item |
+| --- | --- | --- |
+| ag-bio | Section 34: Specialised activities | Biological assets are described by class, with the measurement basis, the methods and assumptions used, and a reconciliation of the carrying amount. |
+| ag-produce | Section 34: Specialised activities | Agricultural produce harvested is measured at the point of harvest, and the basis is disclosed. |
+| ag-grants | Section 24: Government grants | Government grants related to agriculture are disclosed with unfulfilled conditions. |
+
+Added client requests:
+
+| Request | Detail |
+| --- | --- |
+| Livestock and crop records | Herd, flock and pond registers, mortality records and crop plans, with year-end counts. |
+| Market prices | Evidence of market prices used to value biological assets and produce at the year end. |
+| Off-take agreements | Sales contracts with off-takers and commodity buyers. |
+| Grant and loan agreements | Government grant, subsidy and intervention loan agreements. |
+| Land documents | Title or lease documents for farmland. |
+
+### Oil, gas and mining services
+Service companies to exploration and production operators, where the risks are contract billing, foreign currency, local content requirements and equipment.
+
+Added audit steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| og-a-1 | Revenue | Agree revenue to service contracts, call-off orders and job completion tickets signed by the operator, and test cut-off of work done but not invoiced. |
+| og-a-2 | Revenue | Test billing in foreign currency, the exchange rates used, and amounts withheld by operators. |
+| og-a-3 | Receivables | Confirm significant balances with operators, test after-date receipts, and review disputed invoices. |
+| og-a-4 | Equipment | Inspect specialised equipment and vessels, test utilisation, depreciation and certification, and review for impairment. |
+| og-a-5 | Foreign currency | Test translation of foreign currency balances at the closing rate and exchange gains and losses. |
+| og-a-6 | Compliance | Confirm permits, local content certifications and the levies and withholding taxes deducted by operators. |
+| og-a-7 | Provisions | Review obligations for site restoration, demobilisation and environmental damage. |
+
+Added review steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| og-r-1 | Revenue | Compare revenue by contract and day rates to last year, and enquire about contracts won and lost. |
+| og-r-2 | Equipment | Enquire about equipment utilisation and any idle equipment. |
+| og-r-3 | Foreign currency | Enquire how foreign currency balances are translated. |
+
+Added disclosure checklist items:
+
+| Id | Section | Item |
+| --- | --- | --- |
+| og-fx | Section 30: Foreign currency translation | The functional currency, exchange differences recognised, and the rates used are disclosed. |
+| og-provisions | Section 21: Provisions and contingencies | Provisions for restoration and environmental obligations are disclosed with their uncertainties. |
+
+Added client requests:
+
+| Request | Detail |
+| --- | --- |
+| Service contracts and call-off orders | Contracts with operators and the call-off orders active in the year. |
+| Job tickets | Signed job completion tickets for work done in the last month of the year. |
+| Equipment register | Specialised equipment and vessels, with utilisation and certification records. |
+| Permits and certificates | Operating permits and local content certificates. |
+
+### Transport, logistics and haulage
+Hauliers, couriers, freight forwarders and passenger transport, where the risks are vehicle fleets, fuel, and income collected by drivers and agents.
+
+Added audit steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| tl-a-1 | Revenue | Agree revenue to waybills, trip sheets and delivery notes, and test cut-off of trips in progress at the year end. |
+| tl-a-2 | Revenue | Test cash collected by drivers, conductors and agents for prompt banking and reconciliation. |
+| tl-a-3 | Freight forwarding | Distinguish the company’s own revenue from amounts collected for shipping lines, customs and ports, which pass through. |
+| tl-a-4 | Fleet | Inspect a sample of vehicles, agree them to registration documents, and test depreciation, disposals, leases and impairment of idle vehicles. |
+| tl-a-5 | Fuel and maintenance | Analyse fuel cost per kilometre or trip and maintenance by vehicle, and investigate outliers. |
+| tl-a-6 | Claims | Review claims for damaged or lost goods, accidents and insurance recoveries. |
+
+Added review steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| tl-r-1 | Revenue | Compare revenue per vehicle or trip and fuel costs to last year, and enquire about differences. |
+| tl-r-2 | Fleet | Enquire about vehicles bought, sold, leased or off the road. |
+| tl-r-3 | Claims | Enquire about claims and accidents in the year. |
+
+Added disclosure checklist items:
+
+| Id | Section | Item |
+| --- | --- | --- |
+| tl-revenue | Section 23: Revenue | Where the company acts as agent, revenue is the commission or margin, not the gross amount collected, and the policy says so. |
+| tl-leases | Section 20: Leases | Vehicles held under leases are disclosed with the lease commitments. |
+
+Added client requests:
+
+| Request | Detail |
+| --- | --- |
+| Fleet register | Vehicles owned and leased, with registration documents, and those off the road at the year end. |
+| Trip sheets and waybills | Trip sheets, waybills and delivery notes for the last weeks of the year. |
+| Fuel and maintenance records | Fuel and maintenance cost by vehicle for the year. |
+| Insurance claims | Claims made and received for accidents and goods in transit. |
+
+### Technology, software and telecommunications services
+Software, SaaS, internet and telecom service businesses, where the risks are subscription revenue, capitalised development, and customer deposits.
+
+Added audit steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| tc-a-1 | Revenue | Reconcile subscription and usage revenue to the billing system, and test deferred revenue for periods after the year end. |
+| tc-a-2 | Revenue | For contracts with several elements (licences, set-up, support, hardware), test how the price is allocated and when each part is recognised. |
+| tc-a-3 | Revenue | Test prepaid airtime, data and wallet balances held for customers, and breakage on unused credit. |
+| tc-a-4 | Development costs | Test software development costs: the IFRS for SMEs expenses research and development, so confirm that none has been capitalised. |
+| tc-a-5 | Intangibles | Agree purchased software, licences and spectrum to contracts and test amortisation and impairment. |
+| tc-a-6 | IT general controls | Assess access, change management and data backups over the billing and accounting systems the audit relies on. |
+| tc-a-7 | Foreign currency | Test foreign currency licence fees, cloud hosting and payables at the closing rate. |
+
+Added review steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| tc-r-1 | Revenue | Compare recurring revenue, customer numbers and churn to last year and enquire about changes. |
+| tc-r-2 | Development costs | Enquire how development costs are accounted for. |
+| tc-r-3 | Revenue | Enquire how deferred revenue is calculated at the year end. |
+
+Added disclosure checklist items:
+
+| Id | Section | Item |
+| --- | --- | --- |
+| tc-revenue | Section 23: Revenue | The policy explains how subscriptions, licences, set-up and support are recognised, and deferred revenue is shown as a liability. |
+| tc-intangibles | Section 18: Intangible assets | Development expenditure is expensed, and purchased software and licences are amortised and disclosed. |
+
+Added client requests:
+
+| Request | Detail |
+| --- | --- |
+| Billing system reports | Revenue, deferred revenue and customer numbers by month, reconciled to the ledger. |
+| Customer contracts | Contracts for the largest customers, showing the elements sold and their prices. |
+| Software and licences register | Software, licences and spectrum held, with contracts and terms. |
+| System access and change logs | User access lists and change logs for the billing and accounting systems. |
+
+### Wholesale, retail and FMCG distribution
+Shops, supermarkets, wholesalers and distributors with many small sales, where the risks are cash, stock shrinkage, rebates and returns.
+
+Added audit steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| rt-a-1 | Revenue | Reconcile point-of-sale and van sales reports to cash, card and transfer settlements and bank, store by store. |
+| rt-a-2 | Revenue | Test returns, credit notes and discounts after the year end for sales that should be reversed. |
+| rt-a-3 | Rebates | Agree supplier rebates and promotional support to agreements, and test that only rebates earned are recognised. |
+| rt-a-4 | Inventories | Attend counts at the main warehouse and a sample of stores, and analyse shrinkage against the records. |
+| rt-a-5 | Inventories | Identify slow-moving, expired and damaged stock and test the write-down. |
+| rt-a-6 | Distributors | Confirm balances with major distributors and customers, and test credit limits and after-date receipts. |
+
+Added review steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| rt-r-1 | Revenue | Compare sales and margins by store or channel to last year, and enquire about differences. |
+| rt-r-2 | Inventories | Enquire about counts, shrinkage and how expired stock is written off. |
+| rt-r-3 | Rebates | Enquire how supplier rebates are recognised. |
+
+Added disclosure checklist items:
+
+| Id | Section | Item |
+| --- | --- | --- |
+| rt-rebates | Section 13: Inventories | The policy explains how supplier rebates and discounts reduce the cost of inventories. |
+| rt-returns | Section 23: Revenue | Revenue is shown net of returns, discounts and rebates given to customers. |
+
+Added client requests:
+
+| Request | Detail |
+| --- | --- |
+| Point-of-sale reports | Daily sales by store with settlement reports for the last month of the year. |
+| Supplier rebate agreements | Rebate and promotional support agreements with suppliers, and the calculations. |
+| Store count results | Count results by store and warehouse, with shrinkage analysis. |
+| Returns after the year end | Credit notes and returns in the first month after the year end. |
+
+### Cooperatives, thrift and credit societies
+Member-owned societies that take savings and lend to members, where the risks are members’ balances, loan losses and compliance with the cooperative law.
+
+Added audit steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| cp-a-1 | Members’ savings | Reconcile members’ savings and share contributions to the members’ ledger, and send balance confirmations to a sample of members. |
+| cp-a-2 | Loans to members | Test loans to the loan register, agreements, guarantors and approvals, and test repayments from payroll deductions or cash. |
+| cp-a-3 | Loans to members | Age loans in arrears, and test the allowance for loans unlikely to be repaid, including loans to officers. |
+| cp-a-4 | Income | Recalculate interest and charges on loans, and test investment income. |
+| cp-a-5 | Payroll deductions | Reconcile deductions remitted by employers to amounts credited to members. |
+| cp-a-6 | Governance | Read the bye-laws and general meeting minutes, and test dividends and patronage refunds declared against them. |
+| cp-a-7 | Compliance | Confirm registration with the cooperative regulator and compliance with its reporting and reserve requirements. |
+
+Added review steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| cp-r-1 | Loans to members | Enquire about arrears and loans written off, and compare the allowance to last year. |
+| cp-r-2 | Members’ savings | Compare members’ savings and loans to last year and enquire about changes. |
+| cp-r-3 | Governance | Enquire about decisions of the general meeting on dividends and reserves. |
+
+Added disclosure checklist items:
+
+| Id | Section | Item |
+| --- | --- | --- |
+| cp-loans | Section 11: Basic financial instruments | Loans to members are disclosed with the terms, arrears and the allowance for impairment. |
+| cp-savings | Section 11: Basic financial instruments | Members’ savings and deposits are classified as liabilities, and share contributions as equity only where the bye-laws allow the society to refuse redemption. |
+| cp-officers | Section 33: Related party disclosures | Loans and other transactions with committee members and officers are disclosed. |
+
+Added client requests:
+
+| Request | Detail |
+| --- | --- |
+| Members’ ledger | Savings, shares and loan balances for every member at the year end. |
+| Loan register and agreements | Loans granted, repaid and in arrears, with agreements and guarantor forms. |
+| Employer deduction schedules | Payroll deduction schedules from employers and the remittances received. |
+| Bye-laws and minutes | The bye-laws and minutes of general and committee meetings. |
+
+### Media, entertainment and events
+Broadcasters, publishers, producers and event organisers, where the risks are advertising revenue, content rights and advance ticket sales.
+
+Added audit steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| me-a-1 | Revenue | Agree advertising revenue to bookings, transmission or publication logs and invoices, and test agency commissions and discounts. |
+| me-a-2 | Revenue | Test barter transactions, and recognise them only where they can be measured reliably. |
+| me-a-3 | Revenue | Test ticket sales and sponsorship received in advance for events after the year end. |
+| me-a-4 | Content | Agree content rights and productions to contracts, and test amortisation and impairment of content that will not earn its cost. |
+| me-a-5 | Royalties | Test royalties payable to artists and rights holders. |
+| me-a-6 | Compliance | Confirm broadcasting and operating licences are current. |
+
+Added review steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| me-r-1 | Revenue | Compare advertising and event revenue to last year and enquire about changes. |
+| me-r-2 | Content | Enquire how content rights are amortised and tested for impairment. |
+
+Added disclosure checklist items:
+
+| Id | Section | Item |
+| --- | --- | --- |
+| me-revenue | Section 23: Revenue | The policy explains how advertising, sponsorship and ticket revenue are recognised, and income received in advance is shown as a liability. |
+| me-content | Section 18: Intangible assets | Content rights are disclosed with the amortisation method and any impairment. |
+
+Added client requests:
+
+| Request | Detail |
+| --- | --- |
+| Advertising bookings and logs | Bookings and transmission or publication logs for the last month of the year. |
+| Content and rights contracts | Contracts for content acquired or produced, with rights periods. |
+| Event schedules | Events after the year end with tickets sold and sponsorship received. |
+
+### Power, renewable energy and utilities
+Generators, solar installers and pay-as-you-go energy providers, where the risks are metered revenue, long-lived plant and customer financing.
+
+Added audit steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| en-a-1 | Revenue | Reconcile energy sold to meter readings, the billing system and tariffs, and test unbilled energy at the year end. |
+| en-a-2 | Revenue | For pay-as-you-go and lease-to-own systems, test the split between sale of equipment and financing income, and customer receivables. |
+| en-a-3 | Plant | Test additions to generation, distribution and solar assets, useful lives, and impairment where plant is under-used. |
+| en-a-4 | Grants | Agree results-based financing and grants to agreements, and test that conditions are met before income is recognised. |
+| en-a-5 | Provisions | Review warranty obligations and decommissioning or battery disposal costs. |
+| en-a-6 | Compliance | Confirm licences from the electricity regulator and compliance with tariff orders. |
+
+Added review steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| en-r-1 | Revenue | Compare units sold, tariffs and collection rates to last year and enquire about changes. |
+| en-r-2 | Plant | Enquire about plant availability and assets out of use. |
+| en-r-3 | Grants | Enquire about grants and results-based financing received. |
+
+Added disclosure checklist items:
+
+| Id | Section | Item |
+| --- | --- | --- |
+| en-revenue | Section 23: Revenue | The policy explains how energy sales, equipment sales and financing income are recognised. |
+| en-grants | Section 24: Government grants | Grants and results-based financing are disclosed with conditions not yet met. |
+| en-warranty | Section 21: Provisions and contingencies | Warranty and decommissioning provisions are disclosed. |
+
+Added client requests:
+
+| Request | Detail |
+| --- | --- |
+| Meter and billing reports | Energy generated, sold and billed by month, with tariff schedules. |
+| Customer financing portfolio | Pay-as-you-go and lease-to-own contracts with balances and arrears. |
+| Grant and financing agreements | Grant, results-based financing and concessional loan agreements. |
+| Licences | Generation, distribution or mini-grid licences. |
+
+### Insurance brokers and agents
+Intermediaries paid by commission, where the risks are premiums held for insurers, commission cut-off and regulatory capital.
+
+Added audit steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| ib-a-1 | Premiums held | Reconcile premiums collected from clients to amounts remitted to insurers, and confirm amounts held for insurers at the year end. |
+| ib-a-2 | Commission | Agree commission to placement slips, debit notes and insurer statements, and test when it is earned. |
+| ib-a-3 | Commission | Provide for commission refundable on policies cancelled after the year end. |
+| ib-a-4 | Client money | Confirm that premium bank accounts are kept separate and are not used for the broker’s own expenses. |
+| ib-a-5 | Compliance | Confirm the licence, professional indemnity cover and any capital or deposit requirements of the insurance regulator. |
+
+Added review steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| ib-r-1 | Commission | Compare commission by insurer and class of business to last year and enquire about changes. |
+| ib-r-2 | Premiums held | Enquire how premiums held for insurers are reconciled and remitted. |
+
+Added disclosure checklist items:
+
+| Id | Section | Item |
+| --- | --- | --- |
+| ib-revenue | Section 23: Revenue | Revenue is commission earned as agent, not gross premiums, and the policy says when it is recognised. |
+| ib-fiduciary | Section 8: Notes | Premiums held for insurers are shown as liabilities with the related bank balances, or explained where held in trust. |
+
+Added client requests:
+
+| Request | Detail |
+| --- | --- |
+| Premium and commission register | Policies placed, premiums collected and remitted, and commission earned, by insurer. |
+| Insurer statements | Statements of account from insurers at the year end. |
+| Premium bank accounts | Bank statements and reconciliations for premium accounts. |
+| Licence and indemnity cover | The broker’s licence and professional indemnity policy. |
+
+### Payment services, agency banking and fintech
+Payment, wallet and agency businesses holding customer money in transit, where the risks are customer float, settlement and fraud. Banks and insurers that report under full IFRS are out of scope.
+
+Added audit steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| fn-a-1 | Customer funds | Reconcile customer wallet and float balances to the platform ledger and to the bank or trust accounts that hold them, daily for the last week of the year. |
+| fn-a-2 | Settlement | Test settlement with switches, card schemes, banks and agents, and investigate unsettled and suspense items at the year end. |
+| fn-a-3 | Revenue | Recalculate fee and commission income from transaction volumes and the fee schedule, and test revenue shares with partners. |
+| fn-a-4 | Fraud and chargebacks | Review chargebacks, disputed and fraudulent transactions, and provide for losses. |
+| fn-a-5 | IT general controls | Assess access, change management and reconciliations over the transaction platform. |
+| fn-a-6 | Compliance | Confirm the licence, minimum capital and the regulator’s returns, and enquire about sanctions. |
+
+Added review steps:
+
+| Id | Area | Step |
+| --- | --- | --- |
+| fn-r-1 | Customer funds | Enquire how customer funds are reconciled and held, and compare balances to last year. |
+| fn-r-2 | Revenue | Compare transaction volumes and fee income to last year. |
+| fn-r-3 | Fraud | Enquire about fraud losses and chargebacks in the year. |
+
+Added disclosure checklist items:
+
+| Id | Section | Item |
+| --- | --- | --- |
+| fn-customer-funds | Section 11: Basic financial instruments | Customer funds and the related liabilities are shown or disclosed, with any restriction on the cash that holds them. |
+| fn-revenue | Section 23: Revenue | Fee and commission income is recognised as the services are provided, net of amounts that belong to partners. |
+
+Added client requests:
+
+| Request | Detail |
+| --- | --- |
+| Platform ledger reports | Customer balances, transaction volumes and fees by month, reconciled to the ledger. |
+| Settlement reconciliations | Settlement reconciliations with switches, schemes and banks at the year end. |
+| Customer funds accounts | Bank or trust account statements holding customer funds. |
+| Licence and regulatory returns | The operating licence and returns to the regulator for the year. |
 
 Reviewer: ______________________  Date: ____________  Accepted / Accepted with changes / Rejected
 

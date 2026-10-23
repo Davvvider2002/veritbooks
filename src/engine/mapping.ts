@@ -48,14 +48,33 @@ const RULES: Rule[] = [
   [/expense|cost/, 'admin_expenses', 'other'],
 ];
 
+/** Not-for-profit names, tried first for a not-for-profit entity. */
+const NPO_RULES: Rule[] = [
+  [/endowment/, 'endowment_funds'],
+  [/restricted (fund|reserve)|designated fund|project fund|donor fund/, 'restricted_funds'],
+  [/accumulated fund|general fund|unrestricted (fund|reserve)|capital fund|accumulated (surplus|deficit)/, 'retained_earnings'],
+  [/grant|donor (income|fund)|funding received|subvention|sub.?grant (income|received)/, 'grant_income'],
+  [/donation|gift|offering|tithe|contribution|pledge|zakat|fundrais\w* income|appeal income/, 'donations'],
+  [/fundrais|appeal (cost|expense)|donor development/, 'fundraising_costs', 'other'],
+  [/programme|program|project (cost|expense)|beneficiar|outreach|relief|field (cost|expense|activit)|training of|workshop|scholarship|bursar|medical outreach|grant(s)? (paid|made|to partner)|sub.?grants? (paid|disbursed)/, 'programme_expenses', 'other'],
+  [/board (expense|meeting)|trustees'? (expense|meeting)|governance|audit fee/, 'admin_expenses', 'other'],
+  [/membership (fee|subscription)s? (income|received)|registration fee income|tuition|school fees|consultancy income/, 'revenue'],
+];
+
+let npoProfile = false;
+/** Suggest not-for-profit lines too, for a not-for-profit engagement. */
+export const setMappingProfile = (npo: boolean) => {
+  npoProfile = npo;
+};
+
 export interface Suggestion {
   mapCode: string | null;
   nature: Nature | null;
 }
 
-export function suggestMapping(name: string): Suggestion {
+export function suggestMapping(name: string, npo = npoProfile): Suggestion {
   const n = name.toLowerCase();
-  for (const [re, code, nature] of RULES) {
+  for (const [re, code, nature] of npo ? [...NPO_RULES, ...RULES] : RULES) {
     if (re.test(n)) {
       return { mapCode: code, nature: NATURE_CODES.has(code) ? (nature ?? 'other') : null };
     }

@@ -1,0 +1,27 @@
+Hope Water and Education Foundation (sample data)
+Trial balance as at 31 December 2025
+,,,
+Account code,Account name,Debit,Credit
+1000,Land and buildings,"25,000,000.00",
+1090,Accumulated depreciation,,"5,000,000.00"
+1010,Motor vehicles,"12,000,000.00",
+1400,Bank - general account,"8,450,000.00",
+1410,Bank - USAID project account,"6,200,000.00",
+1300,Staff and partner advances,"1,150,000.00",
+2100,Accrued expenses,,"1,800,000.00"
+2200,Deferred income,,"2,500,000.00"
+3000,Accumulated fund,,"33,500,000.00"
+3100,Restricted fund - USAID WASH,,"3,000,000.00"
+3200,Endowment fund,,"5,000,000.00"
+4000,Grant income - USAID WASH,,"45,000,000.00"
+4010,Grant income - Ford Foundation education,,"18,000,000.00"
+4100,Donations and offerings,,"9,500,000.00"
+4200,Interest income,,"600,000.00"
+5000,Programme costs - WASH boreholes,"38,000,000.00",
+5010,Programme costs - education scholarships,"16,500,000.00",
+5100,Fundraising costs,"1,200,000.00",
+6000,Salaries and wages,"9,800,000.00",
+6100,Depreciation,"2,400,000.00",
+6200,Office rent,"1,800,000.00",
+6300,Audit fee,"900,000.00",
+6400,Board meeting expenses,"500,000.00",

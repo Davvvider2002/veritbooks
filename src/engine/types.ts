@@ -8,6 +8,7 @@ export type Kobo = number;
 export type Nature = 'staff' | 'depreciation' | 'other';
 export type EngagementType = 'audit' | 'review' | 'compilation';
 export type Role = 'partner' | 'manager' | 'staff';
+export type EntityKind = 'company' | 'npo';
 
 export interface TbLine {
   id: string;
@@ -22,6 +23,8 @@ export interface TbLine {
   prior4?: Kobo | null;
   mapCode: string | null;
   nature: Nature | null;
+  /** Not-for-profit: the restricted fund (a grant, project or donor) the account belongs to. Null for unrestricted. */
+  fund?: string | null;
 }
 
 export interface JournalLine {
@@ -38,7 +41,7 @@ export interface Adjustment {
 }
 
 export interface Planning {
-  benchmark?: 'revenue' | 'profit_before_tax' | 'total_assets' | 'equity';
+  benchmark?: 'revenue' | 'profit_before_tax' | 'total_assets' | 'equity' | 'total_income' | 'total_expenditure';
   percent?: number;
   performancePercent?: number;
   trivialPercent?: number;
@@ -49,6 +52,10 @@ export interface Planning {
   independence?: Record<string, { name: string; at: string; note: string }>;
   /** The industry pack that adds to the general programme, checklist and request list. */
   industry?: string;
+  /** The kind of entity: a company (the default) or a not-for-profit organisation. */
+  entity?: EntityKind;
+  /** A not-for-profit's legal form, such as incorporated trustees. */
+  legalForm?: string;
 }
 
 export interface ProgrammeState {

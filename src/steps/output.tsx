@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { downloadWorkbook } from '../excel';
+import { formPhrase, governorsOf, legalFormOf } from '../content/entities';
 import { POLICIES, policyCodes } from '../content/notes';
 import { checklistFor, programmeFor } from '../content/packs';
 import { repo } from '../data';
@@ -91,6 +92,18 @@ export function StatementsStep(ctx: Ctx) {
   const year = eng.yearEnd.slice(0, 4);
   const prior = st.hasPrior ? String(Number(year) - 1) : null;
   const r = eng.report;
+  // A not-for-profit: its governors, its own words for the statements, and the organisation.
+  const form = legalFormOf(eng.planning, j.code);
+  const npo = !!form;
+  const gv = governorsOf(eng.planning, j.code);
+  const body = form?.governors === 'board' ? 'board' : gv.plural;
+  const org = npo ? 'organisation' : 'company';
+  const T = {
+    report: npo ? `Report of the ${body}` : 'Report of the directors',
+    duties: npo ? `Statement of ${gv.possessive} responsibilities` : 'Statement of directors’ responsibilities',
+    income: npo ? 'Statement of income and expenditure' : 'Statement of profit or loss and other comprehensive income',
+    equity: npo ? 'Statement of changes in funds' : 'Statement of changes in equity',
+  };
   const [trace, setTrace] = useState<Opened | null>(null);
   const onTrace: OnTrace = setTrace;
   const lineOf = (code: string) => lines.find((l) => l.code === code)?.id;
@@ -115,18 +128,18 @@ export function StatementsStep(ctx: Ctx) {
   const balanced = st.cur.totalAssets === st.cur.totalEquityAndLiabilities;
   const policies = Object.entries(POLICIES).filter(([code]) => st.notes.has(code));
   const b = ws.firm.branding;
-  const sheet = `sheet${b.font === 'sans' ? ' sans' : ''}`;
+  const sheet = 'sheet';
   // The independent report sits after the directors' pages, where a reader expects it.
   const reportDraft = (eng.status === 'locked' && r.signedReport) || draftFor(ctx, r);
   const showReport = true;
   const reportTitle = eng.type === 'audit' ? 'Independent auditor’s report' : eng.type === 'review' ? 'Independent practitioner’s review report' : 'Accountant’s compilation report';
   const contents = [
-    { id: 'fs-directors', title: 'Report of the directors' },
-    { id: 'fs-responsibilities', title: 'Statement of directors’ responsibilities' },
+    { id: 'fs-directors', title: T.report },
+    { id: 'fs-responsibilities', title: T.duties },
     ...(showReport ? [{ id: 'fs-report', title: reportTitle }] : []),
     { id: 'fs-position', title: 'Statement of financial position' },
-    { id: 'fs-income', title: 'Statement of profit or loss and other comprehensive income' },
-    { id: 'fs-equity', title: 'Statement of changes in equity' },
+    { id: 'fs-income', title: T.income },
+    { id: 'fs-equity', title: T.equity },
     ...(st.cashFlow ? [{ id: 'fs-cashflow', title: 'Statement of cash flows' }] : []),
     { id: 'fs-notes', title: 'Notes to the financial statements' },
     ...(j.nationalStatements
@@ -177,13 +190,13 @@ export function StatementsStep(ctx: Ctx) {
       {b.contents !== false && <ContentsSheet ctx={ctx} entries={contents} />}
 
       <section className={sheet} id="fs-directors">
-        <SheetHead ctx={ctx} title="Report of the directors" />
+        <SheetHead ctx={ctx} title={T.report} />
         <p>
-          The directors present their report and the financial statements of {client.name} for the year ended {longDate(eng.yearEnd)}.
+          The {npo ? gv.plural : 'directors'} present their report and the financial statements of {client.name} for the year ended {longDate(eng.yearEnd)}.
         </p>
-        <h3>Principal activity</h3>
-        <p>{r.principalActivity ? `The principal activity of the company is ${r.principalActivity}.` : '[Describe the principal activity in the Report step.]'}</p>
-        <h3>Results and dividends</h3>
+        <h3>{npo ? 'Objectives and activities' : 'Principal activity'}</h3>
+        <p>{r.principalActivity ? `The principal activity of the ${org} is ${r.principalActivity}.` : '[Describe the principal activity in the Report step.]'}</p>
+        <h3>{npo ? 'Financial review' : 'Results and dividends'}</h3>
         <table className="fs">
           <thead>
             <tr>
@@ -193,14 +206,21 @@ export function StatementsStep(ctx: Ctx) {
             </tr>
           </thead>
           <tbody>
-            {(
-              [
+            {(npo
+              ? ([
+                  ['Total income', st.cur.totalIncome, st.prior?.totalIncome],
+                  ['Total expenditure', st.cur.totalExpenditure, st.prior?.totalExpenditure],
+                  ['Surplus/(deficit) for the year', st.cur.profit, st.prior?.profit],
+                  ['Unrestricted funds at the end of the year', st.cur.closingRetained, st.prior?.closingRetained],
+                  ['Restricted funds at the end of the year', st.cur.closingRestricted, st.prior?.closingRestricted],
+                ] as [string, number, number | undefined][])
+              : ([
                 ['Revenue', st.cur.v.revenue, st.prior?.v.revenue],
                 ['Profit before tax', st.cur.pbt, st.prior?.pbt],
                 ['Income tax expense', -st.cur.v.income_tax_expense, st.prior ? -st.prior.v.income_tax_expense : undefined],
                 ['Profit for the year', st.cur.profit, st.prior?.profit],
                 ['Dividends declared', st.cur.v.dividends, st.prior?.v.dividends],
-              ] as [string, number, number | undefined][]
+              ] as [string, number, number | undefined][])
             ).map(([label, c, p]) => (
               <tr key={label}>
                 <td>{label}</td>
@@ -210,15 +230,15 @@ export function StatementsStep(ctx: Ctx) {
             ))}
           </tbody>
         </table>
-        <h3>Directors</h3>
+        <h3>{npo ? gv.Plural : 'Directors'}</h3>
         <p>
-          {directors.length > 0 ? `The directors who served during the year were: ${directors.join(', ')}.` : TBC}
+          {directors.length > 0 ? `The ${npo ? gv.plural : 'directors'} who served during the year were: ${directors.join(', ')}.` : TBC}
         </p>
         <h3>Property, plant and equipment</h3>
         <p>Movements in property, plant and equipment during the year are shown in the notes to the financial statements.</p>
         <h3>Employees</h3>
         <p>
-          {d.employees !== undefined ? `The average number of persons employed by the company during the year was ${d.employees}.` : TBC}
+          {d.employees !== undefined ? `The average number of persons employed by the ${org} during the year was ${d.employees}.` : TBC}
         </p>
         <h3>Events after the reporting date</h3>
         <p>{d.subsequentEvents?.trim() || TBC}</p>
@@ -230,11 +250,11 @@ export function StatementsStep(ctx: Ctx) {
         </p>
         <div className="sign-grid">
           <div className="sign-line">
-            By order of the board
+            By order of the {npo ? body : 'board'}
             <br />
-            {d.secretary?.trim() || '[Company secretary]'}
+            {d.secretary?.trim() || (npo ? '[Secretary]' : '[Company secretary]')}
             <br />
-            Company Secretary
+            {npo ? 'Secretary' : 'Company Secretary'}
             <br />
             {d.registeredOffice?.trim() || '[Registered office]'}
           </div>
@@ -243,31 +263,31 @@ export function StatementsStep(ctx: Ctx) {
       </section>
 
       <section className={sheet} id="fs-responsibilities">
-        <SheetHead ctx={ctx} title="Statement of directors’ responsibilities" sub={`in relation to the financial statements for the year ended ${longDate(eng.yearEnd)}`} />
+        <SheetHead ctx={ctx} title={T.duties} sub={`in relation to the financial statements for the year ended ${longDate(eng.yearEnd)}`} />
         <p>
-          {j.companiesAct ? upper(`${j.companiesAct} requires`) : 'The directors are required'}
-          {j.companiesAct ? ' the directors' : ''} to prepare financial statements for each financial year that give a true and fair view of the state of affairs of the company at the end of the year and of its profit or loss for the year.
+          {j.companiesAct ? upper(`${j.companiesAct} requires`) : `The ${npo ? gv.plural : 'directors'} are required`}
+          {j.companiesAct ? ` the ${npo ? gv.plural : 'directors'}` : ''} to prepare financial statements for each financial year that give a true and fair view of the state of affairs of the {org} at the end of the year and of its {npo ? 'surplus or deficit' : 'profit or loss'} for the year.
         </p>
-        <p>In preparing these financial statements, the directors are responsible for:</p>
+        <p>In preparing these financial statements, the {npo ? gv.plural : 'directors'} are responsible for:</p>
         <p>
-          (a) keeping proper accounting records that disclose, with reasonable accuracy, the financial position of the company and enable the financial statements to comply with {law ?? frameworkText(j)};
+          (a) keeping proper accounting records that disclose, with reasonable accuracy, the financial position of the {org} and enable the financial statements to comply with {law ?? frameworkText(j)};
         </p>
-        <p>(b) establishing adequate internal controls to safeguard the company’s assets and to prevent and detect fraud and other irregularities;</p>
+        <p>(b) establishing adequate internal controls to safeguard the {org}’s assets{npo ? ', to apply restricted funds only for the purposes for which they were given,' : ''} and to prevent and detect fraud and other irregularities;</p>
         <p>
           (c) selecting suitable accounting policies, applying them consistently, and making judgments and estimates that are reasonable and prudent, in accordance with the IFRS for SMEs Accounting Standard; and
         </p>
-        <p>(d) preparing the financial statements on the going concern basis unless it is inappropriate to presume that the company will continue in business.</p>
+        <p>(d) preparing the financial statements on the going concern basis unless it is inappropriate to presume that the {org} will continue {npo ? 'its activities' : 'in business'}.</p>
         <p>
-          The directors accept responsibility for the financial statements, which have been prepared using appropriate accounting policies supported by reasonable and prudent judgments and estimates, in conformity with the IFRS for SMEs Accounting Standard{j.companiesAct ? ` and the requirements of ${j.companiesAct}` : ''}.
+          The {npo ? gv.plural : 'directors'} accept responsibility for the financial statements, which have been prepared using appropriate accounting policies supported by reasonable and prudent judgments and estimates, in conformity with the IFRS for SMEs Accounting Standard{j.companiesAct ? ` and the requirements of ${j.companiesAct}` : ''}.
         </p>
         <p>{d.goingConcern?.trim() || TBC}</p>
         <div className="sign-grid">
           <div className="sign-line">
-            {r.ceoName || '[Director]'}
+            {r.ceoName || (npo ? `[${gv.Plural.replace(/s$/, '')}]` : '[Director]')}
             {officer(r.ceoFrc)}
           </div>
           <div className="sign-line">
-            {r.cfoName || '[Director]'}
+            {r.cfoName || (npo ? `[${gv.Plural.replace(/s$/, '')}]` : '[Director]')}
             {officer(r.cfoFrc)}
           </div>
         </div>
@@ -281,19 +301,19 @@ export function StatementsStep(ctx: Ctx) {
         <StatementTable rows={st.position} curLabel={year} priorLabel={prior} notes onTrace={onTrace} />
         <div className="approval">
           <p>
-            These financial statements were approved by the board of directors on ____________________ and signed on its behalf by:
+            These financial statements were approved by the {npo ? (form?.governors === 'board' ? 'board' : gv.plural) : 'board of directors'} on ____________________ and signed on {npo && form?.governors !== 'board' ? 'their' : 'its'} behalf by:
           </p>
           <div className="sign-grid">
             <div className="sign-line">
-              {r.ceoName || '[Chief executive officer]'}
+              {r.ceoName || (npo ? `[${gv.Plural.replace(/s$/, '')}]` : '[Chief executive officer]')}
               <br />
-              Chief Executive Officer
+              {npo ? (form?.governors === 'trustees' ? 'Trustee' : form?.governors === 'board' ? 'Board member' : 'Director') : 'Chief Executive Officer'}
               {officer(r.ceoFrc)}
             </div>
             <div className="sign-line">
-              {r.cfoName || '[Chief financial officer]'}
+              {r.cfoName || (npo ? `[${gv.Plural.replace(/s$/, '')}]` : '[Chief financial officer]')}
               <br />
-              Chief Financial Officer
+              {npo ? (form?.governors === 'trustees' ? 'Trustee' : form?.governors === 'board' ? 'Board member' : 'Director') : 'Chief Financial Officer'}
               {officer(r.cfoFrc)}
             </div>
           </div>
@@ -302,16 +322,16 @@ export function StatementsStep(ctx: Ctx) {
       </section>
 
       <section className={sheet} id="fs-income">
-        <SheetHead ctx={ctx} title="Statement of profit or loss and other comprehensive income" />
+        <SheetHead ctx={ctx} title={T.income} />
         <StatementTable rows={st.income} curLabel={year} priorLabel={prior} notes onTrace={onTrace} />
-        <p style={{ marginTop: 16 }}>There were no items of other comprehensive income in the year.</p>
+        {!npo && <p style={{ marginTop: 16 }}>There were no items of other comprehensive income in the year.</p>}
         <PageFoot ctx={ctx} />
       </section>
 
       <section className={sheet} id="fs-equity">
-        <SheetHead ctx={ctx} title="Statement of changes in equity" />
+        <SheetHead ctx={ctx} title={T.equity} />
         <EquityRows table={st.equity} onTrace={onTrace} />
-        {equityPrior && (
+        {equityPrior && !npo && (
           <>
             <h3 style={{ marginTop: 28 }}>For the year ended {longDate(`${prior}${eng.yearEnd.slice(4)}`)}</h3>
             <EquityRows table={equityPrior} onTrace={onTrace} />
@@ -338,12 +358,17 @@ export function StatementsStep(ctx: Ctx) {
         <h3>1. General information</h3>
         <p>
           {client.name}
-          {client.rcNumber ? ` (${j.companyNumberLabel} ${client.rcNumber})` : ''} is a company incorporated and domiciled in {j.inName}{j.companiesAct ? ` under ${j.companiesAct}` : ''}.{' '}
+          {client.rcNumber ? ` (${j.companyNumberLabel} ${client.rcNumber})` : ''}{' '}
+          {npo
+            ? `is a not-for-profit organisation domiciled in ${j.inName}, constituted as ${formPhrase(form!)}${j.companiesAct ? ` under ${j.companiesAct}` : ''}.`
+            : `is a company incorporated and domiciled in ${j.inName}${j.companiesAct ? ` under ${j.companiesAct}` : ''}.`}{' '}
           {r.principalActivity ? `Its principal activity is ${r.principalActivity}.` : '[Describe the principal activity.]'}
         </p>
         <h3>2. Basis of preparation and significant accounting policies</h3>
         <p>
-          These financial statements have been prepared in accordance with the IFRS for SMEs Accounting Standard issued by the International Accounting Standards Board{j.adoptedBy ? `, as adopted by ${j.adoptedBy}` : ''}{j.companiesAct ? `, and the requirements of ${j.companiesAct}` : ''}. They are presented in {currencyOf(eng.currency).name}, the company’s functional currency, and are prepared under the historical cost convention.
+          These financial statements have been prepared in accordance with the IFRS for SMEs Accounting Standard issued by the International Accounting Standards Board{j.adoptedBy ? `, as adopted by ${j.adoptedBy}` : ''}{j.companiesAct ? `, and the requirements of ${j.companiesAct}` : ''}. They are presented in {currencyOf(eng.currency).name}, the {org}’s functional currency, and are prepared under the historical cost convention.
+          {npo &&
+            ' As a not-for-profit organisation, it presents a statement of income and expenditure in place of a statement of profit or loss, and its funds in place of equity. Restricted funds are amounts given for a purpose set by the donor or grantor; they are shown separately until spent on that purpose. Unrestricted funds may be used for any of its objectives. Grants and donations are recognised as income when the organisation is entitled to them and they can be measured reliably; a grant with conditions not yet met is held as deferred income.'}
         </p>
         {policies.map(([code, p]) => ({ code, title: p.title, text: d.policies?.[code]?.text || p.text })).map(({ code, ...p }) => (
           <p key={code}>
@@ -440,17 +465,54 @@ export function StatementsStep(ctx: Ctx) {
           let n = 3 + st.noteBreakdowns.length;
           return (
             <>
-              <h3>{n++}. Employees and directors</h3>
+              {npo && st.funds && st.funds.length > 0 && (
+                <>
+                  <h3>{n++}. Restricted funds</h3>
+                  <p>Restricted funds are held for the purposes set by the donors and grantors named below. Each fund’s movement in the year was:</p>
+                  <div className="scroll-x">
+                    <table className="fs wide" aria-label="Restricted funds">
+                      <thead>
+                        <tr>
+                          <th>Fund</th>
+                          <th className="num">At start of year<br />{cur()}</th>
+                          <th className="num">Income<br />{cur()}</th>
+                          <th className="num">Expenditure<br />{cur()}</th>
+                          <th className="num">At end of year<br />{cur()}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {st.funds.map((f) => (
+                          <tr key={f.name}>
+                            <td>{f.name}</td>
+                            <td className="num">{fmt(f.opening)}</td>
+                            <td className="num">{fmt(f.income)}</td>
+                            <td className="num">{fmt(-f.expenditure)}</td>
+                            <td className="num">{fmt(f.closing)}</td>
+                          </tr>
+                        ))}
+                        <tr className="total">
+                          <td>Total restricted funds</td>
+                          {(['opening', 'income', 'expenditure', 'closing'] as const).map((k) => (
+                            <td key={k} className="num">{fmt((k === 'expenditure' ? -1 : 1) * st.funds!.reduce((a, f) => a + f[k], 0))}</td>
+                          ))}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  {st.funds.some((f) => f.closing < 0) && <p className="small">A fund in deficit has spent more than it has received so far. Say how the deficit will be met, or whether it was funded from unrestricted funds.</p>}
+                </>
+              )}
+              <h3>{n++}. Employees and {npo ? gv.plural : 'directors'}</h3>
               <p>
                 {d.employees !== undefined
-                  ? `The average number of persons employed by the company during the year was ${d.employees}. Staff costs for the year, including pension contributions, were ${cur()}${fmt(st.cur.staff, { zero: 'nil' })}${st.prior ? ` (${prior}: ${cur()}${fmt(st.prior.staff, { zero: 'nil' })})` : ''}.`
+                  ? `The average number of persons employed by the ${org} during the year was ${d.employees}. Staff costs for the year, including pension contributions, were ${cur()}${fmt(st.cur.staff, { zero: 'nil' })}${st.prior ? ` (${prior}: ${cur()}${fmt(st.prior.staff, { zero: 'nil' })})` : ''}.`
                   : TBC}
               </p>
               <p>
                 {d.directorsRemuneration !== undefined
                   ? d.directorsRemuneration === 0
-                    ? 'No remuneration was paid to the directors in the year.'
-                    : `Remuneration paid to the directors in the year was ${cur()}${fmt(d.directorsRemuneration)}.`
+                    ? `No remuneration was paid to the ${npo ? gv.plural : 'directors'} in the year.`
+                    : `Remuneration paid to the ${npo ? gv.plural : 'directors'} in the year was ${cur()}${fmt(d.directorsRemuneration)}.`
                   : TBC}
               </p>
               <h3>{n++}. Related party transactions</h3>
@@ -546,7 +608,17 @@ export function StatementsStep(ctx: Ctx) {
 
 /** The report as the software would word it now, from the partner's settings. */
 function draftFor(ctx: Ctx, settings: ReportSettings) {
+  const form = legalFormOf(ctx.eng.planning, ctx.jur.code);
+  const g = governorsOf(ctx.eng.planning, ctx.jur.code);
+  const name = ctx.client.name;
   return draftReport({
+    npo: form
+      ? {
+          governors: g,
+          addressee:
+            form.governors === 'trustees' ? `To the Trustees of ${name}` : form.governors === 'board' ? `To the Board of ${name}` : ctx.eng.type === 'audit' ? `To the members of ${name}` : `To the directors of ${name}`,
+        }
+      : undefined,
     type: ctx.eng.type,
     clientName: ctx.client.name,
     yearEnd: ctx.eng.yearEnd,
@@ -565,7 +637,7 @@ function ReportSheet({ ctx, draft, ready }: { ctx: Ctx; draft: ReturnType<typeof
   const signed = eng.status === 'locked';
   const title = eng.type === 'audit' ? ctx.jur.signerTitle : undefined;
   return (
-    <section className={`sheet${ws.firm.branding.font === 'sans' ? ' sans' : ''}`} id="fs-report">
+    <section className="sheet" id="fs-report">
       <DraftMark locked={signed} />
       <BrandedHead ctx={ctx} />
       <div className="entity">{ws.firm.name}</div>

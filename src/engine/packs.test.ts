@@ -60,3 +60,22 @@ describe('the assist function', () => {
     expect(codes).toEqual(CHART.map((c) => c.code));
   });
 });
+
+describe('industry packs', () => {
+  it('has a pack for each main industry, with unique ids throughout', async () => {
+    const { PACKS } = await import('../content/packs');
+    const { PROGRAMMES } = await import('../content/programmes');
+    const { CHECKLIST } = await import('../content/checklist');
+    expect(PACKS.length).toBeGreaterThanOrEqual(17);
+    expect(new Set(PACKS.map((p) => p.id)).size).toBe(PACKS.length);
+    const programmeIds = [...Object.values(PROGRAMMES).flat(), ...PACKS.flatMap((p) => Object.values(p.programme).flat())].map((i) => i!.id);
+    expect(new Set(programmeIds).size).toBe(programmeIds.length);
+    const checklistIds = [...CHECKLIST, ...PACKS.flatMap((p) => p.checklist)].map((i) => i.id);
+    expect(new Set(checklistIds).size).toBe(checklistIds.length);
+    for (const p of PACKS) {
+      expect(p.programme.audit?.length, p.id).toBeGreaterThanOrEqual(5);
+      expect(p.programme.review?.length, p.id).toBeGreaterThanOrEqual(2);
+      expect(p.requests.length, p.id).toBeGreaterThanOrEqual(3);
+    }
+  });
+});

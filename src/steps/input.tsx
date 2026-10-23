@@ -4,14 +4,14 @@ import { SOURCES } from '../content/sources';
 import { Link } from 'react-router-dom';
 import { repo } from '../data';
 import type { MappingSuggestion } from '../data/repo';
-import { CHART, ITEM, NATURE_CODES, SECTION_LABEL, type Section } from '../engine/chart';
+import { CHART, ITEM, NATURE_CODES, NPO_CODES, NPO_LABEL, SECTION_LABEL, type Section } from '../engine/chart';
 import { validateTrialBalance } from '../engine/checks';
-import { normaliseNature } from '../engine/mapping';
+import { normaliseNature, setMappingProfile } from '../engine/mapping';
 import { mergeYears, purgeLines } from '../engine/merge';
 import { MAX_YEARS, placementProblems, readYears, SLOT_NAME, slotFor, SLOTS, yearOfSlot, type Slot, type YearSet } from '../engine/years';
 import { yearsHeld, yearValue } from '../engine/yearsOf';
 import { fmt2 } from '../engine/money';
-import type { Nature } from '../engine/types';
+import type { Nature, TbLine } from '../engine/types';
 import { ErrorNote, message, useAction } from '../ui';
 import type { Ctx } from '../workspace';
 import { AddAccount } from './accounts';
@@ -149,6 +149,7 @@ export function ImportStep({ eng, client, lines, adjustments, locked, reload }: 
   const save = () =>
     run(async () => {
       const saved = await repo.savedMappings(client.id);
+      setMappingProfile(eng.planning.entity === 'npo');
       const merged = mergeYears(lines, chosen.map((x) => ({ slot: x.slot!, lines: x.lines })), saved, adjustments);
       await repo.replaceLines(eng.id, merged);
       setSets(null);
@@ -499,6 +500,18 @@ export function MappingStep(ctx: Ctx) {
     [filter, lines],
   );
 
+  const npo = eng.planning.entity === 'npo';
+  const fundNames = useMemo(() => [...new Set(lines.map((l) => l.fund?.trim()).filter((x): x is string => !!x))].sort(), [lines]);
+  const fundable = (l: TbLine) => {
+    const sec = l.mapCode ? ITEM.get(l.mapCode)?.section : undefined;
+    return (sec === 'income' || sec === 'expense' || l.mapCode === 'restricted_funds') && l.mapCode !== 'income_tax_expense';
+  };
+  const setFund = (l: TbLine, fund: string) =>
+    run(async () => {
+      if ((l.fund ?? '') === fund.trim()) return;
+      await repo.setFund(eng.id, l, fund.trim() || null);
+      reload();
+    });
   const change = (lineId: string, mapCode: string | null, nature: Nature | null) =>
     run(async () => {
       const line = lines.find((l) => l.id === lineId)!;
@@ -520,6 +533,7 @@ export function MappingStep(ctx: Ctx) {
         <h2>Mapping</h2>
         <p className="muted" style={{ marginTop: 4 }}>
           Each account is mapped to a line in the financial statements. The suggestions come from account names, so review every line. Your choices are remembered for this client.
+          {npo && ' For this not-for-profit, tag each grant’s income, expenditure and brought forward balance to its restricted fund: the statements split the surplus between restricted and unrestricted funds from these tags. Leave the fund blank for unrestricted.'}
         </p>
       </div>
       <div className="row">
@@ -564,6 +578,7 @@ export function MappingStep(ctx: Ctx) {
               {withJournals && <th className="num">After journals</th>}
               <th>Statement line</th>
               <th>Nature</th>
+              {npo && <th>Restricted fund</th>}
             </tr>
           </thead>
           <tbody>
@@ -584,9 +599,9 @@ export function MappingStep(ctx: Ctx) {
                     <option value="">Not mapped</option>
                     {SECTIONS.map((s) => (
                       <optgroup key={s} label={SECTION_LABEL[s]}>
-                        {CHART.filter((i) => i.section === s).map((i) => (
+                        {CHART.filter((i) => i.section === s && (npo || !NPO_CODES.has(i.code) || i.code === l.mapCode)).map((i) => (
                           <option key={i.code} value={i.code}>
-                            {i.label}
+                            {(npo && NPO_LABEL[i.code]) || i.label}
                           </option>
                         ))}
                       </optgroup>
@@ -609,10 +624,37 @@ export function MappingStep(ctx: Ctx) {
                     <span className="muted">–</span>
                   )}
                 </td>
+                {npo && (
+                  <td>
+                    {fundable(l) ? (
+                      <input
+                        type="text"
+                        list="vb-funds"
+                        aria-label={`Restricted fund for ${l.name}`}
+                        placeholder="Unrestricted"
+                        disabled={locked}
+                        defaultValue={l.fund ?? ''}
+                        key={`${l.id}-${l.fund ?? ''}`}
+                        maxLength={80}
+                        onBlur={(e) => void setFund(l, e.target.value)}
+                        style={{ minWidth: 180 }}
+                      />
+                    ) : (
+                      <span className="muted">–</span>
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
+        {npo && (
+          <datalist id="vb-funds">
+            {fundNames.map((f) => (
+              <option key={f} value={f} />
+            ))}
+          </datalist>
+        )}
       </div>
       <p className="small muted">
         {withJournals && 'The statements use the balance after journals. '}

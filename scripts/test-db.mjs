@@ -836,5 +836,13 @@ const mbc = (await as2(Z, `select admin_user_contacts() as c`))[0].c;
 ok('the platform owner sees each account’s number', mbc.find((x) => x.id === MB)?.mobile === '+2348031234567');
 await denied('nobody else does', () => as2(MB, `select admin_user_contacts()`), /Not found/);
 
+// --- 0027: restricted funds on trial balance accounts ----------------------------------
+await db.exec(readFileSync('supabase/migrations/0027_npo_funds.sql', 'utf8'));
+const [nf] = await as(GH1, `select id from tb_lines where engagement_id = $1 limit 1`, [eg.id]);
+await as(GH1, `update tb_lines set fund = 'USAID WASH project' where id = $1`, [nf.id]);
+ok('an account can be tagged to a restricted fund', (await db.query(`select fund from tb_lines where id = $1`, [nf.id])).rows[0].fund === 'USAID WASH project');
+await denied('a fund name is kept short', () => as(GH1, `update tb_lines set fund = $2 where id = $1`, [nf.id, 'x'.repeat(81)]), /check/);
+await denied('another firm cannot tag it', () => as(B, `update tb_lines set fund = 'x' where id = $1 returning id`, [nf.id]).then((r) => { if (!r.length) throw new Error('blocked by row security'); }), /row security|permission/);
+
 console.log(failed ? `\n${failed} check(s) failed` : '\nAll database checks passed');
 process.exit(failed ? 1 : 0);

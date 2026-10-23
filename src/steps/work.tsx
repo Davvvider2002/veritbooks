@@ -9,6 +9,7 @@ import { journalRegister, SOURCE_LABEL, type JournalSource } from '../engine/jou
 import { longDate } from '../engine/report';
 import { downloadWorkbook } from '../excel';
 import { PACKS, PACK_VERSION, packOf, programmeFor } from '../content/packs';
+import { governorsOf, legalFormOf, LEGAL_FORMS } from '../content/entities';
 import { repo } from '../data';
 import { BENCHMARKS, benchmarkBase, computeMateriality, unadjustedEffect } from '../engine/checks';
 import { fmt, fmt2, parseAmount, cur } from '../engine/money';
@@ -18,13 +19,65 @@ import { ErrorNote, Field, useAction } from '../ui';
 import type { Ctx } from '../workspace';
 
 
-export function PlanningStep({ eng, statements, locked, reload }: Ctx) {
+/** Whether the client is a company or a not-for-profit, and for a not-for-profit its legal form. */
+function EntityKind({ ctx }: { ctx: Ctx }) {
+  const { eng, jur, locked, reload } = ctx;
+  const { busy, error, run } = useAction();
+  const npo = eng.planning.entity === 'npo';
+  const forms = LEGAL_FORMS[jur.code];
+  const form = legalFormOf(eng.planning, jur.code);
+  const save = (patch: Partial<Planning>) =>
+    void run(async () => {
+      const next = { ...eng.planning, ...patch };
+      // A not-for-profit takes the not-for-profit pack, unless another has been chosen.
+      if (patch.entity === 'npo' && !eng.planning.industry) next.industry = 'npo';
+      if (patch.entity === 'company' && eng.planning.industry === 'npo') next.industry = undefined;
+      if (patch.entity === 'npo' && !next.benchmark) next.benchmark = 'total_expenditure';
+      await repo.updateEngagement(eng.id, { planning: next });
+      reload();
+    });
+  return (
+    <div className="card stack" aria-label="Kind of entity">
+      <h3 style={{ margin: 0 }}>Kind of entity</h3>
+      <div className="grid2">
+        <Field label="The client is">
+          <select disabled={locked || busy} value={npo ? 'npo' : 'company'} onChange={(e) => save({ entity: e.target.value as 'company' | 'npo' })}>
+            <option value="company">A company carrying on business</option>
+            <option value="npo">A not-for-profit organisation: NGO, charity, foundation, church or association</option>
+          </select>
+        </Field>
+        {npo && (
+          <Field label="Legal form">
+            <select disabled={locked || busy} value={form?.id ?? ''} onChange={(e) => save({ legalForm: e.target.value })}>
+              {forms.map((f) => (
+                <option key={f.id} value={f.id}>{f.label}</option>
+              ))}
+            </select>
+          </Field>
+        )}
+      </div>
+      {npo && (
+        <p className="small muted" style={{ margin: 0 }}>
+          The statements become a statement of income and expenditure, funds take the place of equity, and restricted funds are shown fund by fund from the tags set on the Mapping step. The report is addressed to the {form?.governors === 'directors' ? 'members' : form?.governors === 'trustees' ? 'trustees' : 'board'}, and the {governorsOf(eng.planning, jur.code).plural} sign the statements.{form?.law ? ` It is constituted under ${form.law}.` : ''} Materiality is usually set on total expenditure or total income.
+        </p>
+      )}
+      <ErrorNote error={error} />
+    </div>
+  );
+}
+
+export function PlanningStep(ctx: Ctx) {
+  const { eng, statements, locked, reload } = ctx;
   const [p, setP] = useState<Planning>({
     performancePercent: 75,
     trivialPercent: 5,
     ...eng.planning,
   });
   const [saved, setSaved] = useState(false);
+  // Choices saved elsewhere on this step (the kind of entity) are kept in step with the form.
+  useEffect(() => {
+    setP((x) => ({ ...x, entity: eng.planning.entity, legalForm: eng.planning.legalForm, industry: eng.planning.industry, benchmark: x.benchmark ?? eng.planning.benchmark }));
+  }, [eng.planning]);
   const { busy, error, run } = useAction();
   const m = computeMateriality(statements.cur, p);
   const set = (patch: Partial<Planning>) => {
@@ -35,6 +88,8 @@ export function PlanningStep({ eng, statements, locked, reload }: Ctx) {
 
   return (
     <div className="stack">
+      <EntityKind ctx={ctx} />
+      {eng.type !== 'compilation' && (<>
       <div>
         <h2>Planning: materiality</h2>
         <p className="muted" style={{ marginTop: 4 }}>
@@ -46,7 +101,10 @@ export function PlanningStep({ eng, statements, locked, reload }: Ctx) {
         onSubmit={(e) => {
           e.preventDefault();
           void run(async () => {
-            await repo.updateEngagement(eng.id, { planning: p });
+            // Only the materiality choices made here; the rest of planning is saved where it is set.
+            await repo.updateEngagement(eng.id, {
+              planning: { ...eng.planning, benchmark: p.benchmark, percent: p.percent, performancePercent: p.performancePercent, trivialPercent: p.trivialPercent, rationale: p.rationale },
+            });
             setSaved(true);
             reload();
           });
@@ -101,6 +159,7 @@ export function PlanningStep({ eng, statements, locked, reload }: Ctx) {
           </div>
         )}
       </form>
+      </>)}
     </div>
   );
 }

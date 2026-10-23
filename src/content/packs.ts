@@ -2,17 +2,18 @@ import type { EngagementType, Planning } from '../engine/types';
 import { CHECKLIST, type ChecklistItem } from './checklist';
 import { PROGRAMMES, type ProgrammeItem } from './programmes';
 import { STANDARD_REQUESTS } from './requests';
+import { MORE_PACKS } from './packsMore';
 
 /**
  * Industry packs. A pack adds to the general content for one kind of business: more work
  * programme steps, more disclosure checklist items, and more things to ask the client for.
  * It never removes anything from the general content.
  *
- * STATUS: starter content, version 0.1. The steps and items show how a pack works. They are
+ * STATUS: starter content, version 0.2. The steps and items show how a pack works. They are
  * not a reviewed methodology and must be reviewed by a qualified technical author against
- * the standards adopted by the Financial Reporting Council of Nigeria before live use.
+ * the standards adopted in the firm's country before live use.
  */
-export const PACK_VERSION = '0.1-starter';
+export const PACK_VERSION = '0.2-starter';
 
 export interface Pack {
   id: string;
@@ -64,10 +65,11 @@ export const PACKS: Pack[] = [
       { title: 'Last goods received and despatch notes', detail: 'The last five of each before the count and the first five after it, at every location.' },
       { title: 'Product costing records', detail: 'Bills of materials, labour rates and the overhead absorption calculation for manufactured goods.' },
       { title: 'Slow-moving and damaged inventory report', detail: 'Items with no movement in six months, and items damaged, expired or written down in the year.' },
-      { title: 'Import documentation', detail: 'For significant imports: Form M, bills of lading, customs duty assessments and clearing agents’ invoices.' },
+      { title: 'Import documentation', detail: 'For significant imports: import permits or forms (Form M in Nigeria), bills of lading, customs duty assessments and clearing agents’ invoices.' },
       { title: 'Inventories held elsewhere', detail: 'A list of goods held by third parties, on consignment or in transit at the year end, with confirmations.' },
     ],
   },
+  ...MORE_PACKS,
 ];
 
 /** The pack chosen for an engagement, or null for the general content alone. */

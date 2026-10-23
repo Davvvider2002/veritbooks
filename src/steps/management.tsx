@@ -174,7 +174,7 @@ export function ManagementStep(ctx: Ctx) {
       {(!locked || letter.ownLetter) && <OwnLetter ctx={ctx} letter={letter} own={own} save={save} />}
 
       {points.length > 0 && !letter.ownLetter && (
-        <section className={`sheet ${ws.firm.branding.font === 'sans' ? 'sans' : ''}`}>
+        <section className="sheet">
           <BrandedHead ctx={ctx} />
           <p>{letter.date ? longDate(letter.date) : '[Date]'}</p>
           <p>

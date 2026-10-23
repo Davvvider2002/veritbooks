@@ -1,4 +1,4 @@
-import { CHART, ITEM, NATURE_CODES, type Section } from './chart';
+import { CHART, ITEM, NATURE_CODES, NPO_LABEL, type Section } from './chart';
 import type { Adjustment, Kobo, Nature, TbLine } from './types';
 import { shiftYears, yearValue } from './yearsOf';
 
@@ -80,7 +80,21 @@ export interface Figures {
   unmappedCount: number;
   /** Debit-positive sum of the whole trial balance. Nil when it foots. */
   tbDifference: Kobo;
+  /** Not-for-profit. Income less expenditure on accounts tagged to a restricted fund, by fund. Empty for a company. */
+  fundSurplus: Record<string, Kobo>;
+  /** The part of the surplus for the year that belongs to restricted funds. */
+  restrictedSurplus: Kobo;
+  /** Restricted funds at the end of the period: their balance brought forward plus their surplus. */
+  closingRestricted: Kobo;
+  /** Restricted fund balances brought forward, by fund, from accounts mapped to restricted funds. */
+  fundOpening: Record<string, Kobo>;
+  /** Total income and total expenditure before tax, as a not-for-profit presents them. */
+  totalIncome: Kobo;
+  totalExpenditure: Kobo;
 }
+
+/** The name under which an account's restricted fund is shown. */
+export const fundName = (l: Pick<TbLine, 'fund'>) => (l.fund?.trim() ? l.fund.trim() : null);
 
 const DEBIT_SECTIONS: Section[] = ['nca', 'ca', 'expense', 'distribution'];
 
@@ -112,6 +126,8 @@ export function figures(lines: TbLine[], adjustments: Adjustment[], period: Peri
   let unmapped = 0;
   let unmappedCount = 0;
   let tbDifference = 0;
+  const fundSurplus: Record<string, Kobo> = {};
+  const fundOpening: Record<string, Kobo> = {};
 
   for (const l of lines) {
     const b = bal.get(l.id) ?? 0;
@@ -124,6 +140,14 @@ export function figures(lines: TbLine[], adjustments: Adjustment[], period: Peri
       continue;
     }
     t[l.mapCode] += b;
+    const sec = ITEM.get(l.mapCode)!.section;
+    const fund = fundName(l);
+    // Income is credit (negative) in the trial balance, expenditure debit: surplus is minus the sum.
+    if (fund && (sec === 'income' || sec === 'expense') && l.mapCode !== 'income_tax_expense') fundSurplus[fund] = (fundSurplus[fund] ?? 0) - b;
+    if (l.mapCode === 'restricted_funds') {
+      const name = fund ?? 'General restricted fund';
+      fundOpening[name] = (fundOpening[name] ?? 0) - b;
+    }
     if (NATURE_CODES.has(l.mapCode)) {
       if (l.nature === 'staff') staff += b;
       if (l.nature === 'depreciation') depreciation += b;
@@ -131,19 +155,23 @@ export function figures(lines: TbLine[], adjustments: Adjustment[], period: Peri
   }
 
   const v: Record<string, Kobo> = {};
-  for (const i of CHART) v[i.code] = DEBIT_SECTIONS.includes(i.section) ? t[i.code] : -t[i.code];
+  for (const i of CHART) v[i.code] = DEBIT_SECTIONS.includes(i.section) ? t[i.code] : 0 - t[i.code];
   const sum = (s: Section) =>
     CHART.filter((i) => i.section === s).reduce((acc, i) => acc + v[i.code], 0);
 
   const grossProfit = v.revenue - v.cost_of_sales;
   const operatingProfit =
-    grossProfit + v.other_income - v.distribution_costs - v.admin_expenses - v.other_expenses;
+    grossProfit + v.other_income + v.grant_income + v.donations - v.distribution_costs - v.admin_expenses - v.other_expenses - v.programme_expenses - v.fundraising_costs;
   const pbt = operatingProfit + v.finance_income - v.finance_costs;
   const profit = pbt - v.income_tax_expense;
-  const closingRetained = v.retained_earnings + profit - v.dividends;
+  const restrictedSurplus = Object.values(fundSurplus).reduce((a, x) => a + x, 0);
+  const closingRetained = v.retained_earnings + profit - restrictedSurplus - v.dividends;
+  const closingRestricted = v.restricted_funds + restrictedSurplus;
   const totalNca = sum('nca');
   const totalCa = sum('ca');
-  const totalEquity = v.share_capital + v.share_premium + v.other_reserves + closingRetained;
+  const totalEquity = v.share_capital + v.share_premium + v.other_reserves + closingRetained + closingRestricted + v.endowment_funds;
+  const totalIncome = v.revenue + v.other_income + v.grant_income + v.donations + v.finance_income;
+  const totalExpenditure = totalIncome - pbt;
   const totalNcl = sum('ncl');
   const totalCl = sum('cl');
 
@@ -167,6 +195,12 @@ export function figures(lines: TbLine[], adjustments: Adjustment[], period: Peri
     unmapped,
     unmappedCount,
     tbDifference,
+    fundSurplus,
+    restrictedSurplus,
+    closingRestricted,
+    fundOpening,
+    totalIncome,
+    totalExpenditure,
   };
 }
 
@@ -200,6 +234,18 @@ export interface Statements {
   profitParts: Part[];
   valueAdded: Row[];
   noteBreakdowns: NoteBreakdown[];
+  /** Built for a not-for-profit: income and expenditure, funds in place of equity. */
+  npo?: boolean;
+  /** Not-for-profit: each restricted fund's movement in the year. */
+  funds?: FundMovement[];
+}
+
+export interface FundMovement {
+  name: string;
+  opening: Kobo;
+  income: Kobo;
+  expenditure: Kobo;
+  closing: Kobo;
 }
 
 export interface EquityTable {
@@ -216,12 +262,14 @@ export interface NoteBreakdown {
   prior: Kobo | null;
 }
 
-export function buildStatements(lines: TbLine[], adjustments: Adjustment[], opts: { comparativeCashFlow?: boolean } = {}): Statements {
+export function buildStatements(lines: TbLine[], adjustments: Adjustment[], opts: { comparativeCashFlow?: boolean; npo?: boolean } = {}): Statements {
+  const npo = !!opts.npo;
   const cur = figures(lines, adjustments, 'current');
   const withPrior = hasPrior(lines);
   const prior = withPrior ? figures(lines, adjustments, 'prior') : null;
   const p = (f: (x: Figures) => Kobo): Kobo | null => (prior ? f(prior) : null);
 
+  const label = (code: string) => (npo && NPO_LABEL[code]) || ITEM.get(code)!.label;
   // Notes are numbered from 3: note 1 is general information, note 2 the accounting policies.
   const notes = new Map<string, number>();
   let n = 3;
@@ -230,7 +278,7 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[], opts
   }
 
   const item = (code: string, negate = false): Row => ({
-    label: ITEM.get(code)!.label,
+    label: label(code),
     cur: negate ? -cur.v[code] : cur.v[code],
     prior: prior ? (negate ? -prior.v[code] : prior.v[code]) : null,
     style: 'line',
@@ -239,7 +287,6 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[], opts
     negated: negate || undefined,
   });
   const shown = (r: Row) => r.cur !== 0 || (r.prior !== null && r.prior !== 0);
-  const label = (code: string) => ITEM.get(code)!.label;
   /** A chart line as part of a sum, added (factor 1) or deducted (factor -1). */
   const leaf = (code: string, factor = 1): Part => ({
     label: label(code),
@@ -267,16 +314,21 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[], opts
   };
   const depParts = byNature('depreciation');
   const staffParts = byNature('staff');
-  const retainedPart: Part = { label: 'Retained earnings', cur: cur.closingRetained, prior: prior ? prior.closingRetained : null, code: 'retained_earnings' };
+  const retainedPart: Part = { label: label('retained_earnings'), cur: cur.closingRetained, prior: prior ? prior.closingRetained : null, code: 'retained_earnings' };
+  const restrictedPart: Part = { label: 'Restricted funds', cur: cur.closingRestricted, prior: prior ? prior.closingRestricted : null, code: 'restricted_funds' };
   const ncaParts = total(of('nca'));
   const caParts = total(of('ca'));
-  const equityParts = total([leaf('share_capital'), leaf('share_premium'), leaf('other_reserves'), retainedPart]);
+  const equityParts = total([leaf('share_capital'), leaf('share_premium'), leaf('other_reserves'), retainedPart, restrictedPart, leaf('endowment_funds')]);
   const nclParts = total(of('ncl'));
   const clParts = total(of('cl'));
   const gpParts = total([leaf('revenue'), leaf('cost_of_sales', -1)]);
   const opParts = total([
     groupParts('Gross profit', gpParts),
     leaf('other_income'),
+    leaf('grant_income'),
+    leaf('donations'),
+    leaf('programme_expenses', -1),
+    leaf('fundraising_costs', -1),
     leaf('distribution_costs', -1),
     leaf('admin_expenses', -1),
     leaf('other_expenses', -1),
@@ -297,7 +349,7 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[], opts
   });
 
   const retained: Row = {
-    label: 'Retained earnings',
+    label: label('retained_earnings'),
     cur: cur.closingRetained,
     prior: p((x) => x.closingRetained),
     style: 'line',
@@ -314,11 +366,17 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[], opts
     ...section('ca'),
     tot('Total current assets', (x) => x.totalCa, caParts),
     tot('Total assets', (x) => x.totalAssets, [groupParts('Non-current assets', ncaParts), groupParts('Current assets', caParts)], 'total'),
-    head('Equity and liabilities'),
-    head('Equity'),
+    head(npo ? 'Funds and liabilities' : 'Equity and liabilities'),
+    head(npo ? 'Funds' : 'Equity'),
     ...['share_capital', 'share_premium', 'other_reserves'].map((c) => item(c)).filter(shown),
     retained,
-    tot('Total equity', (x) => x.totalEquity, equityParts),
+    ...(npo
+      ? [
+          { label: 'Restricted funds', cur: cur.closingRestricted, prior: p((x) => x.closingRestricted), style: 'line' as const, note: notes.get('restricted_funds'), code: 'restricted_funds' },
+          item('endowment_funds'),
+        ].filter(shown)
+      : []),
+    tot(npo ? 'Total funds' : 'Total equity', (x) => x.totalEquity, equityParts),
     head('Non-current liabilities'),
     ...section('ncl'),
     tot('Total non-current liabilities', (x) => x.totalNcl, nclParts),
@@ -327,14 +385,33 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[], opts
     tot('Total current liabilities', (x) => x.totalCl, clParts),
     tot('Total liabilities', (x) => x.totalLiabilities, [groupParts('Non-current liabilities', nclParts), groupParts('Current liabilities', clParts)]),
     tot(
-      'Total equity and liabilities',
+      npo ? 'Total funds and liabilities' : 'Total equity and liabilities',
       (x) => x.totalEquityAndLiabilities,
-      [groupParts('Equity', equityParts), groupParts('Non-current liabilities', nclParts), groupParts('Current liabilities', clParts)],
+      [groupParts(npo ? 'Funds' : 'Equity', equityParts), groupParts('Non-current liabilities', nclParts), groupParts('Current liabilities', clParts)],
       'total',
     ),
   ];
 
-  const income: Row[] = [
+  const incomeParts = total([leaf('grant_income'), leaf('donations'), leaf('revenue'), leaf('other_income'), leaf('finance_income')]);
+  const expenditureParts = total(
+    ['programme_expenses', 'cost_of_sales', 'fundraising_costs', 'distribution_costs', 'admin_expenses', 'other_expenses', 'finance_costs'].map((c) => leaf(c)),
+  );
+  const restrictedOf = (f: Figures) => f.restrictedSurplus;
+  const income: Row[] = npo
+    ? [
+        head('Income'),
+        ...['grant_income', 'donations', 'revenue', 'other_income', 'finance_income'].map((c) => item(c)).filter(shown),
+        tot('Total income', (x) => x.totalIncome, incomeParts),
+        head('Expenditure'),
+        ...['programme_expenses', 'cost_of_sales', 'fundraising_costs', 'distribution_costs', 'admin_expenses', 'other_expenses', 'finance_costs'].map((c) => item(c)).filter(shown),
+        tot('Total expenditure', (x) => x.totalExpenditure, expenditureParts),
+        tot('Surplus/(deficit) before tax', (x) => x.pbt, pbtParts),
+        ...[item('income_tax_expense', true)].filter(shown),
+        tot('Surplus/(deficit) for the year', (x) => x.profit, profitParts, 'total'),
+        { label: 'Of which, unrestricted funds', cur: cur.profit - cur.restrictedSurplus, prior: p((x) => x.profit - x.restrictedSurplus), style: 'line' },
+        { label: 'Of which, restricted funds', cur: cur.restrictedSurplus, prior: p(restrictedOf), style: 'line' },
+      ]
+    : [
     item('revenue'),
     item('cost_of_sales', true),
     tot('Gross profit', (x) => x.grossProfit, gpParts),
@@ -347,6 +424,28 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[], opts
     item('income_tax_expense', true),
     tot('Profit for the year', (x) => x.profit, profitParts, 'total'),
   ];
+
+  /** Not-for-profit: the statement of changes in funds, one column for each class of fund. */
+  function fundsTable(): EquityTable {
+    const cols = ['Unrestricted funds', 'Restricted funds', 'Endowment funds', 'Total'];
+    const startU = prior ? prior.closingRetained : cur.v.retained_earnings;
+    const startR = prior ? prior.closingRestricted : cur.v.restricted_funds;
+    const startE = prior ? prior.v.endowment_funds : cur.v.endowment_funds;
+    const start = [startU, startR, startE];
+    const surplus = [cur.profit - cur.restrictedSurplus, cur.restrictedSurplus, 0];
+    // Movements posted straight to the fund accounts in the year: transfers between funds and
+    // endowment received. Brought forward balances in this year's trial balance less last year's closing.
+    const moved = [cur.v.retained_earnings - startU, cur.v.restricted_funds - startR, cur.v.endowment_funds - startE];
+    const end = [cur.closingRetained, cur.closingRestricted, cur.v.endowment_funds];
+    const row = (text: string, values: Kobo[], style: 'line' | 'total' = 'line') => ({ label: text, values: [...values, values.reduce((a, b) => a + b, 0)], style });
+    const rows: EquityTable['rows'] = [row('At start of year', start), row('Surplus/(deficit) for the year', surplus)];
+    if (moved.some((x) => x !== 0)) {
+      const net = moved.reduce((a, b) => a + b, 0);
+      rows.push(row(net === 0 ? 'Transfers between funds' : 'Transfers, endowment received and opening differences', moved));
+    }
+    rows.push(row('At end of year', end, 'total'));
+    return { columns: cols, rows };
+  }
 
   // Statement of changes in equity. Without a prior year, share capital and reserves are assumed unchanged in the year.
   const open = prior
@@ -409,7 +508,7 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[], opts
   equityRows.push(
     eqRow('At end of year', close, [...equityCodes.map((c) => [bal(c, 'current')]), [{ ...retainedPart, prior: null }]], 'total'),
   );
-  const equity: EquityTable = { columns, rows: equityRows };
+  const equity: EquityTable = npo ? fundsTable() : { columns, rows: equityRows };
 
   // Cash flow, indirect method. Needs the prior year to measure movements.
   let cashFlow: Row[] | null = null;
@@ -428,7 +527,7 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[], opts
     const asPart = (r: Row): Part => ({ label: r.label, cur: r.cur ?? 0, prior: null, parts: r.parts });
     const depreciation = groupParts('Depreciation and amortisation', curOnly(depParts));
     const operating = [
-      line('Profit before tax', cur.pbt, pbtParts),
+      line(npo ? 'Surplus/(deficit) before tax' : 'Profit before tax', cur.pbt, pbtParts),
       line('Depreciation and amortisation', cur.depreciation, depParts),
       line('Finance costs', cur.v.finance_costs, [leaf('finance_costs')]),
       line('Finance income', -cur.v.finance_income, [leaf('finance_income', -1)]),
@@ -463,6 +562,8 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[], opts
       line('Finance costs paid', -cur.v.finance_costs, [leaf('finance_costs', -1)]),
       line('Dividends paid', -cur.v.dividends, [leaf('dividends', -1)]),
       line('Movement in other reserves', d('other_reserves'), change('other_reserves')),
+      // Transfers between funds pass between fund accounts and move no cash. Endowment received does.
+      ...(npo ? [line('Endowment funds received', d('endowment_funds'), change('endowment_funds'))] : []),
     ];
     const netFinancing = financing.reduce((a, r) => a + (r.cur ?? 0), 0);
     const net = netOperating + netInvesting + netFinancing;
@@ -520,9 +621,9 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[], opts
 
   // Statement of value added, as directed by the FRC of Nigeria.
   const va = (f: Figures) => {
-    const gross = f.v.revenue + f.v.other_income + f.v.finance_income;
+    const gross = f.v.revenue + f.v.other_income + f.v.finance_income + f.v.grant_income + f.v.donations;
     const operatingCosts =
-      f.v.cost_of_sales + f.v.distribution_costs + f.v.admin_expenses + f.v.other_expenses;
+      f.v.cost_of_sales + f.v.distribution_costs + f.v.admin_expenses + f.v.other_expenses + f.v.programme_expenses + f.v.fundraising_costs;
     const boughtIn = operatingCosts - f.staff - f.depreciation;
     return {
       gross,
@@ -545,12 +646,14 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[], opts
     style,
     parts: parts.filter(live),
   });
-  const grossParts = [leaf('revenue'), leaf('other_income'), leaf('finance_income')];
+  const grossParts = [leaf('revenue'), leaf('other_income'), leaf('finance_income'), leaf('grant_income'), leaf('donations')];
   const boughtParts = [
     leaf('cost_of_sales', -1),
     leaf('distribution_costs', -1),
     leaf('admin_expenses', -1),
     leaf('other_expenses', -1),
+    leaf('programme_expenses', -1),
+    leaf('fundraising_costs', -1),
     groupParts('Less staff costs, shown below', staffParts),
     groupParts('Less depreciation and amortisation, shown below', depParts),
   ];
@@ -586,14 +689,36 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[], opts
     noteBreakdowns.push({
       number,
       code,
-      title: code === 'retained_earnings' ? 'Retained earnings at start of year' : it.label,
+      title: code === 'retained_earnings' ? `${label(code)} at start of year` : label(code),
       rows,
       cur: cur.v[code],
       prior: prior ? prior.v[code] : null,
     });
   }
 
+  // Not-for-profit: each restricted fund's movement in the year.
+  let funds: FundMovement[] | undefined;
+  if (npo) {
+    const byFund = new Map<string, FundMovement>();
+    const get = (name: string) => byFund.get(name) ?? byFund.set(name, { name, opening: 0, income: 0, expenditure: 0, closing: 0 }).get(name)!;
+    for (const [name, v] of Object.entries(cur.fundOpening)) get(name).opening += v;
+    for (const l of lines) {
+      const fund = fundName(l);
+      if (!fund || !l.mapCode || l.mapCode === 'income_tax_expense') continue;
+      const sec = ITEM.get(l.mapCode)?.section;
+      const b = curBal.get(l.id) ?? 0;
+      if (sec === 'income') get(fund).income -= b;
+      if (sec === 'expense') get(fund).expenditure += b;
+    }
+    funds = [...byFund.values()]
+      .map((f) => ({ ...f, closing: f.opening + f.income - f.expenditure }))
+      .filter((f) => f.opening || f.income || f.expenditure)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
   return {
+    npo: npo || undefined,
+    funds,
     hasPrior: withPrior,
     earlier: earlierFigures(lines),
     older: [3, 4].filter((i) => lines.some((l) => yearValue(l, i) !== null)).map((i) => figures(shiftYears(lines, i), [], 'current')),

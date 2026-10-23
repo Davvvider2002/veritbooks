@@ -51,7 +51,8 @@ export function ComparativesStep(ctx: Ctx) {
   const held = yearsHeld(lines);
   const [span, setSpan] = useState(3);
   const shown = Math.min(span, held);
-  const m = useMemo(() => multiYear(lines, adjustments, eng.yearEnd, shown), [lines, adjustments, eng.yearEnd, shown]);
+  const npo = eng.planning.entity === 'npo';
+  const m = useMemo(() => multiYear(lines, adjustments, eng.yearEnd, shown, npo), [lines, adjustments, eng.yearEnd, shown, npo]);
   const { busy, error, run } = useAction();
   const year = Number(eng.yearEnd.slice(0, 4));
 
@@ -110,8 +111,8 @@ export function ComparativesStep(ctx: Ctx) {
         <YearsTable label="Statement of financial position over several years" years={m.years} rows={m.position} />
       </div>
       <div className="card stack">
-        <h3 style={{ margin: 0 }}>Statement of profit or loss</h3>
-        <YearsTable label="Statement of profit or loss over several years" years={m.years} rows={m.income} />
+        <h3 style={{ margin: 0 }}>{npo ? 'Statement of income and expenditure' : 'Statement of profit or loss'}</h3>
+        <YearsTable label={npo ? 'Statement of income and expenditure over several years' : 'Statement of profit or loss over several years'} years={m.years} rows={m.income} />
       </div>
       <div className="card stack">
         <h3 style={{ margin: 0 }}>Statement of cash flows</h3>

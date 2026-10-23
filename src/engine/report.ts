@@ -13,6 +13,8 @@ export interface ReportInput {
   groupCashFlow?: boolean;
   /** Where the firm practises. Nigeria when not given. */
   jurisdiction?: Jurisdiction;
+  /** A not-for-profit: who governs it and who the report is addressed to. */
+  npo?: { governors: { plural: string; possessive: string }; addressee: string };
 }
 
 export interface ReportSection {
@@ -49,7 +51,31 @@ const OPINION_HEADING = {
  */
 export function draftReport(i: ReportInput): DraftReport {
   const company = companyReport(i);
-  return i.group ? groupReport(company, i) : company;
+  const r = i.group ? groupReport(company, i) : company;
+  return i.npo ? npoReport(r, i.npo) : r;
+}
+
+/**
+ * Rewords a report for a not-for-profit: its statements are of income and expenditure and of
+ * changes in funds, it is governed by trustees, directors or a board, and it is an organisation.
+ */
+function npoReport(r: DraftReport, n: NonNullable<ReportInput['npo']>): DraftReport {
+  const reword = (p: string) =>
+    p
+      .replace(/the statements? of profit or loss( and other comprehensive income)?/g, 'the statement of income and expenditure')
+      .replace(/the statement of changes in equity/g, 'the statement of changes in funds')
+      .replace(/\bThe directors’/g, `The ${n.governors.possessive}`)
+      .replace(/\bthe directors’/g, `the ${n.governors.possessive}`)
+      .replace(/\bThe directors\b/g, `The ${n.governors.plural}`)
+      .replace(/\bthe directors\b/g, `the ${n.governors.plural}`)
+      .replace(/\bthe company’s\b/g, 'the organisation’s')
+      .replace(/\bthe company\b/g, 'the organisation')
+      .replace(/statement of profit or loss/g, 'statement of income and expenditure');
+  return {
+    title: r.title,
+    addressee: n.addressee,
+    sections: r.sections.map((s) => ({ heading: reword(s.heading), paragraphs: s.paragraphs.map(reword) })),
+  };
 }
 
 /**

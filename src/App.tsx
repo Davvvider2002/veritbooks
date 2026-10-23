@@ -13,6 +13,7 @@ import type { User, Workspace } from './data/repo';
 import { AuthPage, Dashboard, FirmSettings, FirmSetup, ForgotPage, NewPasswordPage } from './pages';
 import { message } from './ui';
 import { EngagementPage } from './workspace';
+import { applyReportTypeface } from './content/typefaces';
 
 type Session =
   | { state: 'loading' }
@@ -66,6 +67,9 @@ export function App() {
     void refresh();
     return repo.onAuthChange(() => void refresh());
   }, []);
+  // The firm's report typeface, for every report sheet.
+  const reportFont = session.state === 'ready' ? session.ws.firm.branding?.font : undefined;
+  useEffect(() => applyReportTypeface(reportFont), [reportFont]);
 
   if (admin && session.state !== 'new-password') return <AdminApp />;
   if (partners && session.state !== 'new-password') return <PartnerApp />;

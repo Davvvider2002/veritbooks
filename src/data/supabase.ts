@@ -54,6 +54,7 @@ const toLine = (r: any): TbLine => ({
   prior4: r.prior4_balance === null || r.prior4_balance === undefined ? null : Number(r.prior4_balance),
   mapCode: r.map_code,
   nature: r.nature,
+  fund: r.fund ?? null,
 });
 
 /** True when the database has not had migration 0006 applied: its columns and values are unknown. */
@@ -498,6 +499,11 @@ export function createSupabaseRepo(url: string, key: string): Repo {
         const { error: e3 } = await db.from('tb_lines').delete().in('id', gone.slice(i, i + 200));
         fail(e3);
       }
+    },
+    async setFund(_id, line, fund) {
+      const { error } = await db.from('tb_lines').update({ fund: fund?.trim() ? fund.trim().slice(0, 80) : null }).eq('id', line.id);
+      if (error && /fund/.test(error.message) && /column/.test(error.message)) throw new Error('Restricted funds need a database update (migration 0027).');
+      fail(error);
     },
     async setMapping(_id, clientId, line, mapCode, nature) {
       const { error } = await db.from('tb_lines').update({ map_code: mapCode, nature }).eq('id', line.id);

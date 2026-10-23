@@ -126,7 +126,8 @@ table.data select { padding: 5px 6px; font-size: 14px; }
 .programme-item input[type='text'] { margin-top: 6px; font-size: 13px; padding: 5px 8px; }
 
 /* Financial statements */
-.sheet { background: #fff; border: 1px solid var(--rule); padding: 44px 52px; margin-bottom: 20px; position: relative; font-family: var(--serif); font-size: 15px; }
+.sheet { background: #fff; border: 1px solid var(--rule); padding: 44px 52px; margin-bottom: 20px; position: relative; font-family: var(--report-font, var(--serif)); font-size: 15px; }
+.sheet h1, .sheet h2, .sheet h3 { font-family: var(--report-font, var(--serif)); }
 .sheet h2 { font-size: 18px; }
 .sheet .entity { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-family: var(--sans); }
 .sheet .sub { color: var(--muted); margin: 2px 0 22px; }
@@ -257,7 +258,7 @@ table.data th.num { text-align: right; }
 .brand img { height: 26px; width: auto; vertical-align: -6px; margin-right: 8px; }
 
 /* Branding on printed pages */
-.sheet.sans, .sheet.sans h2, .sheet.sans h3 { font-family: var(--sans); }
+/* Firms that chose Modern before the wider choice keep it: --report-font is set from their branding. */
 .sheet-foot { margin-top: 32px; padding-top: 10px; border-top: 1px solid var(--rule); font-family: var(--sans); font-size: 11px; color: var(--muted); text-align: center; white-space: pre-line; }
 .letterhead { text-align: right; margin-bottom: 18px; }
 .letterhead img { max-height: 64px; max-width: 240px; }

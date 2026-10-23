@@ -1,3 +1,4 @@
+import { loadTypeface, TYPEFACES, typefaceOf } from './content/typefaces';
 import { MOBILE_HINT, normaliseMobile, showMobile } from './engine/phone';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -624,11 +625,27 @@ function BrandingSetting({ ws, onChanged }: { ws: Workspace; onChanged: () => Pr
             )}
           </div>
         </Field>
-        <Field label="Typeface">
-          <select disabled={!can} value={b.font ?? 'serif'} onChange={(e) => set({ font: e.target.value as 'serif' | 'sans' })}>
-            <option value="serif">Classic (serif)</option>
-            <option value="sans">Modern (sans serif)</option>
+        <Field label="Typeface" hint={typefaceOf(b.font).note}>
+          <select
+            disabled={!can}
+            value={typefaceOf(b.font).id}
+            onChange={(e) => {
+              set({ font: e.target.value });
+              loadTypeface(typefaceOf(e.target.value));
+            }}
+          >
+            {(['Serif', 'Sans serif'] as const).map((g) => (
+              <optgroup key={g} label={g}>
+                {TYPEFACES.filter((t) => t.group === g).map((t) => (
+                  <option key={t.id} value={t.id}>{t.label}</option>
+                ))}
+              </optgroup>
+            ))}
           </select>
+          <div aria-label="Typeface sample" style={{ fontFamily: typefaceOf(b.font).stack, marginTop: 8, padding: '10px 12px', border: '1px solid var(--rule)', borderRadius: 4, background: '#fff' }}>
+            <div style={{ fontWeight: 700, fontSize: 17 }}>Statement of financial position</div>
+            <div style={{ fontSize: 14 }}>Trade and other receivables <span style={{ float: 'right', fontVariantNumeric: 'tabular-nums' }}>12,845,300.00</span></div>
+          </div>
         </Field>
       </div>
       <div className="grid2">

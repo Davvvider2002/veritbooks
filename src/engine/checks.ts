@@ -84,6 +84,8 @@ export const BENCHMARKS = {
   profit_before_tax: { label: 'Profit before tax', range: '5% to 10%', suggested: 5 },
   total_assets: { label: 'Total assets', range: '1% to 2%', suggested: 1 },
   equity: { label: 'Equity', range: '2% to 5%', suggested: 2 },
+  total_income: { label: 'Total income (not-for-profit)', range: '0.5% to 2%', suggested: 1 },
+  total_expenditure: { label: 'Total expenditure (not-for-profit)', range: '0.5% to 2%', suggested: 1 },
 } as const;
 
 export function benchmarkBase(f: Figures, benchmark: NonNullable<Planning['benchmark']>): Kobo {
@@ -96,6 +98,10 @@ export function benchmarkBase(f: Figures, benchmark: NonNullable<Planning['bench
       return f.totalAssets;
     case 'equity':
       return Math.abs(f.totalEquity);
+    case 'total_income':
+      return f.totalIncome;
+    case 'total_expenditure':
+      return f.totalExpenditure;
   }
 }
 

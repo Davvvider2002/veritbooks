@@ -39,10 +39,12 @@ export const LEADS: Lead[] = [
   { ref: 'L', title: 'Trade payables', codes: ['trade_payables'] },
   { ref: 'M', title: 'Other payables and accruals', codes: ['other_payables'] },
   { ref: 'N', title: 'Taxation', codes: ['current_tax_payable', 'deferred_tax_asset', 'deferred_tax_liability', 'income_tax_expense'] },
+  { ref: 'O', title: 'Restricted and endowment funds', codes: ['restricted_funds', 'endowment_funds'] },
+  { ref: 'P', title: 'Grants and donations', codes: ['grant_income', 'donations'] },
   { ref: 'R', title: 'Revenue', codes: ['revenue'] },
   { ref: 'S', title: 'Other income and finance income', codes: ['other_income', 'finance_income'] },
   { ref: 'T', title: 'Cost of sales', codes: ['cost_of_sales'] },
-  { ref: 'U', title: 'Operating expenses', codes: ['distribution_costs', 'admin_expenses', 'other_expenses'] },
+  { ref: 'U', title: 'Operating expenses', codes: ['distribution_costs', 'admin_expenses', 'other_expenses', 'programme_expenses', 'fundraising_costs'] },
   { ref: 'V', title: 'Finance costs', codes: ['finance_costs'] },
 ];
 /** Accounts not mapped to a statement line. */
