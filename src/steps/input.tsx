@@ -190,7 +190,8 @@ export function ImportStep({ eng, client, lines, adjustments, locked, reload }: 
           <p className="small muted" style={{ margin: 0 }}>
             No file to hand? Try the sample company:{' '}
             <a href="/samples/trial-balance-2025.csv" download>2025</a>, <a href="/samples/trial-balance-2024.csv" download>2024</a>,{' '}
-            <a href="/samples/trial-balance-2023.csv" download>2023</a>, <a href="/samples/trial-balance-2022.csv" download>2022</a> and <a href="/samples/trial-balance-2021.csv" download>2021</a>, or <a href="/samples/trial-balance-5-years.csv" download>all five years in one file</a> (<a href="/samples/trial-balance-3-years.csv" download>three years</a>).
+            <a href="/samples/trial-balance-2023.csv" download>2023</a>, <a href="/samples/trial-balance-2022.csv" download>2022</a> and <a href="/samples/trial-balance-2021.csv" download>2021</a>, or <a href="/samples/trial-balance-5-years.csv" download>all five years in one file</a> (<a href="/samples/trial-balance-3-years.csv" download>three years</a>). For a not-for-profit, try the{' '}
+            <a href="/samples/ngo-trial-balance-2025.csv" download>sample foundation</a>.
           </p>
           <ErrorNote error={parseError ?? error} />
           {notice && <div className="banner info">{notice}</div>}
