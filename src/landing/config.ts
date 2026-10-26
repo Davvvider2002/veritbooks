@@ -23,6 +23,13 @@ export const HERO = {
   placeholder: false,
 };
 
+/** The VeritBooks YouTube channel, shown as a section after "How it works" and in the footer. Set to null to hide both. */
+export const YOUTUBE: { url: string; title: string; text: string } | null = {
+  url: 'https://www.youtube.com/@veritbooks',
+  title: 'Learn VeritBooks step by step on our YouTube channel.',
+  text: 'Short video lessons walk you through each stage of an engagement, from importing a trial balance to signing the report.',
+};
+
 /**
  * Pages and contact details that have not been supplied. Leave a value as null and the footer
  * shows the item as "to be published" instead of a dead link. The contact email is taken from

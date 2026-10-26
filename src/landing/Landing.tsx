@@ -4,7 +4,7 @@ import { repo } from '../data';
 import type { PublicPrices } from '../data/repo';
 import { priceText } from '../engine/billing';
 import { chosenCountry, type CountryCode } from '../content/jurisdictions';
-import { CTA, FALLBACK_PRICING, FOUNDING_BADGE, FOUNDING_PERCENT_OF_PRICE, HERO, LINKS } from './config';
+import { CTA, FALLBACK_PRICING, FOUNDING_BADGE, FOUNDING_PERCENT_OF_PRICE, HERO, LINKS, YOUTUBE } from './config';
 import './landing.css';
 
 /** A price in major units of the shown currency: ₦180,000, GH₵1,500, US$99. */
@@ -411,6 +411,23 @@ export function Landing() {
           </div>
         </section>
 
+        {YOUTUBE && (
+          <section className="lp-section" id="learn" aria-label="Video lessons">
+            <div className="lp-wrap lp-video">
+              <span className="lp-play" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="28" height="28"><path d="M9 6.5v11l9-5.5z" fill="currentColor" /></svg>
+              </span>
+              <div className="lp-video-text">
+                <h2>{YOUTUBE.title}</h2>
+                <p>{YOUTUBE.text}</p>
+              </div>
+              <a className="lp-btn solid" href={YOUTUBE.url} target="_blank" rel="noopener noreferrer">
+                Watch on YouTube<span className="lp-sr"> (opens in a new tab)</span>
+              </a>
+            </div>
+          </section>
+        )}
+
         <section className="lp-section" id="firms">
           <div className="lp-wrap lp-split">
             <div>
@@ -572,6 +589,11 @@ export function Landing() {
             <a href="#features">Features</a>
             <a href="#pricing">Pricing</a>
             <a href="#faq">FAQ</a>
+            {YOUTUBE && (
+              <a href={YOUTUBE.url} target="_blank" rel="noopener noreferrer">
+                YouTube lessons
+              </a>
+            )}
             <a href="/partners">Partner programme</a>
             <Go to={CTA.signIn}>Sign in</Go>
           </nav>
