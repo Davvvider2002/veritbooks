@@ -412,17 +412,51 @@ export function Landing() {
         </section>
 
         {YOUTUBE && (
-          <section className="lp-section" id="learn" aria-label="Video lessons">
-            <div className="lp-wrap lp-video">
-              <span className="lp-play" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="28" height="28"><path d="M9 6.5v11l9-5.5z" fill="currentColor" /></svg>
-              </span>
-              <div className="lp-video-text">
-                <h2>{YOUTUBE.title}</h2>
+          <section className="lp-section" id="learn" aria-labelledby="learn-title">
+            <div className="lp-wrap lp-split lp-video">
+              <div>
+                <p className="lp-label">Video lessons</p>
+                <h2 id="learn-title">{YOUTUBE.title}</h2>
                 <p>{YOUTUBE.text}</p>
+                <ul className="lp-ticks">
+                  {YOUTUBE.topics.map((t) => (
+                    <li key={t}>{t}</li>
+                  ))}
+                </ul>
+                <div className="lp-cta">
+                  <a className="lp-btn solid" href={YOUTUBE.url} target="_blank" rel="noopener noreferrer">
+                    Watch on YouTube<span className="lp-sr"> (opens in a new tab)</span>
+                  </a>
+                  <a className="lp-btn line" href={`${YOUTUBE.url}?sub_confirmation=1`} target="_blank" rel="noopener noreferrer">
+                    Subscribe<span className="lp-sr"> to the VeritBooks channel (opens in a new tab)</span>
+                  </a>
+                </div>
               </div>
-              <a className="lp-btn solid" href={YOUTUBE.url} target="_blank" rel="noopener noreferrer">
-                Watch on YouTube<span className="lp-sr"> (opens in a new tab)</span>
+              <a className="lp-player" href={YOUTUBE.url} target="_blank" rel="noopener noreferrer" aria-label="Open the VeritBooks YouTube channel (opens in a new tab)">
+                <span className="lp-player-frame">
+                  <img src={YOUTUBE.image} alt="" width={1600} height={900} loading="lazy" decoding="async" />
+                  <span className="lp-player-shade" />
+                  <span className="lp-player-play" aria-hidden="true">
+                    <svg viewBox="0 0 68 48" width="68" height="48">
+                      <path d="M66.5 7.7a8.5 8.5 0 0 0-6-6C55.2.3 34 .3 34 .3s-21.2 0-26.5 1.4a8.5 8.5 0 0 0-6 6C.1 13 .1 24 .1 24s0 11 1.4 16.3a8.5 8.5 0 0 0 6 6C12.8 47.7 34 47.7 34 47.7s21.2 0 26.5-1.4a8.5 8.5 0 0 0 6-6C67.9 35 67.9 24 67.9 24s0-11-1.4-16.3z" fill="#e00b1c" />
+                      <path d="M27 34V14l18 10z" fill="#fff" />
+                    </svg>
+                  </span>
+                  <span className="lp-player-caption">
+                    <span className="lp-player-kicker">VeritBooks lessons</span>
+                    <span className="lp-player-title">{YOUTUBE.caption}</span>
+                  </span>
+                </span>
+                <span className="lp-channel">
+                  <span className="lp-channel-avatar">
+                    <img src="/landing/logo-mark.png" alt="" width={236} height={184} />
+                  </span>
+                  <span className="lp-channel-name">
+                    <strong>VeritBooks</strong>
+                    <span>{YOUTUBE.handle}</span>
+                  </span>
+                  <span className="lp-channel-sub">Subscribe</span>
+                </span>
               </a>
             </div>
           </section>

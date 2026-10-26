@@ -23,11 +23,19 @@ export const HERO = {
   placeholder: false,
 };
 
-/** The VeritBooks YouTube channel, shown as a section after "How it works" and in the footer. Set to null to hide both. */
-export const YOUTUBE: { url: string; title: string; text: string } | null = {
+/**
+ * The VeritBooks YouTube channel, shown as a section after "How it works" and in the footer.
+ * The picture is a screen from the app; replace public/landing/youtube-lesson.jpg (16:9) to change it.
+ * Set YOUTUBE to null to hide the section and the footer link.
+ */
+export const YOUTUBE: { url: string; handle: string; title: string; text: string; topics: string[]; caption: string; image: string } | null = {
   url: 'https://www.youtube.com/@veritbooks',
+  handle: '@veritbooks',
   title: 'Learn VeritBooks step by step on our YouTube channel.',
-  text: 'Short video lessons walk you through each stage of an engagement, from importing a trial balance to signing the report.',
+  text: 'Short video lessons walk you through each stage of an engagement, at your own pace.',
+  topics: ['Importing and mapping a trial balance', 'Journals, bank reconciliation and lead schedules', 'Financial statements, the report and sign-off'],
+  caption: 'From trial balance to signed report',
+  image: '/landing/youtube-lesson.jpg',
 };
 
 /**
