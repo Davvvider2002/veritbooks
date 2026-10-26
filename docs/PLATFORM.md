@@ -1,10 +1,10 @@
 # VeritBooks: platform definition
 
-Version 0.24, 24 October 2026.
+Version 0.25, 26 October 2026.
 
 ## What it is
 
-VeritBooks is an engagement file for accounting firms in English-speaking West Africa: Nigeria, Ghana, Sierra Leone, Liberia and The Gambia. A firm imports a client's trial balance, maps the accounts, plans and documents the work, and the software drafts the financial statements and the practitioner's report. An engagement partner holding the licence their country requires (FRC in Nigeria, ICAG in Ghana, ICASL in Sierra Leone, LICPA in Liberia, GICA in The Gambia) signs, and the file locks.
+VeritBooks is an engagement file for accounting firms in English-speaking West Africa (Nigeria, Ghana, Sierra Leone, Liberia and The Gambia), South Africa, and Canada outside Quebec. A firm imports a client's trial balance, maps the accounts, plans and documents the work, and the software drafts the financial statements and the practitioner's report. An engagement partner holding the licence their country requires (FRC in Nigeria, ICAG in Ghana, ICASL in Sierra Leone, LICPA in Liberia, GICA in The Gambia, IRBA in South Africa, a provincial public accounting licence in Canada) signs, and the file locks.
 
 ## What it is not
 
@@ -390,6 +390,7 @@ A firm chooses its country when it is set up. The country sets the law its repor
 | Liberia | None cited; framework as adopted by LICPA | LICPA licence | No | USD |
 | The Gambia | Companies Act, 2013; Financial Reporting Act 2013 | GICA practising certificate | No | USD |
 | South Africa | Companies Act of South Africa (71 of 2008); independence under the IRBA Code; signed as Registered Auditor | IRBA registration number | No | ZAR, or converted |
+| Canada, outside Quebec | The federal or provincial statute the client is incorporated under, chosen on the engagement; ASPE or ASNPO in place of the IFRS for SMEs | A provincial public accounting licence, confirmed by the partner at sign-off; the firm signs with its designation | No | CAD, collected in USD at a set rate |
 
 - **Report currency.** Each engagement has its own presentation currency, defaulting to the country's (US dollars in Liberia). Every amount label in the file follows it.
 - **Prices.** Each country has its own plan and single-engagement prices and its own tax rate and tax name, all set in the admin console's Prices tab. Plan allowances are the same everywhere. Ghana is charged in cedis. Sierra Leone, Liberia and The Gambia are charged in US dollars, because Flutterwave does not collect leones, Liberian dollars or dalasis locally. Only Nigeria starts with a tax rate (7.5% VAT).
@@ -450,6 +451,28 @@ Logic in `src/engine/journalImport.ts`; screens in `src/steps/work.tsx`, `src/st
 **Industry packs.** Seventeen packs: trading and manufacturing; not-for-profit; construction and engineering contracts; real estate; professional services; hotels and hospitality; healthcare; education; agriculture; oil, gas and mining services; transport and logistics; technology and telecoms; wholesale, retail and FMCG; cooperatives and thrift societies; media and events; power and renewable energy; insurance brokers; payment services and fintech. Each adds audit and review programme steps, disclosure checklist items and client requests. Starter content, version 0.2.
 
 **Report typefaces.** Sixteen typefaces in place of two: seven serif (Classic, Times, Cambria style, Garamond, Baskerville, Merriweather, Source Serif) and nine sans serif (Modern, Arial style, Calibri style, Inter, Open Sans, Lato, Roboto, Source Sans, Montserrat), with a sample in Firm settings. Times, Cambria, Arial and Calibri styles use metric-compatible open fonts so line breaks match Word drafts. A face is loaded only when a firm uses it, and applies to every report page.
+
+## Release 0.25: Canada, outside Quebec
+
+Canadian firms are served outside Quebec, which needs French reports, a French interface and Law 25 privacy work, and is left for later. The research behind this release is in the Canada compliance research document.
+
+**Frameworks.** A Canadian private company reports under ASPE (CPA Canada Handbook, Part II) and a not-for-profit under ASNPO (Part III); the IFRS for SMEs is not Canadian GAAP. The figures are computed as everywhere else; `src/engine/frameworks.ts` presents them in Canada's words. ASPE gives a balance sheet, a statement of income and a statement of retained earnings, both years side by side, with no other comprehensive income, and Canadian line names (accounts receivable, long-term debt, income taxes payable, net income). ASNPO gives a statement of financial position with net assets, a statement of operations and a statement of changes in net assets. A not-for-profit chooses the deferral method (the default) or the restricted fund method (Section 4410). Under the deferral method, restricted contributions not yet spent move from the surplus to deferred contributions, a liability, from the fund tags on each account, and the cash flow adds back the increase; endowment contributions stay in net assets. Canadian sets carry no directors' report or responsibilities statement, and the balance sheet is approved on behalf of the board by two directors.
+
+**Planning.** For a Canadian file the Planning step asks for the statute the client is incorporated under (the CBCA, a provincial act, the Canada Not-for-profit Corporations Act, the Ontario Not-for-Profit Corporations Act, 2010, a Societies Act, or none), the income tax method under ASPE Section 3465 (taxes payable or future income taxes), and for a not-for-profit the contribution method and whether it is soliciting or a public benefit corporation. It prints the statute's audit exemption, and for a federal or Ontario not-for-profit says from its revenue whether the law asks for an audit, a review or neither.
+
+**Reports.** `src/engine/reportCanada.ts` drafts the auditor's report under CAS 700 ("present fairly, in all material respects", Canadian generally accepted auditing standards, management and those charged with governance), the review engagement report under CSRE 2400, and the compilation engagement report under CSRS 4200. Dates are written "December 31, 2025". The report is signed in the firm's name with its designation for the province set under Firm details (in Ontario, "Chartered Professional Accountants, Licensed Public Accountants"), its city and the date.
+
+**Compilations (CSRS 4200).** The Report step records the basis of accounting (cash basis with selected accruals, cash, income tax, ASPE or ASNPO only when complied with in full, or another basis described), the accruals added, the intended use and users, the date the engagement letter was signed and the date management acknowledged the final statements. On a basis other than ASPE, Note 1 describes the basis and the report names it. Sign-off is blocked without the engagement letter and management's acknowledgment.
+
+**Licensing.** Public accountants are licensed by each province. For an audit or review, the engagement partner confirms on the Sign-off step that they hold a licence that covers it, recorded with their name, the date and the province; sign-off is blocked until they do. No licence numbers are printed on Canadian reports.
+
+**GIFI and the T2.** A step for Canadian files gives each account a GIFI code, suggested from its statement line and name and kept with the account (migration 0028, `tb_lines.gifi`). The software works out the totals the CRA requires (1599, 2008, 2009, 2178, 2179, 2589, 2599, 3139, 3450, 3499, 3600, 3620, 3640, 3680, 3849, 8299, 8518, 8519, 9367, 9368, 9369, 9970, 9999), checks total assets, total liabilities, their total with equity, and net income against the statements, and downloads a CSV for the firm's tax software, the notes as plain text for the electronic T2, and the Schedule 141 answers the file supports. Assets carry their debit sign, so accumulated amortization and allowances are negative. Codes are from the CRA's GIFI guide and the GIFI-Short form. The import layout each tax package expects is to be confirmed before first use.
+
+**Content.** Canadian audit, review and compilation programmes with CAS, CSRE 2400 and CSRS 4200 references; an ASPE disclosure checklist by Handbook section, with the ASNPO sections for not-for-profits; ASPE and ASNPO policy wording in Canadian spelling; the Quality page names CSQM 1. All starter content, version 0.1, in `src/content/canadaContent.ts`, `src/content/aspe.ts` and `src/content/canada.ts`, and printed in section 14 of the review pack.
+
+**Prices and tax.** Canada is priced in Canadian dollars: C$1,200, 3,300 and 8,400 a year, and C$150, 350, 600 and 300 an engagement, set in the admin console. Flutterwave collects US dollars at a rate the platform owner sets, or Canadian dollars once the account allows it. GST/HST starts at nil: a non-resident digital vendor registers once sales to unregistered Canadian buyers pass C$30,000 in 12 months.
+
+**Not yet.** Quebec; consolidated report wording tailored for ASPE beyond "consolidated"; a full T2 computation; the CRA's own GIFI import format; remembering GIFI codes per client across years; French.
 
 ## Channel partners
 

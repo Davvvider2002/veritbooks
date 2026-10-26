@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { downloadWorkbook } from '../excel';
 import { formPhrase, governorsOf, legalFormOf } from '../content/entities';
-import { policiesFor, policyCodes } from '../content/notes';
+import { policiesFor, policyApplies, policyCodes } from '../content/notes';
 import { aspeBasis } from '../content/aspe';
 import { basisNote, COMPILATION_BASES, statuteOf } from '../content/canada';
 import { checklistFor, programmeFor } from '../content/packs';
@@ -137,7 +137,7 @@ export function StatementsStep(ctx: Ctx) {
     );
 
   const balanced = st.cur.totalAssets === st.cur.totalEquityAndLiabilities;
-  const policies = Object.entries(policiesFor(gaap, eng.planning)).filter(([code]) => st.notes.has(code));
+  const policies = Object.entries(policiesFor(gaap, eng.planning)).filter(([code]) => policyApplies(code, st));
   const b = ws.firm.branding;
   const sheet = 'sheet';
   // The independent report sits after the directors' pages, where a reader expects it.

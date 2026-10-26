@@ -2,11 +2,12 @@ import { useMemo, useState } from 'react';
 import { repo } from '../data';
 import { GIFI_CODES, gifiCsv, gifiDescription, gifiSchedules, suggestGifi } from '../engine/gifi';
 import { adjustedBalances } from '../engine/statements';
-import { policiesFor } from '../content/notes';
+import { policiesFor, policyApplies } from '../content/notes';
 import { aspeBasis } from '../content/aspe';
 import { basisNote, statuteOf } from '../content/canada';
 import { currencyOf } from '../content/jurisdictions';
 import { fmt, cur } from '../engine/money';
+import { longDate } from '../engine/report';
 import { ITEM } from '../engine/chart';
 import type { TbLine } from '../engine/types';
 import { ErrorNote, useAction } from '../ui';
@@ -26,7 +27,7 @@ function notesText(ctx: Ctx): string {
   const { eng, client, statements: st, gaap } = ctx;
   const r = eng.report;
   const npo = gaap === 'asnpo';
-  const out: string[] = [`${client.name}`, `Notes to the financial statements for the year ended ${eng.yearEnd}`, ''];
+  const out: string[] = [`${client.name}`, `Notes to the financial statements for the year ended ${longDate(eng.yearEnd)}`, ''];
   const statute = statuteOf(eng.planning.statute);
   const special = eng.type === 'compilation' && (r.compilationBasis ?? 'cash-accruals') !== 'aspe';
   const nature = `${client.name} ${npo ? `is a not-for-profit organization${statute?.name ? ` incorporated under ${statute.name}` : ''}` : `is incorporated under ${statute?.name || '[statute]'}`}. ${r.principalActivity ? `Its principal activity is ${r.principalActivity}.` : ''}`;
@@ -34,7 +35,7 @@ function notesText(ctx: Ctx): string {
     out.push('1. Basis of accounting', basisNote(r.compilationBasis, client.name, r.basisAccruals ?? '', r.basisOther ?? '', npo), '', '2. Nature of operations', nature, '');
   } else {
     out.push('1. Nature of operations', nature, '', '2. Significant accounting policies', ...aspeBasis({ npo, currency: currencyOf(eng.currency).name }));
-    for (const [code, p] of Object.entries(policiesFor(gaap, eng.planning))) if (st.notes.has(code)) out.push(`${p.title}. ${eng.disclosures.policies?.[code]?.text || p.text}`);
+    for (const [code, p] of Object.entries(policiesFor(gaap, eng.planning))) if (policyApplies(code, st)) out.push(`${p.title}. ${eng.disclosures.policies?.[code]?.text || p.text}`);
     out.push('');
   }
   const money = (v: number | null) => (v === null ? '' : (v / 100).toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));

@@ -219,7 +219,8 @@ export function disclosureGaps(
     if (s && s.chargeDifference !== 0) gaps.push('The fixed asset schedule does not agree to the depreciation charge. Check disposals and the depreciation tags in the mapping.');
     if (s && [...s.cost, ...s.depreciation].some((r) => r.increase < 0)) gaps.push('The fixed asset schedule shows negative additions or a negative charge. Enter the disposals.');
   }
-  if (st.cur.v.income_tax_expense !== 0 || st.cur.pbt > 0) {
+  // A Canadian not-for-profit is exempt under the Income Tax Act, so it has no tax reconciliation.
+  if (st.cur.v.income_tax_expense !== 0 || (st.cur.pbt > 0 && !(j?.code === 'CA' && st.npo))) {
     const t = taxReconciliation(st.cur, d);
     if (!t) gaps.push('Enter the tax rate for the tax reconciliation.');
     else if (t.difference !== 0) gaps.push('The tax reconciliation has an unexplained difference.');

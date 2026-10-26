@@ -58,5 +58,9 @@ export function policiesFor(gaap: Gaap, planning: Planning): Record<string, { ti
   return aspePolicies({ npo: gaap === 'asnpo', taxMethod: planning.taxMethod, method: planning.contributionMethod ?? 'deferral' });
 }
 
+/** Whether an entity's statements need a policy: it has the line, or for a not-for-profit's revenue policy, grants or donations. */
+export const policyApplies = (code: string, st: { notes: Map<string, number>; npo?: boolean }) =>
+  st.notes.has(code) || (code === 'revenue' && !!st.npo && (st.notes.has('grant_income') || st.notes.has('donations')));
+
 /** The statement lines that carry an accounting policy note, given which lines the entity has. */
-export const policyCodes = (st: { notes: Map<string, number> }) => Object.keys(POLICIES).filter((code) => st.notes.has(code));
+export const policyCodes = (st: { notes: Map<string, number>; npo?: boolean }) => Object.keys(POLICIES).filter((code) => policyApplies(code, st));

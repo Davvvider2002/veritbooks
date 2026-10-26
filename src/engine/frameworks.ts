@@ -51,6 +51,18 @@ const ASPE_WORDS: Record<string, string> = {
   'Trade receivables': 'Accounts receivable',
   'Trade payables': 'Accounts payable and accrued liabilities',
   'Inventories': 'Inventory',
+  Borrowings: 'Long-term debt',
+  'Borrowings and bank overdrafts': 'Bank indebtedness and current portion of debt',
+  'Current tax payable': 'Income taxes payable',
+  'Deferred tax asset': 'Future income taxes',
+  'Deferred tax liability': 'Future income taxes',
+  'Finance costs': 'Interest expense',
+  'Finance income': 'Investment income',
+  'Share premium': 'Contributed surplus',
+  'Selling and distribution costs': 'Selling expenses',
+  'Administrative expenses': 'General and administrative expenses',
+  'Finance costs paid': 'Interest paid',
+  'Finance income received': 'Investment income received',
 };
 
 const ASNPO_WORDS: Record<string, string> = {
@@ -74,6 +86,9 @@ const ASNPO_WORDS: Record<string, string> = {
   'Depreciation and amortisation': 'Amortization of capital assets',
   'Income tax expense': 'Income taxes',
   'Income tax paid': 'Income taxes paid',
+  'Programme and charitable activities': 'Program and charitable activities',
+  'Finance income': 'Investment income',
+  'Finance costs': 'Interest expense',
 };
 
 const FUND_COLUMNS: Record<string, string> = {
@@ -113,7 +128,9 @@ export function present(st: Statements, gaap: Gaap, method: ContributionMethod =
   const out: Statements = { ...st };
   if (gaap === 'asnpo' && st.npo && method === 'deferral') Object.assign(out, deferral(st));
   out.position = relabelRows(out.position, gaap);
-  out.income = relabelRows(out.income, gaap);
+  // A not-for-profit with no income taxes shows one excess of revenue over expenses, not a before-tax line too.
+  const taxed = out.income.some((r) => r.code === 'income_tax_expense');
+  out.income = relabelRows(gaap === 'asnpo' && !taxed ? out.income.filter((r) => r.label !== 'Surplus/(deficit) before tax') : out.income, gaap);
   out.cashFlow = out.cashFlow && relabelRows(out.cashFlow, gaap);
   out.cashFlowFull = out.cashFlowFull && relabelRows(out.cashFlowFull, gaap);
   out.pbtParts = relabelParts(out.pbtParts, gaap)!;
