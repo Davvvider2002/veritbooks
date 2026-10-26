@@ -245,7 +245,7 @@ Deno.serve(async (req: Request) => {
     if (isAdmin !== true) return refuse('Not found.', 404);
     const price = String(body.price ?? '').toUpperCase();
     const charge = String(body.charge ?? '').toUpperCase();
-    const ok = ['NGN', 'GHS', 'USD', 'ZAR'];
+    const ok = ['NGN', 'GHS', 'USD', 'ZAR', 'CAD'];
     if (!ok.includes(price) || !ok.includes(charge) || price === charge) return refuse('Choose two different currencies.');
     // How much of the collected currency it takes to deliver 100 of the price currency.
     const res = await fetch(`${FLW}/transfers/rates?amount=100&destination_currency=${price}&source_currency=${charge}`, { headers: { Authorization: `Bearer ${secret}` } });

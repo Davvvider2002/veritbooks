@@ -844,5 +844,25 @@ ok('an account can be tagged to a restricted fund', (await db.query(`select fund
 await denied('a fund name is kept short', () => as(GH1, `update tb_lines set fund = $2 where id = $1`, [nf.id, 'x'.repeat(81)]), /check/);
 await denied('another firm cannot tag it', () => as(B, `update tb_lines set fund = 'x' where id = $1 returning id`, [nf.id]).then((r) => { if (!r.length) throw new Error('blocked by row security'); }), /row security|permission/);
 
+// --- 0028: Canada -----------------------------------------------------------------------
+await db.exec(readFileSync('supabase/migrations/0028_canada.sql', 'utf8'));
+ok('Canada is priced in Canadian dollars', (await db.query(`select public_prices('CA') as p`)).rows[0].p.plans.find((p) => p.code === 'solo').price_kobo === 120000);
+const CA1 = '00000000-0000-0000-0000-000000000071';
+await db.exec(`insert into auth.users (id, email, email_confirmed_at, raw_user_meta_data) values ('${CA1}', 'sam@maple.ca', now(), '{"phone":"+14165550123"}')`);
+const [fca] = await as(CA1, `select * from create_firm('Maple & Co', '', 'Toronto', 'Sam Lee', '', 'CA')`);
+ok('a Canadian firm can be set up', (await db.query(`select country from firms where id = $1`, [fca.id])).rows[0].country === 'CA');
+const [cac] = await as(CA1, `insert into clients (firm_id, name) values ($1, 'Northern Lights Ltd') returning *`, [fca.id]);
+const [cae] = await as(CA1, `insert into engagements (firm_id, client_id, type, year_end, currency) values ($1, $2, 'compilation', '2025-12-31', 'CAD') returning *`, [fca.id, cac.id]);
+ok('an engagement can be presented in Canadian dollars', cae?.currency === 'CAD');
+await act(Z, 'country_charge', { country: 'CA', charge_currency: 'CAD' });
+ok('the owner can collect Canadian dollars directly', (await db.query(`select charge_currency from countries where code = 'CA'`)).rows[0].charge_currency === null);
+await act(Z, 'country_charge', { country: 'CA', charge_currency: 'USD', rate: 0.72 });
+ok('or US dollars at a rate', Number((await db.query(`select charge_rate from countries where code = 'CA'`)).rows[0].charge_rate) === 0.72);
+ok('Canadian partners sign with a public accounting licence', (await db.query(`select private.licence_label('CA') as l`)).rows[0].l === 'public accounting licence number');
+const [cal] = await as(CA1, `insert into tb_lines (engagement_id, code, name, balance) values ($1, '1000', 'Bank', 100) returning *`, [cae.id]);
+await as(CA1, `update tb_lines set gifi = '1002' where id = $1`, [cal.id]);
+ok('an account takes a GIFI code', (await db.query(`select gifi from tb_lines where id = $1`, [cal.id])).rows[0].gifi === '1002');
+await denied('a GIFI code is four digits', () => as(CA1, `update tb_lines set gifi = '12A' where id = $1`, [cal.id]), /check/);
+
 console.log(failed ? `\n${failed} check(s) failed` : '\nAll database checks passed');
 process.exit(failed ? 1 : 0);

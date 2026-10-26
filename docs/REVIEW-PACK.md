@@ -1387,6 +1387,368 @@ The three conclusions offered for the yearly evaluation:
 
 Reviewer: ______________________  Date: ____________  Accepted / Accepted with changes / Rejected
 
+## 14. Canada, outside Quebec
+
+Version 0.1-starter. Canadian firms report under ASPE (CPA Canada Handbook, Part II) or, for not-for-profits, ASNPO (Part III). The IFRS for SMEs is not Canadian GAAP. Audits follow the Canadian Auditing Standards, reviews CSRE 2400 and compilations CSRS 4200. Quebec is out of scope.
+
+Questions for a Canadian reviewer:
+
+1. **Presentation.** Section 14.4 lists the words the statements use under ASPE and ASNPO. Are the statement names and line labels acceptable, and is a directors’ report rightly left out?
+2. **Deferral method.** Restricted contributions not yet spent are moved to deferred contributions, a liability, from the fund tags on each account. Endowment contributions stay in net assets. Is the presentation right, including the line that shows contributions deferred net of amounts recognized?
+3. **Compilations.** The basis of accounting choices, Note 1 and the report in 14.5 follow CSRS 4200. Do they meet the standard and CPA Canada’s illustrative report?
+4. **Licensing.** The software asks the partner to confirm a licence for audits and reviews, and prints the designation for the province. Is that sufficient for each province served?
+5. **Statutes.** Confirm each statute name and exemption in 14.6, including section 148 of the Ontario Business Corporations Act.
+6. **GIFI.** Confirm the suggested codes and the sign convention in 14.7, and the import layout each main tax package expects.
+
+### 14.1 Work programmes
+
+**Audit (CAS)**
+
+| Id | Area | Step |
+| --- | --- | --- |
+| ca-a-acc-1 | Acceptance | Confirm independence and the other requirements of the CPA Code of Professional Conduct for the firm and the team. |
+| ca-a-acc-2 | Acceptance | Agree the terms of the engagement in an engagement letter (CAS 210). |
+| ca-a-acc-3 | Acceptance | Confirm the entity is not a reporting issuer, that ASPE or ASNPO is an acceptable framework for it, and that the engagement partner holds a public accounting licence that covers the audit in the province. |
+| ca-a-pln-1 | Planning | Document the understanding of the entity, its environment, the framework and its system of internal control (CAS 315). |
+| ca-a-pln-2 | Planning | Set materiality and performance materiality, and the clearly trivial threshold (CAS 320). |
+| ca-a-pln-3 | Planning | Identify and assess risks of material misstatement due to fraud, including management override and revenue recognition (CAS 240). |
+| ca-a-pln-4 | Planning | Obtain evidence on opening balances, or agree them to last year’s audited statements (CAS 510). |
+| ca-a-pln-5 | Planning | Identify related parties and transactions with them (CAS 550; ASPE Section 3840). |
+| ca-a-cash-1 | Cash | Obtain bank confirmations and agree them to the year-end bank reconciliations (CAS 505). |
+| ca-a-cash-2 | Cash | Test reconciling items to bank statements after the year end. |
+| ca-a-rec-1 | Receivables | Agree the aged receivables listing to the ledger, and test balances to confirmations or receipts after the year end. |
+| ca-a-rec-2 | Receivables | Assess the allowance for doubtful accounts and impairment of financial assets (Section 3856). |
+| ca-a-inv-1 | Inventory | Attend the inventory count, or perform alternative procedures, and test the lower of cost and net realizable value (CAS 501; Section 3031). |
+| ca-a-ppe-1 | Capital assets | Vouch additions and disposals, test ownership, recompute amortization and consider impairment (Sections 3061 and 3063). |
+| ca-a-pay-1 | Payables | Test payables to supplier statements and search for unrecorded liabilities. |
+| ca-a-pay-2 | Government remittances | Test GST/HST, payroll source deductions and workers’ compensation remittances for completeness and timeliness. Directors can be personally liable for unremitted amounts. |
+| ca-a-tax-1 | Income taxes | Recompute income taxes under the method the entity uses (taxes payable or future income taxes, Section 3465), and agree balances to notices of assessment and instalments. |
+| ca-a-eq-1 | Equity | Agree share capital and dividends to the minute book and to the corporate registry (Corporations Canada or the provincial registry). |
+| ca-a-debt-1 | Debt | Confirm long-term debt, test covenants at the year end and their effect on classification, and the principal repayments for the next five years (Section 3856). |
+| ca-a-rev-1 | Revenue | Test revenue for occurrence, accuracy and cut-off against the revenue recognition policy (Section 3400). |
+| ca-a-exp-1 | Expenses | Test expenses and payroll to supporting documents, and test cut-off. |
+| ca-a-jnl-1 | Journals | Test journal entries and other adjustments for evidence of management override (CAS 240). |
+| ca-a-cmp-1 | Completion | Evaluate management’s going concern assessment (CAS 570) and events after the reporting date (CAS 560; Section 3820). |
+| ca-a-cmp-2 | Completion | Accumulate misstatements and conclude on the uncorrected misstatements (CAS 450). |
+| ca-a-cmp-3 | Completion | Review the financial statements against ASPE or ASNPO disclosure requirements. |
+| ca-a-cmp-4 | Completion | Obtain the signed management representation letter (CAS 580), dated as near as practicable to the report date. |
+| ca-a-cmp-5 | Completion | Communicate with those charged with governance, including significant deficiencies in internal control (CAS 260 and CAS 265). |
+| ca-a-cmp-6 | Completion | Complete the engagement partner review, and an engagement quality review where the firm’s policies require one (CSQM 2). |
+
+**Review (CSRE 2400)**
+
+| Id | Area | Step |
+| --- | --- | --- |
+| ca-r-acc-1 | Acceptance | Confirm independence and ethical requirements, confirm the partner’s public accounting licence covers the review, and agree the engagement letter. |
+| ca-r-pln-1 | Planning | Document the understanding of the entity, its accounting system and records, and the framework, and determine materiality (CSRE 2400). |
+| ca-r-pln-2 | Planning | Identify the areas where material misstatement is likely, including items below materiality for qualitative reasons. |
+| ca-r-enq-1 | Inquiries | Inquire about related parties and transactions with them, and significant or unusual transactions. |
+| ca-r-enq-2 | Inquiries | Inquire about significant estimates, going concern, fraud and suspected fraud, and non-compliance with laws and regulations. |
+| ca-r-enq-3 | Inquiries | Inquire about events after the reporting date, commitments, contingencies and government remittances (GST/HST and payroll source deductions). |
+| ca-r-ana-1 | Analytical procedures | Perform analytical procedures on all material items, including disclosures, and investigate fluctuations that are not as expected. |
+| ca-r-add-1 | Additional procedures | Where a matter suggests the statements may be materially misstated, perform additional procedures until the matter is resolved. |
+| ca-r-cmp-1 | Completion | Communicate accumulated misstatements to management and request their correction. |
+| ca-r-cmp-2 | Completion | Obtain written representations, read the statements against ASPE or ASNPO, and complete the partner review. |
+
+**Compilation (CSRS 4200)**
+
+| Id | Area | Step |
+| --- | --- | --- |
+| ca-c-acc-1 | Acceptance | Confirm the ethical requirements of the CPA Code of Professional Conduct. If third parties will rely on the statements in Ontario, confirm the licence requirement is met. |
+| ca-c-acc-2 | Acceptance | Agree an engagement letter for the year: the intended use and users, the basis of accounting, management’s responsibilities, and, where a third party will use the statements, management’s acknowledgment that the third party can ask for more information or has agreed the basis (CSRS 4200). |
+| ca-c-und-1 | Understanding | Document the business and its operations, the accounting system and records, the basis of accounting and the accounting policies. |
+| ca-c-cmp-1 | Compilation | Compile the statements from the records. Reconcile the records to the compiled statements, including adjustments. |
+| ca-c-cmp-2 | Compilation | Discuss significant judgments with management, and document them. |
+| ca-c-cmp-3 | Compilation | Read the compiled statements. If they appear false or misleading, propose changes, and withdraw if management does not make them. |
+| ca-c-cmp-4 | Compilation | Check that Note 1 describes the basis of accounting, and that ASPE or ASNPO is named only if the statements comply with it in full. |
+| ca-c-cmp-5 | Completion | Obtain management’s acknowledgment of responsibility for the final compiled statements, and date the report on or after it. |
+
+### 14.2 Disclosure checklist, ASPE
+
+| Id | Section | Item | Applies when |
+| --- | --- | --- | --- |
+| ca-1400-compliance | Section 1400: General standards of financial statement presentation | The statements state that they are prepared in accordance with Canadian accounting standards for private enterprises (or ASNPO), and comply with it in full. | Always |
+| ca-1400-going-concern | Section 1400: General standards of financial statement presentation | Management’s going concern assessment is reflected, and material uncertainties are disclosed. | Always |
+| ca-1400-comparatives | Section 1400: General standards of financial statement presentation | Comparative figures are given for the prior period. | Always |
+| ca-1400-nature | Section 1400: General standards of financial statement presentation | The nature of operations and the statute the entity is incorporated under are described. | Always |
+| ca-1505-policies | Section 1505: Disclosure of accounting policies | The significant accounting policies are disclosed, including the choices ASPE allows: the income tax method, and the policies for revenue, inventory and capital assets. | Always |
+| ca-1506-changes | Section 1506: Accounting changes | Any change in accounting policy, change in estimate or correction of an error is disclosed, with its nature, its effect and how the comparatives were restated. | Always |
+| ca-1510-classification | Section 1510: Current assets and current liabilities | Current assets and current liabilities are shown separately, and amounts due after one year are classified as long-term. | Always |
+| ca-1520-items | Section 1520: Income statement | Revenue, amortization, interest expense, income taxes and unusual items are shown separately, on the face or in the notes. | Always |
+| ca-1521-items | Section 1521: Balance sheet | The balance sheet presents the required items, including amounts due from and to related parties shown separately. | Always |
+| ca-1540-cash | Section 1540: Cash flow statement | The components of cash and cash equivalents, and the policy for determining them, are disclosed. | Always |
+| ca-3031-inventories | Section 3031: Inventories | The policy and cost formula, the carrying amount by classification, the amount expensed, any write-downs and reversals, and inventory pledged as security are disclosed. | inventories |
+| ca-3061-ppe | Section 3061: Property, plant and equipment | For each major category: cost, accumulated amortization, the amortization method and the period or rate, and the amortization charged in the year. | ppe |
+| ca-3063-impairment | Section 3063: Impairment of long-lived assets | Any impairment of long-lived assets is described, with the amount and the facts that led to it. | ppe, intangibles |
+| ca-3064-intangibles | Section 3064: Goodwill and intangible assets | Intangible assets and goodwill are disclosed, with the amortization method and period, and any impairment. | intangibles |
+| ca-3065-leases | Section 3065: Leases | For capital leases: the assets and obligations, interest, and future minimum lease payments. For operating leases: future minimum payments for each of the next five years. | Always |
+| ca-3240-shares | Section 3240: Share capital | For each class of shares: the number authorized and issued, the rights and privileges, and changes in the year. | share_capital, share_premium |
+| ca-3251-equity | Section 3251: Equity | Changes in each component of equity in the year are presented, including dividends. | Always |
+| ca-3280-obligations | Section 3280: Contractual obligations | Significant contractual obligations, and commitments to acquire assets, are disclosed. | Always |
+| ca-3290-contingencies | Section 3290: Contingencies | Contingent liabilities and guarantees are described, with an estimate of the amount or a statement that it cannot be made. | Always |
+| ca-3400-revenue | Section 3400: Revenue | The revenue recognition policy for each major category is disclosed, with the amount of each category where significant. | revenue, other_income |
+| ca-3462-benefits | Section 3462: Employee future benefits | For defined benefit plans: the obligation, plan assets and the expense. For defined contribution plans: the expense. | Always |
+| ca-3465-taxes | Section 3465: Income taxes | The income tax method is disclosed. Under the taxes payable method, the expense is reconciled to the statutory rate. Under the future income taxes method, current and future tax are shown separately, with the future tax balances. | income_tax_expense, current_tax_payable, deferred_tax_asset, deferred_tax_liability |
+| ca-3820-events | Section 3820: Subsequent events | Events after the balance sheet date that did not require adjustment are described, with their financial effect where it can be estimated. | Always |
+| ca-3840-related | Section 3840: Related party transactions | For related party transactions: the relationship, a description, the amounts, the measurement basis, amounts due with their terms, and contractual obligations and contingencies. | Always |
+| ca-3856-instruments | Section 3856: Financial instruments | The carrying amounts of financial assets and liabilities by category, and any impairment, are disclosed. | trade_receivables, other_receivables, investments, trade_payables, other_payables, borrowings_nc, borrowings_c |
+| ca-3856-debt | Section 3856: Financial instruments | For long-term debt: the terms, interest rates, security, and the principal repayments in each of the next five years. Any default or covenant breach, and how it was resolved, is disclosed. | borrowings_nc, borrowings_c |
+| ca-3856-risks | Section 3856: Financial instruments | The significant risks from financial instruments (credit, liquidity, market, currency and interest rate) are described, with any change since last year. | trade_receivables, investments, borrowings_nc, borrowings_c |
+
+### 14.3 Disclosure checklist, ASNPO additions
+
+| Id | Section | Item | Applies when |
+| --- | --- | --- | --- |
+| ca-4400-presentation | Section 4400: Financial statement presentation by not-for-profit organizations | The statements of financial position, operations, changes in net assets and cash flows are presented, with net assets shown as unrestricted, internally restricted, restricted for endowment and invested in capital assets, as applies. | Always |
+| ca-4400-purpose | Section 4400: Financial statement presentation by not-for-profit organizations | The organization’s purpose, its legal form, and its status under the Income Tax Act are described. | Always |
+| ca-4410-method | Section 4410: Contributions, revenue recognition | The method used for contributions (deferral or restricted fund) is disclosed, with the policy for each type of contribution, including contributed materials and services. | Always |
+| ca-4410-deferred | Section 4410: Contributions, revenue recognition | Deferred contributions and their movement in the year, or for the restricted fund method each restricted fund, are disclosed. | restricted_funds, grant_income, donations |
+| ca-4410-endowment | Section 4410: Contributions, revenue recognition | Endowment contributions and net assets restricted for endowment are disclosed, with the restrictions. | endowment_funds |
+| ca-4433-capital | Section 4433: Tangible capital assets held by not-for-profit organizations | For each major category of tangible capital assets: cost, accumulated amortization, the amortization method and period, and any write-down. | ppe |
+| ca-4460-related | Section 4460: Disclosure of related party transactions by not-for-profit organizations | Related party transactions, and economic interest in other organizations, are disclosed. | Always |
+| ca-4470-allocated | Section 4470: Disclosure of allocated expenses by not-for-profit organizations | Where fundraising and general support expenses are allocated to other functions, the policy, the amounts allocated and the functions they were allocated to are disclosed. | fundraising_costs, admin_expenses |
+
+### 14.4 Accounting policies
+
+These financial statements have been prepared in accordance with Canadian accounting standards for private enterprises (ASPE) in Part II of the CPA Canada Handbook – Accounting. They are presented in Canadian dollars. Use of estimates. The preparation of financial statements requires management to make estimates and assumptions that affect the reported amounts of assets and liabilities, the disclosure of contingent assets and liabilities at the date of the financial statements, and the reported amounts of revenue and expenses during the year. Actual results could differ from those estimates.
+
+| Line | Title | ASPE wording (taxes payable method) |
+| --- | --- | --- |
+| revenue | Revenue recognition | The Company recognizes revenue when persuasive evidence of an arrangement exists, the goods have been delivered or the services rendered, the price is fixed or determinable, and collection is reasonably assured (Section 3400). Revenue is recorded net of sales taxes, discounts and returns. |
+| ppe | Property and equipment | Property and equipment are recorded at cost less accumulated amortization. Amortization is provided on the straight-line basis over the estimated useful lives of the assets. An asset is tested for impairment when events or changes in circumstances indicate that its carrying amount may not be recoverable, and is written down when its carrying amount exceeds its fair value (Section 3063). |
+| intangibles | Intangible assets | Intangible assets with finite useful lives are recorded at cost less accumulated amortization, and are amortized on the straight-line basis over their estimated useful lives (Section 3064). |
+| inventories | Inventory | Inventory is measured at the lower of cost and net realizable value. Cost is determined on the [first-in, first-out / weighted average cost] basis (Section 3031). |
+| trade_receivables | Financial instruments | The Company initially measures its financial assets and financial liabilities at fair value, adjusted for transaction costs where they are subsequently measured at amortized cost. It subsequently measures its financial assets and financial liabilities at amortized cost, except for investments in equity instruments quoted in an active market, which are measured at fair value. Financial assets measured at amortized cost are tested for impairment when there are indicators of impairment (Section 3856). |
+| cash | Cash and cash equivalents | Cash and cash equivalents consist of cash on hand and balances with banks, and short-term investments with maturities of three months or less from the date of acquisition. |
+| trade_payables | Accounts payable and accrued liabilities | Accounts payable and accrued liabilities are financial liabilities measured at amortized cost. |
+| borrowings_nc | Long-term debt | Long-term debt is a financial liability measured at amortized cost. Interest is recognized in income as it accrues. |
+| income_tax_expense | Income taxes | The Company uses the taxes payable method (Section 3465). Under this method, only the cost of current income taxes for the year, determined in accordance with the Income Tax Act and provincial income tax legislation, is recognized as an expense. |
+| provisions | Contingencies and provisions | A liability is recognized when it is likely that a future event will confirm that an asset has been impaired or a liability incurred at the date of the financial statements, and the amount can be reasonably estimated (Section 3290). The Company reviews its estimates at each year end. |
+
+| Line | Title | ASNPO wording (deferral method) |
+| --- | --- | --- |
+| revenue | Revenue recognition | The Organization follows the deferral method of accounting for contributions. Restricted contributions are recognized as revenue in the year in which the related expenses are incurred. Unrestricted contributions are recognized as revenue when received or receivable if the amount can be reasonably estimated and collection is reasonably assured. Endowment contributions are recognized as direct increases in net assets. Revenue from services and goods is recognized when the service is provided or the goods are delivered. |
+| ppe | Capital assets | Capital assets are recorded at cost less accumulated amortization. Amortization is provided on the straight-line basis over the estimated useful lives of the assets. An asset is tested for impairment when events or changes in circumstances indicate that its carrying amount may not be recoverable, and is written down when its carrying amount exceeds its fair value or replacement cost (Section 4433). |
+| intangibles | Intangible assets | Intangible assets with finite useful lives are recorded at cost less accumulated amortization, and are amortized on the straight-line basis over their estimated useful lives (Section 3064). |
+| inventories | Inventory | Inventory is measured at the lower of cost and net realizable value. Cost is determined on the [first-in, first-out / weighted average cost] basis (Section 3031). |
+| trade_receivables | Financial instruments | The Organization initially measures its financial assets and financial liabilities at fair value, adjusted for transaction costs where they are subsequently measured at amortized cost. It subsequently measures its financial assets and financial liabilities at amortized cost, except for investments in equity instruments quoted in an active market, which are measured at fair value. Financial assets measured at amortized cost are tested for impairment when there are indicators of impairment (Section 3856). |
+| cash | Cash and cash equivalents | Cash and cash equivalents consist of cash on hand and balances with banks, and short-term investments with maturities of three months or less from the date of acquisition. |
+| trade_payables | Accounts payable and accrued liabilities | Accounts payable and accrued liabilities are financial liabilities measured at amortized cost. |
+| borrowings_nc | Long-term debt | Long-term debt is a financial liability measured at amortized cost. Interest is recognized in income as it accrues. |
+| income_tax_expense | Income taxes | The Organization is a not-for-profit organization under the Income Tax Act and is exempt from income taxes. |
+| provisions | Contingencies and provisions | A liability is recognized when it is likely that a future event will confirm that an asset has been impaired or a liability incurred at the date of the financial statements, and the amount can be reasonably estimated (Section 3290). The Organization reviews its estimates at each year end. |
+
+### 14.5 Report wording
+
+**Audit, ASPE, unmodified**
+Independent auditor’s report. To the Shareholders of Example Limited
+
+*Opinion*
+We have audited the financial statements of Example Limited (the Company), which comprise the balance sheet as at December 31, 2025, and the statements of income, retained earnings and cash flows for the year then ended, and notes to the financial statements, including a summary of significant accounting policies.
+In our opinion, the accompanying financial statements present fairly, in all material respects, the financial position of the Company as at December 31, 2025, and its results of operations and its cash flows for the year then ended in accordance with Canadian accounting standards for private enterprises.
+
+*Basis for opinion*
+We conducted our audit in accordance with Canadian generally accepted auditing standards. Our responsibilities under those standards are further described in the Auditor’s Responsibilities for the Audit of the Financial Statements section of our report. We are independent of the Company in accordance with the ethical requirements that are relevant to our audit of the financial statements in Canada, and we have fulfilled our other ethical responsibilities in accordance with these requirements.
+We believe that the audit evidence we have obtained is sufficient and appropriate to provide a basis for our opinion.
+
+*Responsibilities of management and those charged with governance for the financial statements*
+Management is responsible for the preparation and fair presentation of the financial statements in accordance with Canadian accounting standards for private enterprises, and for such internal control as management determines is necessary to enable the preparation of financial statements that are free from material misstatement, whether due to fraud or error.
+In preparing the financial statements, management is responsible for assessing the Company’s ability to continue as a going concern, disclosing, as applicable, matters related to going concern and using the going concern basis of accounting unless management either intends to liquidate the Company or to cease operations, or has no realistic alternative but to do so.
+Those charged with governance are responsible for overseeing the Company’s financial reporting process.
+
+*Auditor’s responsibilities for the audit of the financial statements*
+Our objectives are to obtain reasonable assurance about whether the financial statements as a whole are free from material misstatement, whether due to fraud or error, and to issue an auditor’s report that includes our opinion. Reasonable assurance is a high level of assurance, but is not a guarantee that an audit conducted in accordance with Canadian generally accepted auditing standards will always detect a material misstatement when it exists. Misstatements can arise from fraud or error and are considered material if, individually or in the aggregate, they could reasonably be expected to influence the economic decisions of users taken on the basis of these financial statements.
+As part of an audit in accordance with Canadian generally accepted auditing standards, we exercise professional judgment and maintain professional skepticism throughout the audit. We also:
+• Identify and assess the risks of material misstatement of the financial statements, whether due to fraud or error, design and perform audit procedures responsive to those risks, and obtain audit evidence that is sufficient and appropriate to provide a basis for our opinion. The risk of not detecting a material misstatement resulting from fraud is higher than for one resulting from error, as fraud may involve collusion, forgery, intentional omissions, misrepresentations, or the override of internal control.
+• Obtain an understanding of internal control relevant to the audit in order to design audit procedures that are appropriate in the circumstances, but not for the purpose of expressing an opinion on the effectiveness of the Company’s internal control.
+• Evaluate the appropriateness of accounting policies used and the reasonableness of accounting estimates and related disclosures made by management.
+• Conclude on the appropriateness of management’s use of the going concern basis of accounting and, based on the audit evidence obtained, whether a material uncertainty exists related to events or conditions that may cast significant doubt on the Company’s ability to continue as a going concern. If we conclude that a material uncertainty exists, we are required to draw attention in our auditor’s report to the related disclosures in the financial statements or, if such disclosures are inadequate, to modify our opinion. Our conclusions are based on the audit evidence obtained up to the date of our auditor’s report. However, future events or conditions may cause the Company to cease to continue as a going concern.
+• Evaluate the overall presentation, structure and content of the financial statements, including the disclosures, and whether the financial statements represent the underlying transactions and events in a manner that achieves fair presentation.
+We communicate with those charged with governance regarding, among other matters, the planned scope and timing of the audit and significant audit findings, including any significant deficiencies in internal control that we identify during our audit.
+
+**Review, ASPE, unmodified**
+Independent practitioner’s review engagement report. To the Shareholders of Example Limited
+
+We have reviewed the accompanying financial statements of Example Limited (the Company) that comprise the balance sheet as at December 31, 2025, and the statements of income, retained earnings and cash flows for the year then ended, and a summary of significant accounting policies and other explanatory information.
+
+*Management’s responsibility for the financial statements*
+Management is responsible for the preparation and fair presentation of these financial statements in accordance with Canadian accounting standards for private enterprises, and for such internal control as management determines is necessary to enable the preparation of financial statements that are free from material misstatement, whether due to fraud or error.
+
+*Practitioner’s responsibility*
+Our responsibility is to express a conclusion on the accompanying financial statements based on our review. We conducted our review in accordance with Canadian generally accepted standards for review engagements, which require us to comply with relevant ethical requirements.
+A review of financial statements in accordance with Canadian generally accepted standards for review engagements is a limited assurance engagement. The practitioner performs procedures, primarily consisting of making inquiries of management and others within the entity, as appropriate, and applying analytical procedures, and evaluates the evidence obtained.
+The procedures performed in a review are substantially less in extent than, and vary in nature from, those performed in an audit conducted in accordance with Canadian generally accepted auditing standards. Accordingly, we do not express an audit opinion on these financial statements.
+
+*Conclusion*
+Based on our review, nothing has come to our attention that causes us to believe that the financial statements do not present fairly, in all material respects, the financial position of the Company as at December 31, 2025, and its results of operations and its cash flows for the year then ended in accordance with Canadian accounting standards for private enterprises.
+
+**Compilation, cash basis with selected accruals**
+Compilation engagement report. To Management of Example Limited
+
+On the basis of information provided by management, we have compiled the balance sheet of Example Limited as at December 31, 2025, the statements of income and retained earnings for the year then ended, and Note 1, which describes the basis of accounting applied in the preparation of the compiled financial information (“financial information”).
+Management is responsible for the accompanying financial information, including the accuracy and completeness of the underlying information used to compile it and the selection of the basis of accounting.
+We performed this engagement in accordance with Canadian Standard on Related Services (CSRS) 4200, Compilation Engagements, which requires us to comply with relevant ethical requirements. Our responsibility is to assist management in the preparation of the financial information.
+We did not perform an audit engagement or a review engagement, nor were we required to perform procedures to verify the accuracy or completeness of the information provided by management. Accordingly, we do not express an audit opinion or a review conclusion, or provide any form of assurance on the financial information.
+Readers are cautioned that the financial information may not be appropriate for their purposes.
+
+**Audit, ASNPO, unmodified**
+Independent auditor’s report. To the Members of Example Limited
+
+*Opinion*
+We have audited the financial statements of Example Limited (the Organization), which comprise the statement of financial position as at December 31, 2025, and the statements of operations, changes in net assets and cash flows for the year then ended, and notes to the financial statements, including a summary of significant accounting policies.
+In our opinion, the accompanying financial statements present fairly, in all material respects, the financial position of the Organization as at December 31, 2025, and its results of operations and its cash flows for the year then ended in accordance with Canadian accounting standards for not-for-profit organizations.
+
+*Basis for opinion*
+We conducted our audit in accordance with Canadian generally accepted auditing standards. Our responsibilities under those standards are further described in the Auditor’s Responsibilities for the Audit of the Financial Statements section of our report. We are independent of the Organization in accordance with the ethical requirements that are relevant to our audit of the financial statements in Canada, and we have fulfilled our other ethical responsibilities in accordance with these requirements.
+We believe that the audit evidence we have obtained is sufficient and appropriate to provide a basis for our opinion.
+
+*Responsibilities of management and those charged with governance for the financial statements*
+Management is responsible for the preparation and fair presentation of the financial statements in accordance with Canadian accounting standards for not-for-profit organizations, and for such internal control as management determines is necessary to enable the preparation of financial statements that are free from material misstatement, whether due to fraud or error.
+In preparing the financial statements, management is responsible for assessing the Organization’s ability to continue as a going concern, disclosing, as applicable, matters related to going concern and using the going concern basis of accounting unless management either intends to liquidate the Organization or to cease operations, or has no realistic alternative but to do so.
+Those charged with governance are responsible for overseeing the Organization’s financial reporting process.
+
+*Auditor’s responsibilities for the audit of the financial statements*
+Our objectives are to obtain reasonable assurance about whether the financial statements as a whole are free from material misstatement, whether due to fraud or error, and to issue an auditor’s report that includes our opinion. Reasonable assurance is a high level of assurance, but is not a guarantee that an audit conducted in accordance with Canadian generally accepted auditing standards will always detect a material misstatement when it exists. Misstatements can arise from fraud or error and are considered material if, individually or in the aggregate, they could reasonably be expected to influence the economic decisions of users taken on the basis of these financial statements.
+As part of an audit in accordance with Canadian generally accepted auditing standards, we exercise professional judgment and maintain professional skepticism throughout the audit. We also:
+• Identify and assess the risks of material misstatement of the financial statements, whether due to fraud or error, design and perform audit procedures responsive to those risks, and obtain audit evidence that is sufficient and appropriate to provide a basis for our opinion. The risk of not detecting a material misstatement resulting from fraud is higher than for one resulting from error, as fraud may involve collusion, forgery, intentional omissions, misrepresentations, or the override of internal control.
+• Obtain an understanding of internal control relevant to the audit in order to design audit procedures that are appropriate in the circumstances, but not for the purpose of expressing an opinion on the effectiveness of the Organization’s internal control.
+• Evaluate the appropriateness of accounting policies used and the reasonableness of accounting estimates and related disclosures made by management.
+• Conclude on the appropriateness of management’s use of the going concern basis of accounting and, based on the audit evidence obtained, whether a material uncertainty exists related to events or conditions that may cast significant doubt on the Organization’s ability to continue as a going concern. If we conclude that a material uncertainty exists, we are required to draw attention in our auditor’s report to the related disclosures in the financial statements or, if such disclosures are inadequate, to modify our opinion. Our conclusions are based on the audit evidence obtained up to the date of our auditor’s report. However, future events or conditions may cause the Organization to cease to continue as a going concern.
+• Evaluate the overall presentation, structure and content of the financial statements, including the disclosures, and whether the financial statements represent the underlying transactions and events in a manner that achieves fair presentation.
+We communicate with those charged with governance regarding, among other matters, the planned scope and timing of the audit and significant audit findings, including any significant deficiencies in internal control that we identify during our audit.
+
+### 14.6 Statutes and audit exemptions
+
+| Id | Statute | Kind | Exemption printed |
+| --- | --- | --- | --- |
+| cbca | Canada Business Corporations Act (federal) | company | A corporation that is not a distributing corporation may resolve not to appoint an auditor, with the consent of every shareholder, including those with no vote, until the next annual meeting (section 163). |
+| on | Business Corporations Act (Ontario) | company | A corporation that is not an offering corporation may be exempted from the audit requirements for a year with the written consent of every shareholder (section 148). |
+| bc | Business Corporations Act (British Columbia) | company |  |
+| ab | Business Corporations Act (Alberta) | company |  |
+| sk | The Business Corporations Act, 2021 (Saskatchewan) | company |  |
+| mb | The Corporations Act (Manitoba) | company |  |
+| ns | Companies Act (Nova Scotia) | company |  |
+| nb | Business Corporations Act (New Brunswick) | company |  |
+| nl | Corporations Act (Newfoundland and Labrador) | company |  |
+| pe | Business Corporations Act (Prince Edward Island) | company |  |
+| territory | A territorial business corporations act | company |  |
+| cnca | Canada Not-for-profit Corporations Act (federal) | npo |  |
+| onca | Not-for-Profit Corporations Act, 2010 (Ontario) | npo |  |
+| society | Societies Act (British Columbia, Alberta or another province) | npo |  |
+| unincorporated | Unincorporated association or charitable trust | npo |  |
+
+### 14.7 GIFI codes offered
+
+| Code | Description |
+| --- | --- |
+| 1000 | Cash and deposits |
+| 1001 | Cash |
+| 1002 | Deposits in Canadian banks and institutions – Canadian currency |
+| 1003 | Deposits in Canadian banks and institutions – Foreign currency |
+| 1060 | Accounts receivable |
+| 1061 | Allowance for doubtful accounts |
+| 1062 | Trade accounts receivable |
+| 1066 | Taxes receivable |
+| 1067 | Interest receivable |
+| 1073 | Amounts receivable from members of NPOs |
+| 1120 | Inventories |
+| 1121 | Inventory of goods for sale |
+| 1125 | Work in progress |
+| 1126 | Raw materials |
+| 1180 | Short-term investments |
+| 1240 | Loans and notes receivable |
+| 1300 | Due from shareholder(s)/director(s) |
+| 1400 | Due from/investment in related parties |
+| 1480 | Other current assets |
+| 1481 | Future (deferred) income taxes |
+| 1483 | Taxes recoverable/refundable |
+| 1484 | Prepaid expenses |
+| 1486 | Security/tender deposits |
+| 1600 | Land |
+| 1601 | Land improvements |
+| 1602 | Accumulated amortization of land improvements |
+| 1680 | Buildings |
+| 1681 | Accumulated amortization of buildings |
+| 1740 | Machinery, equipment, furniture, and fixtures |
+| 1741 | Accumulated amortization of machinery, equipment, furniture, and fixtures |
+| 1742 | Motor vehicles |
+| 1743 | Accumulated amortization of motor vehicles |
+| 1787 | Furniture and fixtures |
+| 1788 | Accumulated amortization of furniture and fixtures |
+| 1900 | Other tangible capital assets |
+| 1901 | Accumulated amortization of other tangible capital assets |
+| 2010 | Intangible assets |
+| 2011 | Accumulated amortization of intangible assets |
+| 2012 | Goodwill |
+| 2013 | Accumulated amortization of goodwill |
+| 2180 | Due from shareholder(s)/director(s) |
+| 2200 | Investment in joint venture(s)/partnership(s) |
+| 2240 | Due from/investment in related parties |
+| 2300 | Long-term investments |
+| 2360 | Long-term loans |
+| 2420 | Other long-term assets |
+| 2600 | Bank overdraft |
+| 2620 | Amounts payable and accrued liabilities |
+| 2630 | Amounts payable to members of NPOs |
+| 2680 | Taxes payable |
+| 2700 | Short-term debt |
+| 2707 | Credit card loans |
+| 2780 | Due to shareholder(s)/director(s) |
+| 2860 | Due to related parties |
+| 2920 | Current portion of long term liability |
+| 2960 | Other current liabilities |
+| 3140 | Long-term debt |
+| 3220 | Deferred income |
+| 3240 | Future (deferred) income taxes |
+| 3260 | Due to shareholder(s)/director(s) |
+| 3300 | Due to related parties |
+| 3320 | Other long-term liabilities |
+| 3500 | Common shares |
+| 3520 | Preferred shares |
+| 3540 | Contributed and other surplus |
+| 3660 | Retained earnings (deficit) – start |
+| 3700 | Dividends declared |
+| 3740 | Other items affecting retained earnings |
+| 8000 | Trade sales of goods and services |
+| 8090 | Investment revenue |
+| 8095 | Dividend income |
+| 8120 | Commission revenue |
+| 8140 | Rental revenue |
+| 8210 | Realized gains/losses on disposal of assets |
+| 8220 | NPO amounts received |
+| 8221 | Membership fees |
+| 8223 | Gifts |
+| 8224 | Gross sales and revenues from organizational activities |
+| 8230 | Other revenue |
+| 8242 | Subsidies and grants |
+| 8300 | Opening inventory |
+| 8320 | Purchases/cost of materials |
+| 8340 | Direct wages |
+| 8350 | Benefits on direct wages |
+| 8360 | Trades and sub-contracts |
+| 8450 | Other direct costs |
+| 8500 | Closing inventory |
+| 8520 | Advertising and promotion |
+| 8570 | Amortization of intangible assets |
+| 8590 | Bad debt expense |
+| 8620 | Employee benefits |
+| 8670 | Amortization of tangible assets |
+| 8710 | Interest and bank charges |
+| 8760 | Business taxes, licences, and memberships |
+| 8810 | Office expenses |
+| 8860 | Professional fees |
+| 8910 | Rental |
+| 8960 | Repairs and maintenance |
+| 9060 | Salaries and wages |
+| 9110 | Sub-contracts |
+| 9150 | Computer-related expenses |
+| 9180 | Property taxes |
+| 9270 | Other expenses |
+| 9990 | Current income taxes |
+| 9995 | Future (deferred) income tax provision |
+
+Reviewer: ______________________  Date: ____________  Accepted / Accepted with changes / Rejected
+
 ## Overall release decision
 
 Reviewer: ______________________  Qualification and membership number: ______________________  Date: ____________

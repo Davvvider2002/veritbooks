@@ -8,6 +8,12 @@ import { PACKS, PACK_VERSION } from './packs';
 import { PROGRAMMES, PROGRAMME_VERSION } from './programmes';
 import { COMPONENT_LABEL, CONCLUSIONS, QUALITY_VERSION, STARTER_RISKS } from './quality';
 import { STANDARD_REQUESTS } from './requests';
+import { CANADA_CONTENT_VERSION, checklistCanada, PROGRAMMES_CA } from './canadaContent';
+import { aspeBasis, aspePolicies } from './aspe';
+import { STATUTES } from './canada';
+import { JURISDICTIONS } from './jurisdictions';
+import { GIFI_CODES } from '../engine/gifi';
+import { setDateLocale } from '../engine/report';
 
 /**
  * Everything in VeritBooks that a qualified technical author must review before a firm relies
@@ -250,6 +256,53 @@ export function buildReviewPack(): string {
   table(['Component', 'Risk', 'What could go wrong', 'Example response'], STARTER_RISKS.map((r) => [COMPONENT_LABEL[r.component], r.title, r.detail, r.response]));
   p('The three conclusions offered for the yearly evaluation:');
   table(['Conclusion', 'Wording'], Object.entries(CONCLUSIONS).map(([k, v]) => [k, v]));
+  signOff();
+
+  // ---------------------------------------------------------------------
+  p('## 14. Canada, outside Quebec');
+  p(
+    `Version ${CANADA_CONTENT_VERSION}. Canadian firms report under ASPE (CPA Canada Handbook, Part II) or, for not-for-profits, ASNPO (Part III). The IFRS for SMEs is not Canadian GAAP. Audits follow the Canadian Auditing Standards, reviews CSRE 2400 and compilations CSRS 4200. Quebec is out of scope.`,
+  );
+  p('Questions for a Canadian reviewer:');
+  p(
+    '1. **Presentation.** Section 14.4 lists the words the statements use under ASPE and ASNPO. Are the statement names and line labels acceptable, and is a directors’ report rightly left out?',
+    '2. **Deferral method.** Restricted contributions not yet spent are moved to deferred contributions, a liability, from the fund tags on each account. Endowment contributions stay in net assets. Is the presentation right, including the line that shows contributions deferred net of amounts recognized?',
+    '3. **Compilations.** The basis of accounting choices, Note 1 and the report in 14.5 follow CSRS 4200. Do they meet the standard and CPA Canada’s illustrative report?',
+    '4. **Licensing.** The software asks the partner to confirm a licence for audits and reviews, and prints the designation for the province. Is that sufficient for each province served?',
+    '5. **Statutes.** Confirm each statute name and exemption in 14.6, including section 148 of the Ontario Business Corporations Act.',
+    '6. **GIFI.** Confirm the suggested codes and the sign convention in 14.7, and the import layout each main tax package expects.',
+  );
+  p('### 14.1 Work programmes');
+  for (const type of ['audit', 'review', 'compilation'] as const) {
+    p(`**${type === 'audit' ? 'Audit (CAS)' : type === 'review' ? 'Review (CSRE 2400)' : 'Compilation (CSRS 4200)'}**`);
+    table(['Id', 'Area', 'Step'], PROGRAMMES_CA[type].map((i) => [i.id, i.area, i.text]));
+  }
+  p('### 14.2 Disclosure checklist, ASPE');
+  table(['Id', 'Section', 'Item', 'Applies when'], checklistCanada(false).map((i) => [i.id, i.section, i.text, i.when?.join(', ') ?? 'Always']));
+  p('### 14.3 Disclosure checklist, ASNPO additions');
+  table(['Id', 'Section', 'Item', 'Applies when'], checklistCanada(true).filter((i) => i.section.includes('44')).map((i) => [i.id, i.section, i.text, i.when?.join(', ') ?? 'Always']));
+  p('### 14.4 Accounting policies');
+  p(aspeBasis({ npo: false, currency: 'Canadian dollars' }).join(' '));
+  table(['Line', 'Title', 'ASPE wording (taxes payable method)'], Object.entries(aspePolicies({ npo: false, taxMethod: 'taxes-payable' })).map(([code, x]) => [code, x.title, x.text]));
+  table(['Line', 'Title', 'ASNPO wording (deferral method)'], Object.entries(aspePolicies({ npo: true, method: 'deferral' })).map(([code, x]) => [code, x.title, x.text]));
+  p('### 14.5 Report wording');
+  const ca = { clientName: 'Example Limited', yearEnd: '2025-12-31', hasCashFlow: true, jurisdiction: JURISDICTIONS.CA };
+  setDateLocale('CA');
+  for (const [title, input] of [
+    ['Audit, ASPE, unmodified', { ...ca, type: 'audit', settings: { opinion: 'unmodified' } }],
+    ['Review, ASPE, unmodified', { ...ca, type: 'review', settings: {} }],
+    ['Compilation, cash basis with selected accruals', { ...ca, type: 'compilation', settings: {}, hasCashFlow: false, specialBasis: true }],
+    ['Audit, ASNPO, unmodified', { ...ca, type: 'audit', settings: { opinion: 'unmodified' }, npo: { governors: { plural: 'directors', possessive: 'directors’' }, addressee: '' } }],
+  ] as [string, ReportInput][]) {
+    const r = draftReport(input);
+    p(`**${title}**`, `${r.title}. ${r.addressee}`);
+    for (const sec of r.sections) p(...(sec.heading ? [`*${sec.heading}*`] : []), ...sec.paragraphs);
+  }
+  setDateLocale('NG');
+  p('### 14.6 Statutes and audit exemptions');
+  table(['Id', 'Statute', 'Kind', 'Exemption printed'], STATUTES.map((x) => [x.id, x.label, x.kind, x.exemption ?? '']));
+  p('### 14.7 GIFI codes offered');
+  table(['Code', 'Description'], GIFI_CODES.map((c) => [c.code, c.description]));
   signOff();
 
   p('## Overall release decision');

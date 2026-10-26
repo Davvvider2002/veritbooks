@@ -1,5 +1,6 @@
 import type { EngagementType, ReportSettings } from './types';
 import { frameworkText, JURISDICTIONS, type Jurisdiction } from '../content/jurisdictions';
+import { canadaReport } from './reportCanada';
 
 export interface ReportInput {
   type: EngagementType;
@@ -15,6 +16,8 @@ export interface ReportInput {
   jurisdiction?: Jurisdiction;
   /** A not-for-profit: who governs it and who the report is addressed to. */
   npo?: { governors: { plural: string; possessive: string }; addressee: string };
+  /** Canada, compilation only: compiled on a basis other than ASPE or ASNPO, described in Note 1. */
+  specialBasis?: boolean;
 }
 
 export interface ReportSection {
@@ -28,8 +31,14 @@ export interface DraftReport {
   sections: ReportSection[];
 }
 
+let dateLocale = 'en-GB';
+/** Canada writes "December 31, 2025"; everywhere else "31 December 2025". The workspace sets it from the firm's country. */
+export const setDateLocale = (country: string) => {
+  dateLocale = country === 'CA' ? 'en-US' : 'en-GB';
+};
+
 export const longDate = (iso: string) =>
-  new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', {
+  new Date(iso + 'T00:00:00Z').toLocaleDateString(dateLocale, {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
@@ -50,6 +59,7 @@ const OPINION_HEADING = {
  * against the current standards and the companies law of the firm's country.
  */
 export function draftReport(i: ReportInput): DraftReport {
+  if (i.jurisdiction?.gaap === 'aspe') return canadaReport(i);
   const company = companyReport(i);
   const r = i.group ? groupReport(company, i) : company;
   return i.npo ? npoReport(r, i.npo) : r;

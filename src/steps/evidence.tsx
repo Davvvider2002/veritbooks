@@ -63,7 +63,7 @@ export function EvidenceStep(ctx: Ctx) {
   const [files, setFiles] = useState<File[]>([]);
   const [inputKey, setInputKey] = useState(0);
   const { busy, error, run, setError } = useAction();
-  const programme = programmeFor(eng.type, eng.planning);
+  const programme = programmeFor(eng.type, eng.planning, ctx.jur.code);
 
   const label = (e: Evidence): string => {
     switch (e.refType) {

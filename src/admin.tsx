@@ -564,7 +564,7 @@ function CountryPrices({ c, d, act, busy }: { c: AdminCountry; d: AdminData; act
         <div className="row" style={{ alignItems: 'flex-end' }}>
           <Field label="Flutterwave collects in">
             <select aria-label={`${c.name} collection currency`} value={charge.currency} onChange={(e) => setCharge({ ...charge, currency: e.target.value as typeof charge.currency })}>
-              {[c.currency, ...(['ZAR', 'NGN', 'USD', 'GHS'] as const).filter((x) => x !== c.currency)].map((x) => (
+              {[c.currency, ...(['ZAR', 'NGN', 'USD', 'GHS', 'CAD'] as const).filter((x) => x !== c.currency)].map((x) => (
                 <option key={x} value={x}>{x === c.currency ? `${x}, the price currency` : `${x}, converted`}</option>
               ))}
             </select>
@@ -607,6 +607,8 @@ function CountryPrices({ c, d, act, busy }: { c: AdminCountry; d: AdminData; act
           ? 'Nigerian VAT is 7.5%.'
           : c.code === 'ZA'
           ? 'South African VAT is 15%. Set it once VeritBooks is registered for VAT there; until then nothing is added.'
+          : c.code === 'CA'
+          ? 'A non-resident digital vendor registers for GST/HST once its sales to unregistered Canadian buyers pass C$30,000 in 12 months. Sales to firms that give a GST/HST number do not count. Set the rate when registered; until then nothing is added.'
           : 'Set the rate once VeritBooks is registered for tax here, or once advised none is due. Until then nothing is added.'}{' '}
         The tax is added on top of each price at checkout and shown on the receipt.
       </span>

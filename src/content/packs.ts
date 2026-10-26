@@ -1,3 +1,4 @@
+import { checklistCanada, PROGRAMMES_CA } from './canadaContent';
 import type { EngagementType, Planning } from '../engine/types';
 import { CHECKLIST, type ChecklistItem } from './checklist';
 import { PROGRAMMES, type ProgrammeItem } from './programmes';
@@ -76,13 +77,19 @@ export const PACKS: Pack[] = [
 export const packOf = (planning: Planning): Pack | null => PACKS.find((p) => p.id === planning.industry) ?? null;
 
 /** The work programme for an engagement: the general steps, then the steps of its pack. */
-export const programmeFor = (type: EngagementType, planning: Planning): ProgrammeItem[] => [
-  ...PROGRAMMES[type],
+export const programmeFor = (type: EngagementType, planning: Planning, country = 'NG'): ProgrammeItem[] => [
+  ...(country === 'CA' ? PROGRAMMES_CA[type] : PROGRAMMES[type]),
   ...(packOf(planning)?.programme[type] ?? []),
 ];
 
 /** The disclosure checklist for an engagement, with pack items placed in their section. */
-export function checklistFor(planning: Planning): ChecklistItem[] {
+export function checklistFor(planning: Planning, country = 'NG'): ChecklistItem[] {
+  // Canada: ASPE and ASNPO by Handbook section. A pack's items, written against the IFRS for SMEs, follow under their own heading.
+  if (country === 'CA') {
+    const base = checklistCanada(planning.entity === 'npo');
+    const extra = (packOf(planning)?.checklist ?? []).map((x) => ({ ...x, section: `Industry items: ${packOf(planning)!.name}` }));
+    return [...base, ...extra];
+  }
   const extra = packOf(planning)?.checklist ?? [];
   if (extra.length === 0) return CHECKLIST;
   const out: ChecklistItem[] = [];

@@ -156,6 +156,8 @@ export interface GateInput {
   movements?: { unexplained: string[] };
   /** The state of the consolidation, when the client is the parent of a group. */
   group?: { ready: boolean; difference: Kobo; unbalanced: number; unsigned: string[]; unexplained?: Kobo; noCashFlow?: string | null };
+  /** Canada: the province the firm practises in. */
+  province?: string;
   /** Independence confirmations on this engagement. Leave undefined to skip the checks. */
   independence?: { signer: boolean; unconfirmed: string[] };
   /** Items of the disclosure checklist with no answer. Leave undefined to skip the check. */
@@ -487,6 +489,11 @@ export function signOffChecks(g: GateInput): Check[] {
       });
     }
   }
+  if (j.code === 'CA') {
+    checks.push(...canadaChecks(g));
+    checks.push({ id: 'signer', label: 'The person signing is an engagement partner', ok: g.signerRole === 'partner', blocking: true });
+    return checks;
+  }
   // The licence numbers are printed on the report when held, but are not needed to sign.
   checks.push({
     id: 'firm_frc',
@@ -510,6 +517,59 @@ export function signOffChecks(g: GateInput): Check[] {
       blocking: false,
     });
   return checks;
+}
+
+/**
+ * Canada: the statute, the province, the public accounting licence for audits and reviews, and
+ * for a compilation the engagement letter and management's acknowledgment CSRS 4200 requires.
+ */
+function canadaChecks(g: GateInput): Check[] {
+  const out: Check[] = [];
+  out.push({
+    id: 'ca_statute',
+    label: 'The statute the client is incorporated under is chosen',
+    ok: !!g.planning.statute,
+    detail: g.planning.statute ? undefined : 'Choose it on the Planning step. Note 1 names it.',
+    blocking: false,
+  });
+  out.push({
+    id: 'ca_province',
+    label: 'The firm’s province of practice is set',
+    ok: !!g.province,
+    detail: g.province ? undefined : 'Set it under Firm details. It sets the designation the report is signed with.',
+    blocking: false,
+  });
+  if (g.type === 'compilation') {
+    out.push({
+      id: 'ca_letter',
+      label: 'The engagement letter for the year is on file (CSRS 4200)',
+      ok: !!g.report.engagementLetter,
+      detail: g.report.engagementLetter ? undefined : 'Record the date it was signed on the Report step.',
+      blocking: true,
+    });
+    out.push({
+      id: 'ca_ack',
+      label: 'Management has acknowledged its responsibility for the final compiled statements',
+      ok: !!g.report.managementAck,
+      detail: g.report.managementAck ? undefined : 'Record the date on the Report step. The report is dated on or after it.',
+      blocking: true,
+    });
+    out.push({
+      id: 'ca_use',
+      label: 'The intended use and users are recorded',
+      ok: !!g.report.intendedUse?.trim(),
+      blocking: false,
+    });
+  } else {
+    out.push({
+      id: 'ca_licence',
+      label: `The signing partner holds a public accounting licence for this ${g.type === 'audit' ? 'audit' : 'review'}`,
+      ok: !!g.report.licenceConfirmed,
+      detail: g.report.licenceConfirmed ? `Confirmed by ${g.report.licenceConfirmed.by}.` : 'The partner confirms it on this step before signing.',
+      blocking: true,
+    });
+  }
+  return out;
 }
 
 export const canSign = (checks: Check[]) => checks.every((c) => c.ok || !c.blocking);

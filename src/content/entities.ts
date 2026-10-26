@@ -56,6 +56,13 @@ export const LEGAL_FORMS: Record<CountryCode, LegalForm[]> = {
     { id: 'trust', label: 'Trust (Trust Property Control Act)', governors: 'trustees', law: null, companyConfirmations: false },
     { id: 'association', label: 'Voluntary association', governors: 'board', law: null, companyConfirmations: false },
   ],
+  // Canada: reports are addressed to the members, and Canadian reports carry no statutory confirmations.
+  CA: [
+    { id: 'cnca', label: 'Not-for-profit corporation (Canada Not-for-profit Corporations Act)', governors: 'directors', law: 'the Canada Not-for-profit Corporations Act', companyConfirmations: false },
+    { id: 'onca', label: 'Not-for-profit corporation (Ontario Not-for-Profit Corporations Act, 2010)', governors: 'directors', law: 'the Not-for-Profit Corporations Act, 2010 (Ontario)', companyConfirmations: false },
+    { id: 'society', label: 'Society (provincial Societies Act)', governors: 'directors', law: 'the provincial Societies Act', companyConfirmations: false },
+    { id: 'unincorporated', label: 'Unincorporated association or charitable trust', governors: 'board', law: null, companyConfirmations: false },
+  ],
 };
 
 export const isNpo = (planning: Planning) => planning.entity === 'npo';

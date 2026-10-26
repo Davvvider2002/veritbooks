@@ -25,6 +25,8 @@ export interface TbLine {
   nature: Nature | null;
   /** Not-for-profit: the restricted fund (a grant, project or donor) the account belongs to. Null for unrestricted. */
   fund?: string | null;
+  /** Canada: the account's GIFI code, for the T2 return. */
+  gifi?: string | null;
 }
 
 export interface JournalLine {
@@ -56,6 +58,14 @@ export interface Planning {
   entity?: EntityKind;
   /** A not-for-profit's legal form, such as incorporated trustees. */
   legalForm?: string;
+  /** Canada: the statute the client is incorporated under, by id from content/canada. */
+  statute?: string;
+  /** Canada, ASPE: how income taxes are accounted for (Section 3465). */
+  taxMethod?: 'taxes-payable' | 'future';
+  /** Canada, ASNPO: how contributions are recognised (Section 4410). */
+  contributionMethod?: 'deferral' | 'restricted-fund';
+  /** Canada: a soliciting corporation (federal) or public benefit corporation (Ontario): over $10,000 a year from public donations or grants. */
+  soliciting?: boolean;
 }
 
 export interface ProgrammeState {
@@ -92,6 +102,20 @@ export interface ReportSettings {
   signedReport?: { title: string; addressee: string; sections: { heading: string; paragraphs: string[] }[] };
   /** A material misstatement the auditor found in the other information. Blank when there is nothing to report. */
   otherInformation?: string;
+  /** Canada, compilation (CSRS 4200): the basis of accounting agreed with management. */
+  compilationBasis?: 'aspe' | 'cash-accruals' | 'cash' | 'tax' | 'other';
+  /** The accruals added to the cash basis, in words, for the basis note. */
+  basisAccruals?: string;
+  /** Another basis, described in full. */
+  basisOther?: string;
+  /** Who will use the compiled statements, and for what: "the bank, for the operating line covenant". */
+  intendedUse?: string;
+  /** The date the engagement letter for the year was signed. */
+  engagementLetter?: string;
+  /** Management has acknowledged its responsibility for the final compiled statements, and when. */
+  managementAck?: string;
+  /** Canada: the signing partner confirmed holding the public accounting licence the engagement needs. */
+  licenceConfirmed?: { by: string; at: string; province: string };
 }
 
 export interface Testing {

@@ -144,7 +144,7 @@ const TRUST = [
   ['Computed, not typed', 'Financial statement figures are computed from the trial balance and journals. They are not typed into statement lines.'],
   ['Traceable figures', 'Figures can be traced to the underlying accounts and supporting records.'],
   ['Checks before sign-off', 'The application checks engagement completion before a partner can sign.'],
-  ['Authorised signing', 'Only an authorised partner with the practising licence their country requires can sign: FRC in Nigeria, ICAG in Ghana, ICASL in Sierra Leone, LICPA in Liberia, GICA in The Gambia, IRBA in South Africa.'],
+  ['Authorised signing', 'Only an authorised partner with the practising licence their country requires can sign: FRC in Nigeria, ICAG in Ghana, ICASL in Sierra Leone, LICPA in Liberia, GICA in The Gambia, IRBA in South Africa, a provincial public accounting licence in Canada.'],
   ['Locked when signed', 'Signed files are locked against further changes.'],
   ['Recorded changes', 'Changes made before signing are recorded in the audit trail.'],
   ['Separated firm data', "Each firm's data is separated from other firms' data."],
@@ -163,6 +163,8 @@ const ENGAGEMENT_COPY: Record<string, { name: string; text: string }> = {
 
 interface Pricing {
   currency: string;
+  /** The currency payment is collected in, when not the price currency. */
+  chargeCurrency?: string;
   countries: { code: string; name: string }[];
   plans: { code: string; name: string; price: number | null; users: number | null; engagements: number | null }[];
   engagements: { code: string; price: number | null }[];
@@ -183,6 +185,7 @@ const fallback = (): Pricing => ({
 });
 const fromLive = (d: PublicPrices): Pricing => ({
   currency: d.currency,
+  chargeCurrency: d.chargeCurrency,
   countries: d.countries,
   plans: d.plans.map((p) => ({ code: p.code, name: p.name, price: p.priceKobo > 0 ? p.priceKobo / 100 : null, users: p.maxUsers, engagements: p.maxEngagements })),
   engagements: d.engagementPrices.map((p) => ({ code: p.code, price: p.priceKobo > 0 ? p.priceKobo / 100 : null })),
@@ -558,7 +561,7 @@ export function Landing() {
               {founding && <p className="lp-sub">{pricing.foundingLeft} of 20 founding places are open.</p>}
             </aside>
             <p className="lp-note">
-              {pricing.vatPercent ? `Prices are before ${pricing.taxLabel} at ${pricing.vatPercent}%. ` : ''}{pricing.currency === 'USD' ? 'Firms in Sierra Leone, Liberia and The Gambia are charged in US dollars. ' : ''}Applicable taxes and payment terms are shown before checkout. You create an account first, then choose a plan or a single engagement inside the app. Nothing is charged when you sign up.
+              {pricing.vatPercent ? `Prices are before ${pricing.taxLabel} at ${pricing.vatPercent}%. ` : ''}{pricing.currency === 'USD' ? 'Firms in Sierra Leone, Liberia and The Gambia are charged in US dollars. ' : ''}{pricing.chargeCurrency && pricing.chargeCurrency !== pricing.currency ? `Payment is collected in ${pricing.chargeCurrency}, converted at checkout. ` : ''}Applicable taxes and payment terms are shown before checkout. You create an account first, then choose a plan or a single engagement inside the app. Nothing is charged when you sign up.
             </p>
           </div>
         </section>

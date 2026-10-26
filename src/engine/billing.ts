@@ -132,9 +132,9 @@ export const vatWithin = (grossKobo: Kobo, percent: number): Kobo => grossKobo -
  * naira and cedis locally, so Sierra Leone, Liberia and The Gambia are charged in US dollars.
  * Only Nigeria starts with a tax rate. The platform owner sets the others in the console.
  */
-export type BillingCurrencyCode = 'NGN' | 'GHS' | 'USD' | 'ZAR';
+export type BillingCurrencyCode = 'NGN' | 'GHS' | 'USD' | 'ZAR' | 'CAD';
 export interface CountryPricing {
-  code: 'NG' | 'GH' | 'SL' | 'LR' | 'GM' | 'ZA';
+  code: 'NG' | 'GH' | 'SL' | 'LR' | 'GM' | 'ZA' | 'CA';
   name: string;
   currency: BillingCurrencyCode;
   vatPercent: number;
@@ -171,13 +171,20 @@ export const COUNTRY_PRICING: CountryPricing[] = [
     plans: { solo: 3_500_00, practice: 9_500_00, firm: 24_000_00 },
     engagements: { compilation: 250_00, review: 600_00, audit: 950_00, group: 450_00 },
   },
+  // Canada (0028_canada.sql): priced in Canadian dollars, collected in US dollars until Flutterwave collects CAD.
+  {
+    code: 'CA', name: 'Canada', currency: 'CAD', vatPercent: 0, taxLabel: 'GST/HST', minCharge: 1_00, enabled: true,
+    plans: { solo: 1_200_00, practice: 3_300_00, firm: 8_400_00 },
+    engagements: { compilation: 150_00, review: 350_00, audit: 600_00, group: 300_00 },
+    chargeCurrency: 'USD', chargeRate: 0.72,
+  },
 ];
 
 /** The currency a country's payments are collected in, and the rate from its price currency. */
 export const chargeOf = (c: Pick<CountryPricing, 'currency' | 'chargeCurrency' | 'chargeRate'>): { currency: BillingCurrencyCode; rate: number } =>
   c.chargeCurrency && c.chargeCurrency !== c.currency && c.chargeRate ? { currency: c.chargeCurrency, rate: c.chargeRate } : { currency: c.currency, rate: 1 };
 
-const SYMBOL: Record<BillingCurrencyCode, string> = { NGN: '₦', GHS: 'GH₵', USD: 'US$', ZAR: 'R' };
+const SYMBOL: Record<BillingCurrencyCode, string> = { NGN: '₦', GHS: 'GH₵', USD: 'US$', ZAR: 'R', CAD: 'C$' };
 /** A price for people to read: ₦180,000, GH₵1,500, US$99. Pennies only when there are some. */
 export function priceText(minor: Kobo, currency: string = 'NGN'): string {
   const symbol = SYMBOL[currency as BillingCurrencyCode] ?? currency + ' ';

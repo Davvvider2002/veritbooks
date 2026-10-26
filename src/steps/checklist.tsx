@@ -18,7 +18,7 @@ const TAG: Record<ChecklistResult['state'], [string, string]> = {
   open: ['No answer', 'warn'],
 };
 
-export function ChecklistStep({ eng, ws, lines, adjustments, statements, locked, reload }: Ctx) {
+export function ChecklistStep({ eng, ws, jur, lines, adjustments, statements, locked, reload }: Ctx) {
   const saved = eng.disclosures.checklist ?? {};
   const [draft, setDraft] = useState<Draft>(() => Object.fromEntries(Object.entries(saved).map(([id, a]) => [id, { status: a.status, note: a.note }])));
   const [openOnly, setOpenOnly] = useState(false);
@@ -38,7 +38,7 @@ export function ChecklistStep({ eng, ws, lines, adjustments, statements, locked,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft]);
   const results = useMemo(
-    () => buildChecklist(checklistFor(eng.planning), { statements, lines, adjustments, disclosures: { ...eng.disclosures, checklist: answers }, principalActivity: eng.report.principalActivity, policyCodes: policyCodes(statements) }),
+    () => buildChecklist(checklistFor(eng.planning, jur.code), { statements, lines, adjustments, disclosures: { ...eng.disclosures, checklist: answers }, principalActivity: eng.report.principalActivity, policyCodes: policyCodes(statements) }),
     [statements, lines, adjustments, eng.disclosures, eng.report.principalActivity, eng.planning, answers],
   );
   const count = (s: ChecklistResult['state']) => results.filter((r) => r.state === s).length;

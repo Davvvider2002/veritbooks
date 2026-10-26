@@ -206,6 +206,8 @@ export function disclosureGaps(
   lines: TbLine[],
   adjustments: Adjustment[],
   yearEnd: string,
+  /** The firm's country. The five-year summary is asked for only where it is printed; Canada asks for no directors' pay. */
+  j?: { code: string; nationalStatements: boolean },
 ): string[] {
   const gaps: string[] = [];
   if (directorList(d).length === 0) gaps.push('Name the directors.');
@@ -225,7 +227,7 @@ export function disclosureGaps(
   if (!d.noRelatedParties && (d.relatedParties ?? []).filter((r) => r.name.trim()).length === 0)
     gaps.push('List the related party transactions, or confirm there are none.');
   if (d.employees === undefined || d.employees === null) gaps.push('Enter the average number of employees.');
-  if (d.directorsRemuneration === undefined || d.directorsRemuneration === null) gaps.push('Enter the directors’ remuneration.');
+  if (j?.code !== 'CA' && (d.directorsRemuneration === undefined || d.directorsRemuneration === null)) gaps.push('Enter the directors’ remuneration.');
   for (const [key, label] of [
     ['goingConcern', 'going concern'],
     ['subsequentEvents', 'events after the reporting date'],
@@ -235,7 +237,7 @@ export function disclosureGaps(
     if (!d[key]?.trim()) gaps.push(`Complete the note on ${label}.`);
   }
   const years = financialSummary(st, yearEnd, d.earlierYears).years.length;
-  if (years < 5) gaps.push(`The financial summary covers ${years} of 5 years. Enter the earlier years, or note why they are not available.`);
+  if (years < 5 && (!j || j.nationalStatements)) gaps.push(`The financial summary covers ${years} of 5 years. Enter the earlier years, or note why they are not available.`);
   return gaps;
 }
 

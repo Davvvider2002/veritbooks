@@ -62,7 +62,7 @@ export function QualityPage({ ws }: { ws: Workspace }) {
       <div>
         <h1>Quality management</h1>
         <p className="muted" style={{ marginTop: 4 }}>
-          The firm’s system of quality management under ISQM 1: the risks to quality and how the firm responds, what monitoring has found and what is being done about it, and the yearly evaluation. Everyone in the firm can read it. Partners maintain it.
+          The firm’s system of quality management under {ws.firm.country === 'CA' ? 'CSQM 1, the Canadian standard adopted from ISQM 1' : 'ISQM 1'}: the risks to quality and how the firm responds, what monitoring has found and what is being done about it, and the yearly evaluation. Everyone in the firm can read it. Partners maintain it.
         </p>
       </div>
       <div className="banner warn">
@@ -163,7 +163,7 @@ export function QualityPage({ ws }: { ws: Workspace }) {
               </thead>
               <tbody>
                 {data.engagements.map((e) => {
-                  const steps = programmeFor(e.type, e.planning);
+                  const steps = programmeFor(e.type, e.planning, ws.firm.country);
                   const done = steps.filter((s) => e.programme[s.id]?.done).length;
                   const confirmed = Object.keys(e.planning.independence ?? {}).length;
                   return (

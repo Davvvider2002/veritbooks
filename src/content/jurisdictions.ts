@@ -24,8 +24,8 @@
  * the law in force before issue, as with the rest of the report.
  */
 
-export type CountryCode = 'NG' | 'GH' | 'SL' | 'LR' | 'GM' | 'ZA';
-export type CurrencyCode = 'NGN' | 'GHS' | 'SLE' | 'LRD' | 'GMD' | 'ZAR' | 'USD';
+export type CountryCode = 'NG' | 'GH' | 'SL' | 'LR' | 'GM' | 'ZA' | 'CA';
+export type CurrencyCode = 'NGN' | 'GHS' | 'SLE' | 'LRD' | 'GMD' | 'ZAR' | 'CAD' | 'USD';
 
 export interface Currency {
   code: CurrencyCode;
@@ -41,6 +41,7 @@ export const CURRENCIES: Record<CurrencyCode, Currency> = {
   LRD: { code: 'LRD', symbol: 'L$', name: 'Liberian dollars' },
   GMD: { code: 'GMD', symbol: 'D', name: 'Gambian dalasis' },
   ZAR: { code: 'ZAR', symbol: 'R', name: 'South African rand' },
+  CAD: { code: 'CAD', symbol: 'C$', name: 'Canadian dollars' },
   USD: { code: 'USD', symbol: 'US$', name: 'United States dollars' },
 };
 
@@ -79,6 +80,12 @@ export interface Jurisdiction {
   independence?: string;
   /** Printed under the signing partner's name, such as "Registered Auditor". */
   signerTitle?: string;
+  /**
+   * The accounting framework family. The IFRS for SMEs everywhere except Canada, where private
+   * enterprises report under ASPE and not-for-profits under ASNPO (CPA Canada Handbook, Parts II
+   * and III), and the IFRS for SMEs is not Canadian GAAP.
+   */
+  gaap?: 'aspe';
 }
 
 export const JURISDICTIONS: Record<CountryCode, Jurisdiction> = {
@@ -188,6 +195,28 @@ export const JURISDICTIONS: Record<CountryCode, Jurisdiction> = {
     independence:
       'We are independent of the company in accordance with the Independent Regulatory Board for Auditors’ Code of Professional Conduct for Registered Auditors (IRBA Code) and other independence requirements applicable to performing audits of financial statements in South Africa. We have fulfilled our other ethical responsibilities in accordance with the IRBA Code and in accordance with other ethical requirements applicable to performing audits in South Africa.',
     signerTitle: 'Registered Auditor',
+  },
+  CA: {
+    code: 'CA',
+    name: 'Canada',
+    inName: 'Canada',
+    // A client is incorporated federally or in a province: the statute is chosen on the engagement.
+    companiesAct: null,
+    otherLaws: [],
+    adoptedBy: null,
+    regulator: 'CPA',
+    licenceLabel: 'public accounting licence number',
+    licenceShort: 'Licence no.',
+    officerNumbers: false,
+    nationalStatements: false,
+    statutoryConfirmations: false,
+    companyNumberLabel: 'Corporation No.',
+    currencies: ['CAD', 'USD'],
+    dataLaw: 'the Personal Information Protection and Electronic Documents Act (PIPEDA)',
+    framework: 'Canadian accounting standards for private enterprises',
+    independence:
+      'We are independent of the Company in accordance with the ethical requirements that are relevant to our audit of the financial statements in Canada, and we have fulfilled our other ethical responsibilities in accordance with these requirements.',
+    gaap: 'aspe',
   },
 };
 

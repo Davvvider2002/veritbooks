@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { downloadWorkbook } from '../excel';
 import { formPhrase, governorsOf, legalFormOf } from '../content/entities';
-import { POLICIES, policyCodes } from '../content/notes';
+import { policiesFor, policyCodes } from '../content/notes';
+import { aspeBasis } from '../content/aspe';
+import { basisNote, COMPILATION_BASES, statuteOf } from '../content/canada';
 import { checklistFor, programmeFor } from '../content/packs';
 import { repo } from '../data';
 import { buildChecklist, checklistOpen } from '../engine/checklist';
@@ -13,6 +15,8 @@ import { TracePanel } from './trace';
 import { fmt, cur } from '../engine/money';
 import { draftReport, longDate } from '../engine/report';
 import { booksLaw, currencyOf, frameworkText, upper } from '../content/jurisdictions';
+import { provinceOf } from '../content/canada';
+import { retainedEarningsRows, titlesFor } from '../engine/frameworks';
 import type { ReportSettings } from '../engine/types';
 import { canOpen, ErrorNote, Field, StatementTable, useAction, useLoad, type OnTrace, type Opened } from '../ui';
 import { BrandedHead, ContentsSheet, CoverSheet, PageFoot } from './branding';
@@ -77,12 +81,15 @@ function EquityRows({ table, onTrace }: { table: EquityTable; onTrace: OnTrace }
 const TBC = '[To be completed in Disclosures.]';
 
 export function StatementsStep(ctx: Ctx) {
-  const { eng, client, ws, lines, adjustments, statements: st, jur: j } = ctx;
+  const { eng, client, ws, lines, adjustments, statements: st, jur: j, gaap } = ctx;
   const law = booksLaw(j);
+  const canada = gaap !== 'ifrs-smes';
+  // ASNPO's deferral method: unspent restricted contributions are a liability, not net assets.
+  const deferral = gaap === 'asnpo' && (eng.planning.contributionMethod ?? 'deferral') === 'deferral';
   // An officer's number is printed when entered; a draft shows where it would go, a signed report leaves it out.
   const officer = (n: string | undefined) => (j.officerNumbers && (n?.trim() || eng.status !== 'locked') ? <><br />{n?.trim() || `[${j.licenceShort}]`}</> : null);
   const d = eng.disclosures;
-  const gaps = disclosureGaps(d, st, lines, adjustments, eng.yearEnd);
+  const gaps = disclosureGaps(d, st, lines, adjustments, eng.yearEnd, j);
   const ppe = ppeSchedule(lines, adjustments, st.cur, d.ppeDisposals);
   const tax = taxReconciliation(st.cur, d);
   const equityPrior = priorEquity(st);
@@ -98,12 +105,16 @@ export function StatementsStep(ctx: Ctx) {
   const gv = governorsOf(eng.planning, j.code);
   const body = form?.governors === 'board' ? 'board' : gv.plural;
   const org = npo ? 'organisation' : 'company';
+  const titles = titlesFor(gaap, npo);
   const T = {
     report: npo ? `Report of the ${body}` : 'Report of the directors',
     duties: npo ? `Statement of ${gv.possessive} responsibilities` : 'Statement of directors’ responsibilities',
-    income: npo ? 'Statement of income and expenditure' : 'Statement of profit or loss and other comprehensive income',
-    equity: npo ? 'Statement of changes in funds' : 'Statement of changes in equity',
+    position: titles.position,
+    income: titles.income,
+    equity: titles.equity,
   };
+  // ASPE's statement of retained earnings, both years side by side.
+  const retainedRows = gaap === 'aspe' ? retainedEarningsRows(st.equity, priorEquity(st)) : null;
   const [trace, setTrace] = useState<Opened | null>(null);
   const onTrace: OnTrace = setTrace;
   const lineOf = (code: string) => lines.find((l) => l.code === code)?.id;
@@ -126,18 +137,18 @@ export function StatementsStep(ctx: Ctx) {
     );
 
   const balanced = st.cur.totalAssets === st.cur.totalEquityAndLiabilities;
-  const policies = Object.entries(POLICIES).filter(([code]) => st.notes.has(code));
+  const policies = Object.entries(policiesFor(gaap, eng.planning)).filter(([code]) => st.notes.has(code));
   const b = ws.firm.branding;
   const sheet = 'sheet';
   // The independent report sits after the directors' pages, where a reader expects it.
   const reportDraft = (eng.status === 'locked' && r.signedReport) || draftFor(ctx, r);
   const showReport = true;
-  const reportTitle = eng.type === 'audit' ? 'Independent auditor’s report' : eng.type === 'review' ? 'Independent practitioner’s review report' : 'Accountant’s compilation report';
+  const reportTitle = canada ? reportDraft.title.charAt(0).toUpperCase() + reportDraft.title.slice(1) : eng.type === 'audit' ? 'Independent auditor’s report' : eng.type === 'review' ? 'Independent practitioner’s review report' : 'Accountant’s compilation report';
   const contents = [
-    { id: 'fs-directors', title: T.report },
-    { id: 'fs-responsibilities', title: T.duties },
+    // Canadian sets carry no directors' report or responsibilities statement.
+    ...(canada ? [] : [{ id: 'fs-directors', title: T.report }, { id: 'fs-responsibilities', title: T.duties }]),
     ...(showReport ? [{ id: 'fs-report', title: reportTitle }] : []),
-    { id: 'fs-position', title: 'Statement of financial position' },
+    { id: 'fs-position', title: T.position },
     { id: 'fs-income', title: T.income },
     { id: 'fs-equity', title: T.equity },
     ...(st.cashFlow ? [{ id: 'fs-cashflow', title: 'Statement of cash flows' }] : []),
@@ -189,6 +200,7 @@ export function StatementsStep(ctx: Ctx) {
       {b.cover !== false && <CoverSheet ctx={ctx} />}
       {b.contents !== false && <ContentsSheet ctx={ctx} entries={contents} />}
 
+      {!canada && (<>
       <section className={sheet} id="fs-directors">
         <SheetHead ctx={ctx} title={T.report} />
         <p>
@@ -293,12 +305,30 @@ export function StatementsStep(ctx: Ctx) {
         </div>
         <PageFoot ctx={ctx} />
       </section>
+      </>)}
 
       {showReport && <ReportSheet ctx={ctx} draft={reportDraft} ready={eng.type !== 'audit' || !!r.opinion || (eng.status === 'locked' && !!r.signedReport)} />}
 
       <section className={sheet} id="fs-position">
-        <SheetHead ctx={ctx} title="Statement of financial position" sub={`as at ${longDate(eng.yearEnd)}`} />
+        <SheetHead ctx={ctx} title={T.position} sub={`as at ${longDate(eng.yearEnd)}`} />
         <StatementTable rows={st.position} curLabel={year} priorLabel={prior} notes onTrace={onTrace} />
+        {canada ? (
+          <div className="approval">
+            <p>Approved on behalf of the {npo ? 'Board' : 'Board of Directors'}:</p>
+            <div className="sign-grid">
+              <div className="sign-line">
+                {r.ceoName || '[Director]'}
+                <br />
+                Director
+              </div>
+              <div className="sign-line">
+                {r.cfoName || '[Director]'}
+                <br />
+                Director
+              </div>
+            </div>
+          </div>
+        ) : (
         <div className="approval">
           <p>
             These financial statements were approved by the {npo ? (form?.governors === 'board' ? 'board' : gv.plural) : 'board of directors'} on ____________________ and signed on {npo && form?.governors !== 'board' ? 'their' : 'its'} behalf by:
@@ -318,20 +348,25 @@ export function StatementsStep(ctx: Ctx) {
             </div>
           </div>
         </div>
+        )}
         <PageFoot ctx={ctx} />
       </section>
 
       <section className={sheet} id="fs-income">
         <SheetHead ctx={ctx} title={T.income} />
         <StatementTable rows={st.income} curLabel={year} priorLabel={prior} notes onTrace={onTrace} />
-        {!npo && <p style={{ marginTop: 16 }}>There were no items of other comprehensive income in the year.</p>}
+        {!npo && !canada && <p style={{ marginTop: 16 }}>There were no items of other comprehensive income in the year.</p>}
         <PageFoot ctx={ctx} />
       </section>
 
       <section className={sheet} id="fs-equity">
         <SheetHead ctx={ctx} title={T.equity} />
-        <EquityRows table={st.equity} onTrace={onTrace} />
-        {equityPrior && !npo && (
+        {retainedRows ? (
+          <StatementTable rows={retainedRows} curLabel={year} priorLabel={prior} onTrace={onTrace} />
+        ) : (
+          <EquityRows table={st.equity} onTrace={onTrace} />
+        )}
+        {equityPrior && !npo && !retainedRows && (
           <>
             <h3 style={{ marginTop: 28 }}>For the year ended {longDate(`${prior}${eng.yearEnd.slice(4)}`)}</h3>
             <EquityRows table={equityPrior} onTrace={onTrace} />
@@ -355,26 +390,32 @@ export function StatementsStep(ctx: Ctx) {
 
       <section className={sheet} id="fs-notes">
         <SheetHead ctx={ctx} title="Notes to the financial statements" />
-        <h3>1. General information</h3>
-        <p>
-          {client.name}
-          {client.rcNumber ? ` (${j.companyNumberLabel} ${client.rcNumber})` : ''}{' '}
-          {npo
-            ? `is a not-for-profit organisation domiciled in ${j.inName}, constituted as ${formPhrase(form!)}${j.companiesAct ? ` under ${j.companiesAct}` : ''}.`
-            : `is a company incorporated and domiciled in ${j.inName}${j.companiesAct ? ` under ${j.companiesAct}` : ''}.`}{' '}
-          {r.principalActivity ? `Its principal activity is ${r.principalActivity}.` : '[Describe the principal activity.]'}
-        </p>
-        <h3>2. Basis of preparation and significant accounting policies</h3>
-        <p>
-          These financial statements have been prepared in accordance with the IFRS for SMEs Accounting Standard issued by the International Accounting Standards Board{j.adoptedBy ? `, as adopted by ${j.adoptedBy}` : ''}{j.companiesAct ? `, and the requirements of ${j.companiesAct}` : ''}. They are presented in {currencyOf(eng.currency).name}, the {org}’s functional currency, and are prepared under the historical cost convention.
-          {npo &&
-            ' As a not-for-profit organisation, it presents a statement of income and expenditure in place of a statement of profit or loss, and its funds in place of equity. Restricted funds are amounts given for a purpose set by the donor or grantor; they are shown separately until spent on that purpose. Unrestricted funds may be used for any of its objectives. Grants and donations are recognised as income when the organisation is entitled to them and they can be measured reliably; a grant with conditions not yet met is held as deferred income.'}
-        </p>
-        {policies.map(([code, p]) => ({ code, title: p.title, text: d.policies?.[code]?.text || p.text })).map(({ code, ...p }) => (
-          <p key={code}>
-            <em>{p.title}.</em> {p.text}
-          </p>
-        ))}
+        {canada ? (
+          <CanadaNotesHead ctx={ctx} npo={npo} policies={policies.map(([code, p]) => ({ code, title: p.title, text: d.policies?.[code]?.text || p.text }))} />
+        ) : (
+          <>
+            <h3>1. General information</h3>
+            <p>
+              {client.name}
+              {client.rcNumber ? ` (${j.companyNumberLabel} ${client.rcNumber})` : ''}{' '}
+              {npo
+                ? `is a not-for-profit organisation domiciled in ${j.inName}, constituted as ${formPhrase(form!)}${j.companiesAct ? ` under ${j.companiesAct}` : ''}.`
+                : `is a company incorporated and domiciled in ${j.inName}${j.companiesAct ? ` under ${j.companiesAct}` : ''}.`}{' '}
+              {r.principalActivity ? `Its principal activity is ${r.principalActivity}.` : '[Describe the principal activity.]'}
+            </p>
+            <h3>2. Basis of preparation and significant accounting policies</h3>
+            <p>
+              These financial statements have been prepared in accordance with the IFRS for SMEs Accounting Standard issued by the International Accounting Standards Board{j.adoptedBy ? `, as adopted by ${j.adoptedBy}` : ''}{j.companiesAct ? `, and the requirements of ${j.companiesAct}` : ''}. They are presented in {currencyOf(eng.currency).name}, the {org}’s functional currency, and are prepared under the historical cost convention.
+              {npo &&
+                ' As a not-for-profit organisation, it presents a statement of income and expenditure in place of a statement of profit or loss, and its funds in place of equity. Restricted funds are amounts given for a purpose set by the donor or grantor; they are shown separately until spent on that purpose. Unrestricted funds may be used for any of its objectives. Grants and donations are recognised as income when the organisation is entitled to them and they can be measured reliably; a grant with conditions not yet met is held as deferred income.'}
+            </p>
+            {policies.map(([code, p]) => ({ code, title: p.title, text: d.policies?.[code]?.text || p.text })).map(({ code, ...p }) => (
+              <p key={code}>
+                <em>{p.title}.</em> {p.text}
+              </p>
+            ))}
+          </>
+        )}
         {st.noteBreakdowns.map((n) =>
           n.code === 'ppe' && ppe ? (
             <div key={n.code}>
@@ -467,17 +508,21 @@ export function StatementsStep(ctx: Ctx) {
             <>
               {npo && st.funds && st.funds.length > 0 && (
                 <>
-                  <h3>{n++}. Restricted funds</h3>
-                  <p>Restricted funds are held for the purposes set by the donors and grantors named below. Each fund’s movement in the year was:</p>
+                  <h3>{n++}. {deferral ? 'Deferred contributions' : 'Restricted funds'}</h3>
+                  <p>
+                    {deferral
+                      ? 'Deferred contributions are restricted contributions received that have not yet been spent on the purposes set by the donors and grantors named below. Their movement in the year was:'
+                      : 'Restricted funds are held for the purposes set by the donors and grantors named below. Each fund’s movement in the year was:'}
+                  </p>
                   <div className="scroll-x">
                     <table className="fs wide" aria-label="Restricted funds">
                       <thead>
                         <tr>
-                          <th>Fund</th>
-                          <th className="num">At start of year<br />{cur()}</th>
-                          <th className="num">Income<br />{cur()}</th>
-                          <th className="num">Expenditure<br />{cur()}</th>
-                          <th className="num">At end of year<br />{cur()}</th>
+                          <th>{deferral ? 'Contribution' : 'Fund'}</th>
+                          <th className="num">{canada ? 'Balance, beginning of year' : 'At start of year'}<br />{cur()}</th>
+                          <th className="num">{deferral ? 'Received' : canada ? 'Revenue' : 'Income'}<br />{cur()}</th>
+                          <th className="num">{deferral ? 'Recognized as revenue' : canada ? 'Expenses' : 'Expenditure'}<br />{cur()}</th>
+                          <th className="num">{canada ? 'Balance, end of year' : 'At end of year'}<br />{cur()}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -491,7 +536,7 @@ export function StatementsStep(ctx: Ctx) {
                           </tr>
                         ))}
                         <tr className="total">
-                          <td>Total restricted funds</td>
+                          <td>{deferral ? 'Total deferred contributions' : 'Total restricted funds'}</td>
                           {(['opening', 'income', 'expenditure', 'closing'] as const).map((k) => (
                             <td key={k} className="num">{fmt((k === 'expenditure' ? -1 : 1) * st.funds!.reduce((a, f) => a + f[k], 0))}</td>
                           ))}
@@ -606,6 +651,86 @@ export function StatementsStep(ctx: Ctx) {
   );
 }
 
+/** Canada: notes 1 and 2. A compilation on a basis other than ASPE or ASNPO opens with the basis of accounting (CSRS 4200). */
+function CanadaNotesHead({ ctx, npo, policies }: { ctx: Ctx; npo: boolean; policies: { code: string; title: string; text: string }[] }) {
+  const { eng, client } = ctx;
+  const r = eng.report;
+  const statute = statuteOf(eng.planning.statute);
+  const special = eng.type === 'compilation' && (r.compilationBasis ?? 'cash-accruals') !== 'aspe';
+  const nature = (
+    <p>
+      {client.name}
+      {client.rcNumber ? ` (${ctx.jur.companyNumberLabel} ${client.rcNumber})` : ''}{' '}
+      {npo
+        ? `is a not-for-profit organization${statute?.name ? ` incorporated under ${statute.name}` : ''}. It is exempt from income taxes under the Income Tax Act.`
+        : `is incorporated under ${statute?.name || '[the statute it is incorporated under, chosen on the Planning step]'}.`}{' '}
+      {r.principalActivity ? `Its principal activity is ${r.principalActivity}.` : '[Describe the principal activity.]'}
+    </p>
+  );
+  if (special)
+    return (
+      <>
+        <h3>1. Basis of accounting</h3>
+        <p>{basisNote(r.compilationBasis, client.name, r.basisAccruals ?? '', r.basisOther ?? '', npo)}</p>
+        <h3>2. Nature of operations</h3>
+        {nature}
+      </>
+    );
+  return (
+    <>
+      <h3>1. Nature of operations</h3>
+      {nature}
+      <h3>2. Significant accounting policies</h3>
+      {aspeBasis({ npo, currency: currencyOf(eng.currency).name }).map((p, i) => (
+        <p key={i}>{p}</p>
+      ))}
+      {policies.map((p) => (
+        <p key={p.code}>
+          <em>{p.title}.</em> {p.text}
+        </p>
+      ))}
+    </>
+  );
+}
+
+/** Canada: the signing partner confirms holding the public accounting licence an audit or review needs. */
+function LicenceConfirmation({ ctx }: { ctx: Ctx }) {
+  const { eng, ws, locked, reload } = ctx;
+  const c = eng.report.licenceConfirmed;
+  const p = provinceOf(ws.firm.branding.province);
+  const { busy, error, run } = useAction();
+  const partner = ws.me.role === 'partner';
+  const save = (next: ReportSettings['licenceConfirmed']) =>
+    run(async () => {
+      const { licenceConfirmed: _x, ...rest } = eng.report;
+      await repo.updateEngagement(eng.id, { report: next ? { ...rest, licenceConfirmed: next } : rest });
+      reload();
+    });
+  return (
+    <div className="card stack" aria-label="Public accounting licence">
+      <h3 style={{ margin: 0 }}>Public accounting licence</h3>
+      <p className="small muted" style={{ margin: 0 }}>
+        {p ? `${p.regulator} licenses public accounting in ${p.name}.` : 'Each province licenses public accounting.'} An {eng.type === 'audit' ? 'audit' : 'review'} may be signed only by a partner who holds a licence that covers it.
+      </p>
+      {c ? (
+        <div className="row">
+          <span className="tag ok">Confirmed by {c.by}{c.province ? ` for ${provinceOf(c.province)?.name ?? c.province}` : ''}, {new Date(c.at).toLocaleDateString('en-CA')}</span>
+          {!locked && partner && <button className="link danger small" disabled={busy} onClick={() => void save(undefined)}>Withdraw</button>}
+        </div>
+      ) : !locked && partner ? (
+        <div>
+          <button disabled={busy || !ws.me.fullName} onClick={() => void save({ by: ws.me.fullName, at: new Date().toISOString(), province: ws.firm.branding.province ?? '' })}>
+            I hold a public accounting licence that covers this {eng.type === 'audit' ? 'audit' : 'review engagement'}
+          </button>
+        </div>
+      ) : (
+        <span className="small muted">Not yet confirmed. The engagement partner confirms it here.</span>
+      )}
+      <ErrorNote error={error} />
+    </div>
+  );
+}
+
 /** The report as the software would word it now, from the partner's settings. */
 function draftFor(ctx: Ctx, settings: ReportSettings) {
   const form = legalFormOf(ctx.eng.planning, ctx.jur.code);
@@ -623,6 +748,7 @@ function draftFor(ctx: Ctx, settings: ReportSettings) {
     clientName: ctx.client.name,
     yearEnd: ctx.eng.yearEnd,
     settings,
+    specialBasis: ctx.jur.code === 'CA' && ctx.eng.type === 'compilation' && (settings.compilationBasis ?? 'cash-accruals') !== 'aspe',
     hasCashFlow: ctx.statements.cashFlow !== null,
     group: !!ctx.group && ctx.group.members.length > 0,
     groupCashFlow: !!ctx.group?.cashFlow,
@@ -655,6 +781,20 @@ function ReportSheet({ ctx, draft, ready }: { ctx: Ctx; draft: ReturnType<typeof
           </div>
         ))
       )}
+      {ctx.jur.code === 'CA' ? (
+        // A Canadian report is signed in the firm's name, with its designation, place and date.
+        <div className="sign-grid">
+          <div className="sign-line">
+            {ws.firm.name}
+            <br />
+            {ws.firm.branding.designation?.trim() || provinceOf(ws.firm.branding.province)?.designation || 'Chartered Professional Accountants'}
+            <br />
+            {ws.firm.address || '[City, province]'}
+            <br />
+            {signed ? longDate((eng.signedAt ?? '').slice(0, 10)) : '[Date of the report]'}
+          </div>
+        </div>
+      ) : (
       <div className="sign-grid">
         <div className="sign-line">
           {signed ? (
@@ -681,6 +821,7 @@ function ReportSheet({ ctx, draft, ready }: { ctx: Ctx; draft: ReturnType<typeof
           )}
         </div>
       </div>
+      )}
       <PageFoot ctx={ctx} />
     </section>
   );
@@ -796,11 +937,44 @@ export function ReportStep(ctx: Ctx) {
               )}
             </details>
           )}
-          <Field label="Principal activity of the company" hint="Completes the sentence: Its principal activity is …">
+          {ctx.jur.code === 'CA' && eng.type === 'compilation' && (
+            <fieldset className="stack" aria-label="Compilation engagement (CSRS 4200)">
+              <legend>Compilation engagement (CSRS 4200)</legend>
+              <Field label="Basis of accounting agreed with management" hint="Name ASPE or ASNPO only if the statements comply with it in full. Otherwise Note 1 describes the basis.">
+                <select disabled={locked} value={r.compilationBasis ?? 'cash-accruals'} onChange={(e) => set({ compilationBasis: e.target.value as ReportSettings['compilationBasis'] })}>
+                  {COMPILATION_BASES.map((b) => (
+                    <option key={b.id} value={b.id}>{b.label}</option>
+                  ))}
+                </select>
+              </Field>
+              {(r.compilationBasis ?? 'cash-accruals') === 'cash-accruals' && (
+                <Field label="Accruals added to the cash basis" hint="Completes Note 1: …reflects cash transactions with the addition of …">
+                  <input type="text" disabled={locked} value={r.basisAccruals ?? ''} placeholder="accounts receivable, accounts payable and accrued liabilities, and amortization of capital assets" onChange={(e) => set({ basisAccruals: e.target.value })} />
+                </Field>
+              )}
+              {r.compilationBasis === 'other' && (
+                <Field label="The basis of accounting, in full">
+                  <textarea disabled={locked} value={r.basisOther ?? ''} onChange={(e) => set({ basisOther: e.target.value })} />
+                </Field>
+              )}
+              <Field label="Intended use and users" hint="Who will use the compiled statements and for what, as agreed in the engagement letter. Example: the bank, for the annual covenant review.">
+                <input type="text" disabled={locked} value={r.intendedUse ?? ''} onChange={(e) => set({ intendedUse: e.target.value })} />
+              </Field>
+              <div className="grid2">
+                <Field label="Engagement letter signed on" hint="Required before the report is issued. Review it every year.">
+                  <input type="date" disabled={locked} value={r.engagementLetter ?? ''} onChange={(e) => set({ engagementLetter: e.target.value || undefined })} />
+                </Field>
+                <Field label="Management acknowledged the final statements on" hint="Management’s acknowledgment of responsibility for the final compiled statements. The report is dated on or after this.">
+                  <input type="date" disabled={locked} value={r.managementAck ?? ''} onChange={(e) => set({ managementAck: e.target.value || undefined })} />
+                </Field>
+              </div>
+            </fieldset>
+          )}
+          <Field label={`Principal activity of the ${ctx.gaap === 'asnpo' ? 'organization' : 'company'}`} hint="Completes the sentence: Its principal activity is …">
             <input type="text" disabled={locked} value={r.principalActivity ?? ''} onChange={(e) => set({ principalActivity: e.target.value })} />
           </Field>
           <div className="grid2">
-            <Field label="Chief executive officer">
+            <Field label={ctx.jur.code === 'CA' ? 'Director signing the balance sheet' : 'Chief executive officer'}>
               <input type="text" disabled={locked} value={r.ceoName ?? ''} onChange={(e) => set({ ceoName: e.target.value })} />
             </Field>
             {ctx.jur.officerNumbers && (
@@ -808,7 +982,7 @@ export function ReportStep(ctx: Ctx) {
                 <input type="text" disabled={locked} value={r.ceoFrc ?? ''} onChange={(e) => set({ ceoFrc: e.target.value })} />
               </Field>
             )}
-            <Field label="Chief financial officer">
+            <Field label={ctx.jur.code === 'CA' ? 'Second director' : 'Chief financial officer'}>
               <input type="text" disabled={locked} value={r.cfoName ?? ''} onChange={(e) => set({ cfoName: e.target.value })} />
             </Field>
             {ctx.jur.officerNumbers && (
@@ -859,10 +1033,11 @@ export function SignOffStep(ctx: Ctx) {
     adjustments,
     planning: eng.planning,
     programme: eng.programme,
-    programmeItemIds: programmeFor(eng.type, eng.planning).map((i) => i.id),
+    programmeItemIds: programmeFor(eng.type, eng.planning, ctx.jur.code).map((i) => i.id),
     report: eng.report,
     firmFrc: signed ? (eng.firmFrc ?? '') : ws.firm.frcNumber,
     jurisdiction: ctx.jur,
+    province: ws.firm.branding.province,
     signerRole: signed ? 'partner' : ws.me.role,
     signerFrc: signed ? (eng.signedByFrc ?? '') : ws.me.frcNumber,
     ledger: ledgerTest,
@@ -889,11 +1064,11 @@ export function SignOffStep(ctx: Ctx) {
         ? undefined
         : { signer: signed ? confirmedNames.has(eng.signedByName ?? '') : !!mine, unconfirmed: [...workers].filter((n) => !confirmedNames.has(n)) },
     checklistOpen: lines.length
-      ? checklistOpen(buildChecklist(checklistFor(eng.planning), { statements, lines, adjustments, disclosures: eng.disclosures, principalActivity: eng.report.principalActivity, policyCodes: policyCodes(statements) })).length
+      ? checklistOpen(buildChecklist(checklistFor(eng.planning, ctx.jur.code), { statements, lines, adjustments, disclosures: eng.disclosures, principalActivity: eng.report.principalActivity, policyCodes: policyCodes(statements) })).length
       : undefined,
     openRequests: requests.length ? requests.filter((r) => r.status !== 'accepted').length : undefined,
     programmeWithFiles: [...new Set([...ctx.evidence.filter((e) => e.refType === 'programme').map((e) => e.refId), ...Object.entries(eng.programme).filter(([, v]) => (v.files ?? []).some((f) => ctx.evidence.some((e) => e.id === f))).map(([k]) => k)])],
-    disclosureGaps: disclosureGaps(eng.disclosures, statements, lines, adjustments, eng.yearEnd),
+    disclosureGaps: disclosureGaps(eng.disclosures, statements, lines, adjustments, eng.yearEnd, ctx.jur),
   });
   const ready = canSign(checks);
   const advisories = checks.filter((c) => !c.ok && !c.blocking);
@@ -964,6 +1139,7 @@ export function SignOffStep(ctx: Ctx) {
             </>
           ))}
       </div>
+      {ctx.jur.code === 'CA' && eng.type !== 'compilation' && <LicenceConfirmation ctx={ctx} />}
       <div className="card">
         <h3>{signed ? 'Checks at sign-off' : 'Before you can sign'}</h3>
         <ChecksList checks={checks} />

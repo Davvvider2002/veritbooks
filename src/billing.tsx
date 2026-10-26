@@ -9,7 +9,7 @@ import { ErrorNote, useAction } from './ui';
 
 /** A naira amount. Firms elsewhere see their own currency through priceText. */
 export const naira = (kobo: number) => priceText(kobo, 'NGN');
-const CURRENCY_WORD: Record<string, string> = { NGN: 'naira', GHS: 'cedis', USD: 'US dollars', ZAR: 'rand' };
+const CURRENCY_WORD: Record<string, string> = { NGN: 'naira', GHS: 'cedis', USD: 'US dollars', ZAR: 'rand', CAD: 'Canadian dollars' };
 const day = (iso: string | null) => (iso ? longDate(iso.slice(0, 10)) : '');
 const days = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
 

@@ -17,6 +17,7 @@ import type { JournalLine, Nature, Planning, ProgrammeState, TbLine } from '../e
 import type { Evidence } from '../data/repo';
 import { ErrorNote, Field, useAction } from '../ui';
 import type { Ctx } from '../workspace';
+import { npoRequirement, STATUTES, statuteOf } from '../content/canada';
 
 
 /** Whether the client is a company or a not-for-profit, and for a not-for-profit its legal form. */
@@ -56,12 +57,73 @@ function EntityKind({ ctx }: { ctx: Ctx }) {
           </Field>
         )}
       </div>
-      {npo && (
+      {jur.code === 'CA' && <CanadaEntity ctx={ctx} save={save} busy={busy} />}
+      {npo && jur.code !== 'CA' && (
         <p className="small muted" style={{ margin: 0 }}>
           The statements become a statement of income and expenditure, funds take the place of equity, and restricted funds are shown fund by fund from the tags set on the Mapping step. The report is addressed to the {form?.governors === 'directors' ? 'members' : form?.governors === 'trustees' ? 'trustees' : 'board'}, and the {governorsOf(eng.planning, jur.code).plural} sign the statements.{form?.law ? ` It is constituted under ${form.law}.` : ''} Materiality is usually set on total expenditure or total income.
         </p>
       )}
       <ErrorNote error={error} />
+    </div>
+  );
+}
+
+/** Canada: the statute, the framework's choices, and what the law asks for. */
+function CanadaEntity({ ctx, save, busy }: { ctx: Ctx; save: (patch: Partial<Planning>) => void; busy: boolean }) {
+  const { eng, locked, statements } = ctx;
+  const p = eng.planning;
+  const npo = p.entity === 'npo';
+  const statutes = STATUTES.filter((s) => s.kind === (npo ? 'npo' : 'company'));
+  const statute = statuteOf(p.statute);
+  const need = npo ? npoRequirement(p.statute, !!p.soliciting, statements.cur.totalIncome) : null;
+  const typeWord = { audit: 'an audit', review: 'a review engagement', compilation: 'a compilation' }[eng.type];
+  return (
+    <div className="stack" aria-label="Canadian reporting">
+      <div className="grid2">
+        <Field label="Incorporated under">
+          <select disabled={locked || busy} value={statute?.kind === (npo ? 'npo' : 'company') ? p.statute : ''} onChange={(e) => save({ statute: e.target.value || undefined })}>
+            <option value="">Choose the statute</option>
+            {statutes.map((s) => (
+              <option key={s.id} value={s.id}>{s.label}</option>
+            ))}
+          </select>
+        </Field>
+        {npo ? (
+          <Field label="Contributions are recognized by" hint="ASNPO Section 4410.">
+            <select disabled={locked || busy} value={p.contributionMethod ?? 'deferral'} onChange={(e) => save({ contributionMethod: e.target.value as Planning['contributionMethod'] })}>
+              <option value="deferral">The deferral method</option>
+              <option value="restricted-fund">The restricted fund method</option>
+            </select>
+          </Field>
+        ) : (
+          <Field label="Income taxes are accounted for by" hint="ASPE Section 3465.">
+            <select disabled={locked || busy} value={p.taxMethod ?? 'taxes-payable'} onChange={(e) => save({ taxMethod: e.target.value as Planning['taxMethod'] })}>
+              <option value="taxes-payable">The taxes payable method</option>
+              <option value="future">The future income taxes method</option>
+            </select>
+          </Field>
+        )}
+      </div>
+      {npo && (p.statute === 'cnca' || p.statute === 'onca') && (
+        <label className="row small" style={{ flexWrap: 'nowrap', alignItems: 'flex-start' }}>
+          <input type="checkbox" disabled={locked || busy} checked={!!p.soliciting} onChange={(e) => save({ soliciting: e.target.checked })} style={{ marginTop: 3 }} />
+          <span>
+            {p.statute === 'cnca' ? 'A soliciting corporation' : 'A public benefit corporation'}: it received more than $10,000 in public donations or government grants in a year{p.statute === 'cnca' ? ' within the last three' : ''}, or is a charity.
+          </span>
+        </label>
+      )}
+      <p className="small muted" style={{ margin: 0 }}>
+        {npo
+          ? `The statements follow ASNPO: a statement of financial position with net assets, a statement of operations and a statement of changes in net assets. ${(p.contributionMethod ?? 'deferral') === 'deferral' ? 'Restricted contributions not yet spent are shown as deferred contributions, a liability, from the fund tags set on the Mapping step.' : 'Restricted contributions are shown in externally restricted net assets, fund by fund, from the tags set on the Mapping step.'}`
+          : 'The statements follow ASPE: a balance sheet, a statement of income and a statement of retained earnings, with no other comprehensive income.'}{' '}
+        {!npo && statute?.exemption ? `${statute.exemption} ` : ''}
+      </p>
+      {need && (
+        <div className={`banner ${need.need === 'audit' && eng.type !== 'audit' ? 'warn' : 'info'}`} aria-label="What the statute asks for">
+          {need.text} This file is {typeWord}.
+          {need.need === 'audit' && eng.type !== 'audit' ? ' Keep the members’ resolution that allows it on file, or open an audit instead.' : ''}
+        </div>
+      )}
     </div>
   );
 }
@@ -166,7 +228,7 @@ export function PlanningStep(ctx: Ctx) {
 
 export function ProgrammeStep(ctx: Ctx) {
   const { eng, ws, jur, locked, reload } = ctx;
-  const items = programmeFor(eng.type, eng.planning);
+  const items = programmeFor(eng.type, eng.planning, ctx.jur.code);
   const pack = packOf(eng.planning);
   const { error, run } = useAction();
   const [notes, setNotes] = useState<Record<string, string>>(

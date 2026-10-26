@@ -3,6 +3,10 @@
  * STATUS: starter wording, version 0.1. Short generic policies that the preparer must tailor
  * to the entity. To be reviewed by a qualified technical author before live use.
  */
+import { aspePolicies } from './aspe';
+import type { Gaap } from '../engine/frameworks';
+import type { Planning } from '../engine/types';
+
 export const POLICY_VERSION = '0.1-starter';
 
 export const POLICIES: Record<string, { title: string; text: string }> = {
@@ -47,6 +51,12 @@ export const POLICIES: Record<string, { title: string; text: string }> = {
     text: 'A provision is recognised when the company has a present obligation as a result of a past event, it is probable that an outflow of economic benefits will be required to settle it, and the amount can be estimated reliably.',
   },
 };
+
+/** The policy wording for an engagement's framework: Canadian wording under ASPE or ASNPO. */
+export function policiesFor(gaap: Gaap, planning: Planning): Record<string, { title: string; text: string }> {
+  if (gaap === 'ifrs-smes') return POLICIES;
+  return aspePolicies({ npo: gaap === 'asnpo', taxMethod: planning.taxMethod, method: planning.contributionMethod ?? 'deferral' });
+}
 
 /** The statement lines that carry an accounting policy note, given which lines the entity has. */
 export const policyCodes = (st: { notes: Map<string, number> }) => Object.keys(POLICIES).filter((code) => st.notes.has(code));

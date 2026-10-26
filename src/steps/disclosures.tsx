@@ -81,7 +81,7 @@ function toDisclosures(f: Form): Disclosures {
   };
 }
 
-export function DisclosuresStep({ eng, lines, adjustments, statements: st, locked, reload }: Ctx) {
+export function DisclosuresStep({ eng, lines, adjustments, statements: st, locked, reload, jur }: Ctx) {
   const [f, setF] = useState<Form>(() => initial(eng.disclosures, eng.yearEnd, st.hasPrior));
   const [saved, setSaved] = useState(false);
   const { busy, error, run } = useAction();
@@ -92,7 +92,7 @@ export function DisclosuresStep({ eng, lines, adjustments, statements: st, locke
   const d = useMemo(() => toDisclosures(f), [f]);
   const ppe = ppeSchedule(lines, adjustments, st.cur, d.ppeDisposals);
   const tax = taxReconciliation(st.cur, d);
-  const gaps = disclosureGaps(d, st, lines, adjustments, eng.yearEnd);
+  const gaps = disclosureGaps(d, st, lines, adjustments, eng.yearEnd, jur);
 
   if (lines.length === 0)
     return (

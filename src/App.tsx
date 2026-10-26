@@ -14,6 +14,7 @@ import { AuthPage, Dashboard, FirmSettings, FirmSetup, ForgotPage, NewPasswordPa
 import { message } from './ui';
 import { EngagementPage } from './workspace';
 import { applyReportTypeface } from './content/typefaces';
+import { setDateLocale } from './engine/report';
 
 type Session =
   | { state: 'loading' }
@@ -70,6 +71,8 @@ export function App() {
   // The firm's report typeface, for every report sheet.
   const reportFont = session.state === 'ready' ? session.ws.firm.branding?.font : undefined;
   useEffect(() => applyReportTypeface(reportFont), [reportFont]);
+  // Dates read the way the firm's country writes them. Set before the pages render.
+  setDateLocale(session.state === 'ready' ? session.ws.firm.country : 'NG');
 
   if (admin && session.state !== 'new-password') return <AdminApp />;
   if (partners && session.state !== 'new-password') return <PartnerApp />;

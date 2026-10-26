@@ -1,4 +1,5 @@
 import { loadTypeface, TYPEFACES, typefaceOf } from './content/typefaces';
+import { PROVINCES, provinceOf } from './content/canada';
 import { MOBILE_HINT, normaliseMobile, showMobile } from './engine/phone';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -337,10 +338,15 @@ export function FirmSetup({ onDone, user }: { onDone: () => Promise<void>; user?
         <Field label="Country where the firm practises" hint="Sets the law your reports cite, the licence you sign with, and your prices.">
           <select value={f.country} onChange={(e) => setF({ ...f, country: e.target.value as CountryCode })}>
             {(offered.data ?? COUNTRY_CODES).map((c) => (
-              <option key={c} value={c}>{JURISDICTIONS[c].name}</option>
+              <option key={c} value={c}>{JURISDICTIONS[c]?.name ?? c}{c === 'CA' ? ' (outside Quebec)' : ''}</option>
             ))}
           </select>
         </Field>
+        {f.country === 'CA' && (
+          <div className="banner info">
+            Canadian files report under ASPE or ASNPO, with reports under the CAS, CSRE 2400 and CSRS 4200. Firms practising in Quebec are not yet served.
+          </div>
+        )}
         <Field label="Firm name">
           <input type="text" required value={f.name} onChange={set('name')} />
         </Field>
@@ -391,7 +397,7 @@ function CountrySetting({ ws, onChanged }: { ws: Workspace; onChanged: () => Pro
         <span className="tag">{j.name}</span>
       </div>
       <p style={{ margin: 0 }}>
-        Your reports follow {j.companiesAct ?? `the law of ${j.inName}`}, and partners sign with their {j.licenceLabel}. Your plan is priced in {ws.billing.currency === 'USD' ? 'US dollars' : ws.billing.currency === 'GHS' ? 'cedis' : ws.billing.currency === 'ZAR' ? 'rand' : 'naira'}.
+        Your reports follow {j.companiesAct ?? `the law of ${j.inName}`}, and partners sign with their {j.licenceLabel}. Your plan is priced in {ws.billing.currency === 'USD' ? 'US dollars' : ws.billing.currency === 'GHS' ? 'cedis' : ws.billing.currency === 'ZAR' ? 'rand' : ws.billing.currency === 'CAD' ? 'Canadian dollars' : 'naira'}.
       </p>
       {canChange ? (
         <div className="row">
@@ -668,7 +674,8 @@ function BrandingSetting({ ws, onChanged }: { ws: Workspace; onChanged: () => Pr
             disabled={busy}
             onClick={() =>
               void run(async () => {
-                await repo.setBranding(b);
+                // Practice details are saved on their own card; keep the latest of them.
+                await repo.setBranding({ ...b, province: ws.firm.branding.province, designation: ws.firm.branding.designation });
                 await onChanged();
                 setSaved(true);
               })
@@ -827,6 +834,57 @@ function MyMobile() {
   );
 }
 
+/** Canada: the province the firm practises in, and the line it signs reports with. */
+function CanadaPractice({ ws, onChanged }: { ws: Workspace; onChanged: () => Promise<void> }) {
+  const b = ws.firm.branding;
+  const [v, setV] = useState({ province: b.province ?? '', designation: b.designation ?? '' });
+  const [saved, setSaved] = useState(false);
+  const { busy, error, run } = useAction();
+  const can = ws.me.role === 'partner' || ws.me.role === 'manager';
+  const p = provinceOf(v.province);
+  return (
+    <form
+      className="card stack"
+      aria-label="Practice in Canada"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setSaved(false);
+        void run(async () => {
+          await repo.setBranding({ ...ws.firm.branding, province: v.province || undefined, designation: v.designation.trim() || undefined });
+          await onChanged();
+          setSaved(true);
+        });
+      }}
+    >
+      <h3 style={{ margin: 0 }}>Practice in Canada</h3>
+      <p className="small muted" style={{ margin: 0 }}>
+        Public accountants are licensed by each province. The province sets the line your reports are signed with. Quebec is not yet served.
+      </p>
+      <div className="grid2">
+        <Field label="Province or territory of practice">
+          <select disabled={!can} value={v.province} onChange={(e) => setV({ ...v, province: e.target.value })}>
+            <option value="">Choose</option>
+            {PROVINCES.map((x) => (
+              <option key={x.code} value={x.code}>{x.name}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Designation under the firm’s name" hint={p ? `Leave blank for “${p.designation}”.` : 'Choose the province first.'}>
+          <input type="text" disabled={!can} maxLength={120} value={v.designation} placeholder={p?.designation ?? ''} onChange={(e) => setV({ ...v, designation: e.target.value })} />
+        </Field>
+      </div>
+      {p && (
+        <p className="small muted" style={{ margin: 0 }}>
+          {p.regulator} licenses public accounting in {p.name}. Audits and reviews, and in some provinces compilations relied on by others, need the signing partner to hold the right licence. VeritBooks asks the partner to confirm it at sign-off.
+        </p>
+      )}
+      <ErrorNote error={error} />
+      {saved && <div className="banner info">Saved.</div>}
+      {can && <div><button disabled={busy}>Save practice details</button></div>}
+    </form>
+  );
+}
+
 export function FirmSettings({ ws, onSaved }: { ws: Workspace; onSaved: () => Promise<void> }) {
   const [firm, setFirm] = useState({ name: ws.firm.name, frcNumber: ws.firm.frcNumber, address: ws.firm.address });
   const [me, setMe] = useState({ fullName: ws.me.fullName, frcNumber: ws.me.frcNumber });
@@ -881,6 +939,7 @@ export function FirmSettings({ ws, onSaved }: { ws: Workspace; onSaved: () => Pr
       </form>
       <MyMobile />
       <CountrySetting ws={ws} onChanged={onSaved} />
+      {ws.firm.country === 'CA' && <CanadaPractice ws={ws} onChanged={onSaved} />}
       {ws.me.role === 'partner' && <TwoFactorSetting />}
       <BrandingSetting ws={ws} onChanged={onSaved} />
       <FileNumbering ws={ws} onChanged={onSaved} />

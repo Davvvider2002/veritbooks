@@ -691,6 +691,17 @@ export function createDemoRepo(): Repo {
       log(id, 'tb_lines', 'update', { code: l.code, fund: l.fund });
       save();
     },
+    async setGifi(id, changes) {
+      open(id);
+      for (const c of changes) {
+        const l = (s.lines[id] ?? []).find((x) => x.id === c.lineId);
+        if (!l) throw new Error('Account not found.');
+        if (c.gifi !== null && !/^\d{4}$/.test(c.gifi)) throw new Error('A GIFI code is four digits.');
+        l.gifi = c.gifi;
+      }
+      log(id, 'tb_lines', 'update', { gifi: changes.length });
+      save();
+    },
     async setMapping(id, clientId, line, mapCode, nature) {
       open(id);
       const l = (s.lines[id] ?? []).find((x) => x.id === line.id);
@@ -1319,7 +1330,7 @@ export function createDemoRepo(): Repo {
       } else if (action === 'country_charge') {
         const c = country();
         const cur = String(p.charge_currency ?? '').toUpperCase();
-        if (!['NGN', 'GHS', 'USD', 'ZAR'].includes(cur)) throw new Error('Choose naira, cedis, US dollars or rand.');
+        if (!['NGN', 'GHS', 'USD', 'ZAR', 'CAD'].includes(cur)) throw new Error('Choose naira, cedis, US dollars, rand or Canadian dollars.');
         if (cur === c.currency) Object.assign(c, { chargeCurrency: null, chargeRate: null, rateSetAt: null });
         else {
           const rate = Number(p.rate);

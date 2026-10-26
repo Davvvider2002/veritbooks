@@ -29,6 +29,8 @@ import { longDate } from './engine/report';
 import { setCur } from './engine/money';
 import { CURRENCIES, currencyOf, jurisdictionOf, type CurrencyCode, type Jurisdiction } from './content/jurisdictions';
 import { buildStatements, type Statements } from './engine/statements';
+import { gaapOf, present, type Gaap } from './engine/frameworks';
+import { GifiStep } from './steps/gifi';
 import type { Adjustment, TbLine } from './engine/types';
 import { TYPE_LABEL } from './pages';
 import { ImportStep, MappingStep } from './steps/input';
@@ -47,6 +49,8 @@ export interface Ctx {
   lines: TbLine[];
   adjustments: Adjustment[];
   statements: Statements;
+  /** The accounting framework: the IFRS for SMEs, or in Canada ASPE or ASNPO. */
+  gaap: Gaap;
   locked: boolean;
   reload: () => void;
   /** False when the database has not had the phase 2 migration applied. */
@@ -188,6 +192,7 @@ const STEPS = [
   { slug: 'consolidation', label: 'Consolidation', el: ConsolidationStep },
   { slug: 'statements', label: 'Financial statements', el: StatementsStep },
   { slug: 'comparatives', label: 'Multi-year comparatives', el: ComparativesStep },
+  { slug: 'gifi', label: 'GIFI and T2 schedules', el: GifiStep },
   { slug: 'report', label: 'Report', el: ReportStep },
   { slug: 'management', label: 'Management letter', el: ManagementStep },
   { slug: 'sign-off', label: 'Sign-off', el: SignOffStep },
@@ -300,8 +305,15 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
   }, [id]);
 
   const statements = useMemo(
-    () => (data ? buildStatements(data.lines, data.adjustments, { npo: data.eng.planning.entity === 'npo' }) : null),
-    [data],
+    () =>
+      data
+        ? present(
+            buildStatements(data.lines, data.adjustments, { npo: data.eng.planning.entity === 'npo' }),
+            gaapOf(ws.firm.country, data.eng.planning),
+            data.eng.planning.contributionMethod ?? 'deferral',
+          )
+        : null,
+    [data, ws.firm.country],
   );
 
   const group = useMemo((): Group | null => {
@@ -377,6 +389,8 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
   const steps = STEPS.filter((s) => {
     // The SARS tax working and the CIPC filing are South African.
     if (s.slug === 'tax' || s.slug === 'cipc') return jur.code === 'ZA';
+    // The GIFI schedules for the T2 return are Canadian.
+    if (s.slug === 'gifi') return jur.code === 'CA';
     if (s.slug === 'analytical' || s.slug === 'opening' || s.slug === 'management') return data.eng.type !== 'compilation';
     if (s.slug === 'ledger' || s.slug === 'bank') return data.eng.type === 'audit';
     return true;
@@ -393,6 +407,7 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
     lines: data.lines,
     adjustments: data.adjustments,
     statements,
+    gaap: gaapOf(ws.firm.country, data.eng.planning),
     // A firm whose trial or plan has ended can read its files and change nothing.
     locked: data.eng.status === 'locked' || ws.billing.state === 'suspended' || (ws.billing.state === 'expired' && !data.eng.payPer),
     reload,
@@ -411,7 +426,7 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
     requests: data.requests ?? [],
   };
   const tb = validateTrialBalance(data.lines);
-  const programme = programmeFor(data.eng.type, data.eng.planning);
+  const programme = programmeFor(data.eng.type, data.eng.planning, ws.firm.country);
   const programmeDone = programme.filter((i) => data.eng.programme[i.id]?.done).length;
 
   return (

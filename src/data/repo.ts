@@ -53,6 +53,10 @@ export interface Branding {
   /** Print a cover page and a contents page before the directors' report. */
   cover?: boolean;
   contents?: boolean;
+  /** Canada: the province or territory the firm practises in, by code, which sets its designation line. */
+  province?: string;
+  /** Canada: the line printed under the firm's name on a signed report, when the firm words it its own way. */
+  designation?: string;
 }
 
 export interface Member {
@@ -206,7 +210,7 @@ export interface Billing {
 }
 
 /** The currencies firms are charged in. Flutterwave collects naira and cedis locally, and US dollars elsewhere. */
-export type BillingCurrency = 'NGN' | 'GHS' | 'USD' | 'ZAR';
+export type BillingCurrency = 'NGN' | 'GHS' | 'USD' | 'ZAR' | 'CAD';
 
 /** The price list shown to visitors, for one country. Prices are before tax. */
 export interface PublicPrices {
@@ -450,6 +454,8 @@ export interface Repo {
   setMapping(engagementId: string, clientId: string, line: TbLine, mapCode: string | null, nature: Nature | null): Promise<void>;
   /** Not-for-profit: tags an account to a restricted fund, or clears the tag with null. */
   setFund(engagementId: string, line: TbLine, fund: string | null): Promise<void>;
+  /** Canada: sets accounts' GIFI codes, null to clear one. */
+  setGifi(engagementId: string, changes: { lineId: string; gifi: string | null }[]): Promise<void>;
   savedMappings(clientId: string): Promise<Map<string, { mapCode: string; nature: Nature | null }>>;
 
   listAdjustments(engagementId: string): Promise<Adjustment[]>;

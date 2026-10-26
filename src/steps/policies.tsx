@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { POLICIES, POLICY_VERSION, policyCodes } from '../content/notes';
+import { POLICY_VERSION, policiesFor, policyCodes } from '../content/notes';
 import { packOf } from '../content/packs';
 import { repo } from '../data';
 import type { PolicyDraft } from '../data/repo';
@@ -29,7 +29,7 @@ export function PoliciesStep(ctx: Ctx) {
         </p>
       </div>
       <div className="banner warn">
-        Starter wording, version {POLICY_VERSION}. A policy must state this company’s own methods, rates and estimates. General wording that could describe any company does not meet the Standard.
+        Starter wording, version {POLICY_VERSION}. A policy must state this company’s own methods, rates and estimates. General wording that could describe any company does not meet the {ctx.gaap === 'ifrs-smes' ? 'Standard' : 'Handbook'}.
       </div>
       <div className="row">
         <span className={`tag ${confirmed === codes.length && codes.length ? 'ok' : 'warn'}`}>
@@ -45,7 +45,7 @@ export function PoliciesStep(ctx: Ctx) {
 
 function PolicyCard({ ctx, code }: { ctx: Ctx; code: string }) {
   const { eng, ws, lines, locked, reload } = ctx;
-  const starter = POLICIES[code];
+  const starter = policiesFor(ctx.gaap, eng.planning)[code];
   const saved = eng.disclosures.policies?.[code];
   const [text, setText] = useState(saved?.text ?? starter.text);
   const [draft, setDraft] = useState<(PolicyDraft & { model: string }) | null>(null);
