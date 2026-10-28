@@ -4,7 +4,7 @@ import { normaliseMobile } from '../engine/phone';
 import type { GlEntry } from '../engine/ledger';
 import type { AdminPartners, PartnerMe, PartnerProgramme } from '../engine/partners';
 import type { Adjustment, Nature, TbLine } from '../engine/types';
-import { hashToken, LockedError, opensAtPage, MAX_EVIDENCE_BYTES, newToken, type AdminData, type BankAccount, type ClientRequest, type RequestLink, type QualityEvaluation, type QualityItem, type Client, type Engagement, type Evidence, type Invite, type Member, type Repo, type StoredBankLine } from './repo';
+import { hashToken, LockedError, opensAtPage, MAX_EVIDENCE_BYTES, newToken, type AdminData, type BankAccount, type ClientRequest, type RequestLink, type QualityEvaluation, type QualityItem, type Client, type Engagement, type Evidence, type Invite, type Member, type Repo, type Seal, type StoredBankLine } from './repo';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const toEngagement = (r: any): Engagement => ({
@@ -1035,6 +1035,28 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       const { error } = await db.rpc('sign_engagement', { p_engagement: id });
       fail(error);
     },
+    async listSeals(id) {
+      const { data, error } = await db.from('report_seals').select('*').eq('engagement_id', id).order('version', { ascending: false });
+      // Before migration 0029 the table is missing: no seals yet.
+      if (error && /report_seals/.test(error.message)) return [];
+      fail(error);
+      return (data ?? []).map((r: any) => ({ ...sealFrom({ ...r, type: r.engagement_type, firm: r.firm_name, partner: r.partner_name, client: r.client_name, report_open: r.public_report, superseded_by: (data ?? []).find((n: any) => n.id === r.superseded_by)?.code ?? null }), id: r.id, accessCode: r.access_code }));
+    },
+    async setSealSharing(sealId, open) {
+      const { error } = await db.rpc('set_seal_sharing', { p_seal: sealId, p_public: open });
+      fail(error);
+    },
+    async verifySeal(code) {
+      const { data, error } = await db.rpc('verify_seal', { p_code: code });
+      if (error && /verify_seal/.test(error.message) && /function|schema cache/i.test(error.message)) return null;
+      fail(error);
+      return data ? sealFrom(data) : null;
+    },
+    async verifySealReport(code, access) {
+      const { data, error } = await db.rpc('verify_seal_report', { p_code: code, p_access: access });
+      fail(error);
+      return data;
+    },
     async reopen(id, kind, reason, effect) {
       const { error } = await db.rpc('reopen_engagement', { p_engagement: id, p_kind: kind, p_reason: reason, p_effect: effect });
       fail(error);
@@ -1073,5 +1095,31 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       fail(error);
       return { entries: (data ?? []).map(toEntry), total: count ?? data?.length ?? 0 };
     },
+  };
+}
+
+/** A seal as the database returns it, from the table or from verify_seal. */
+function sealFrom(r: any): Seal {
+  return {
+    code: r.code,
+    version: r.version,
+    status: r.status,
+    supersededBy: r.superseded_by ?? null,
+    firmName: r.firm,
+    firmLicence: r.firm_licence ?? null,
+    country: r.country ?? null,
+    partnerName: r.partner ?? null,
+    partnerLicence: r.partner_licence ?? null,
+    clientName: r.client,
+    clientNumber: r.client_number ?? null,
+    yearEnd: r.year_end,
+    type: r.type,
+    opinion: r.opinion ?? null,
+    currency: r.currency ?? null,
+    figures: r.figures ?? {},
+    signedAt: r.signed_at,
+    reopenedAt: r.reopened_at ?? null,
+    hash: r.hash,
+    reportOpen: !!r.report_open,
   };
 }

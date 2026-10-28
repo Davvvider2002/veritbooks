@@ -146,6 +146,7 @@ const TRUST = [
   ['Checks before sign-off', 'The application checks engagement completion before a partner can sign.'],
   ['Authorised signing', 'Only an authorised partner with the practising licence their country requires can sign: FRC in Nigeria, ICAG in Ghana, ICASL in Sierra Leone, LICPA in Liberia, GICA in The Gambia, IRBA in South Africa, a provincial public accounting licence in Canada.'],
   ['Locked when signed', 'Signed files are locked against further changes.'],
+  ['Verification seal', 'Every signed report carries a QR code and a code. A bank, regulator or embassy can confirm at veritbooks.com/verify who signed it, when, and the headline figures.'],
   ['Recorded changes', 'Changes made before signing are recorded in the audit trail.'],
   ['Separated firm data', "Each firm's data is separated from other firms' data."],
   ['AI under partner control', 'AI assistance is optional and controlled by a partner.'],
@@ -631,6 +632,7 @@ export function Landing() {
                 YouTube lessons
               </a>
             )}
+            <a href="/verify">Verify a report</a>
             <a href="/partners">Partner programme</a>
             <Go to={CTA.signIn}>Sign in</Go>
           </nav>

@@ -7,6 +7,7 @@ import { BillingPage, PlanStrip } from './billing';
 import { SecondFactor } from './mfa';
 import { Landing } from './landing/Landing';
 import { PortalPage } from './portal';
+import { VerifyPage } from './seal';
 import { QualityPage } from './quality';
 import { repo } from './data';
 import type { User, Workspace } from './data/repo';
@@ -35,6 +36,8 @@ export function App() {
   const admin = /^\/admin\/?$/.test(path);
   // The partner portal has its own sign-in and shows nothing of any firm's workspace.
   const partners = /^\/partners\/?$/.test(path);
+  // Anyone holding a signed report checks its seal here, with no sign-in.
+  const verify = /^\/verify(?:\/([^/]+))?\/?$/.exec(path);
 
   const refresh = async () => {
     try {
@@ -47,7 +50,9 @@ export function App() {
       const mfa = await repo.mfaStatus().catch(() => ({ enrolled: false, verified: false }));
       if (mfa.enrolled && !mfa.verified) return setSession({ state: 'second-factor', user });
       // A platform admin with no firm of their own belongs in the admin console, not firm setup.
-      if (!ws && (await repo.adminStatus()).admin) return nav('/admin', { replace: true });
+      // A public page (a seal check or a client's upload link) is never redirected away from.
+      const publicPage = /^\/(verify|r)(\/|$)/.test(window.location.pathname);
+      if (!ws && !publicPage && (await repo.adminStatus()).admin) return nav('/admin', { replace: true });
       // A partner with no firm of their own, or someone who signed up to be one, belongs in the partner portal.
       if (!ws) {
         let intent = false;
@@ -56,7 +61,7 @@ export function App() {
         } catch {
           // Storage unavailable.
         }
-        if (intent || (await repo.partnerMe().catch(() => null))) return nav('/partners', { replace: true });
+        if (!publicPage && (intent || (await repo.partnerMe().catch(() => null)))) return nav('/partners', { replace: true });
       }
       setSession(ws ? { state: 'ready', user, ws } : { state: 'no-firm', user });
     } catch (e) {
@@ -78,6 +83,17 @@ export function App() {
   if (partners && session.state !== 'new-password') return <PartnerApp />;
   // A visitor who is not signed in sees the public site at the front door.
   if (session.state === 'signed-out' && path === '/') return <Landing />;
+  if (verify)
+    return (
+      <>
+        <header className="topbar">
+          <a className="brand" href="/" style={{ textDecoration: 'none' }}>
+            Verit<span>Books</span>
+          </a>
+        </header>
+        <VerifyPage code={verify[1] ? decodeURIComponent(verify[1]) : undefined} />
+      </>
+    );
   if (portal)
     return (
       <>

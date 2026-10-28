@@ -328,3 +328,11 @@ button.danger { color: var(--bad); border-color: var(--bad); }
 .chips button { padding: 3px 10px; border-radius: 999px; font-size: 13px; }
 .chips button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
 @media print { .grid-view, .scroll-x { max-height: none; overflow: visible; border: 0; } .scroll-x > table.data > thead th { position: static; box-shadow: none; } .grid-view thead th, .grid-view tfoot td, .grid-view .freeze { position: static; box-shadow: none; } }
+
+/* Verification seal: the QR code and code printed beside the signature, and the public check. */
+.seal-qr { display: inline-block; flex: none; line-height: 0; }
+.seal-qr svg { width: 100%; height: 100%; display: block; }
+.seal-mark { display: flex; align-items: center; gap: 12px; margin-top: 18px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 6px; width: fit-content; max-width: 100%; break-inside: avoid; }
+.seal-mark .small { line-height: 1.45; }
+.verify-table th { text-align: left; font-weight: 500; color: var(--muted); }
+.verify-report { box-shadow: none; margin: 0; max-width: none; }

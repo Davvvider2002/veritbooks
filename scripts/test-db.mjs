@@ -864,5 +864,37 @@ await as(CA1, `update tb_lines set gifi = '1002' where id = $1`, [cal.id]);
 ok('an account takes a GIFI code', (await db.query(`select gifi from tb_lines where id = $1`, [cal.id])).rows[0].gifi === '1002');
 await denied('a GIFI code is four digits', () => as(CA1, `update tb_lines set gifi = '12A' where id = $1`, [cal.id]), /check/);
 
+// --- 0029: a verification seal on every signed report ----------------------------------
+await db.exec(readFileSync('supabase/migrations/0029_verification_seals.sql', 'utf8'));
+const reason = ['documentation', 'Review notes answered after assembly of the file', 'None, the opinion stands'];
+await as(A, `select reopen_engagement($1, $2, $3, $4)`, [e1.id, ...reason]);
+await as(A, `update engagements set report = report || '{"opinion":"unmodified","signedReport":{"opinion":["We have audited"]},"signedFigures":{"revenue":500000,"profit":120000}}'::jsonb where id = $1`, [e1.id]);
+await as(A, `select sign_engagement($1)`, [e1.id]);
+const seals1 = await as(A, `select * from report_seals where engagement_id = $1 order by version`, [e1.id]);
+const s1 = seals1[seals1.length - 1];
+ok('signing issues a seal with a readable code', /^VB-[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(s1.code) && s1.status === 'valid' && s1.hash.length === 64);
+ok('the seal keeps who signed, for whom, and the figures', s1.partner_name && s1.client_name && s1.figures.revenue === 500000 && s1.report.opinion[0] === 'We have audited');
+ok('the access code is six characters', /^[A-Z2-9]{6}$/.test(s1.access_code));
+ok('another firm cannot read the seal', (await as(B, `select * from report_seals where id = $1`, [s1.id])).length === 0);
+await denied('nobody can write a seal by hand', () => as(A, `insert into report_seals (code, engagement_id, firm_id, version, firm_name, client_name, year_end, engagement_type, hash, signed_at, access_code) select 'VB-AAAA-AAAA', id, firm_id, 99, 'x', 'x', year_end, type, 'x', now(), 'AAAAAA' from engagements where id = $1`, [e1.id]), /permission denied/);
+await denied('nobody can alter a seal', () => as(A, `update report_seals set status = 'valid', client_name = 'Someone else' where id = $1`, [s1.id]), /permission denied/);
+await denied('the public cannot list seals', () => anon(`select * from report_seals`), /permission denied/);
+const v1 = (await anon(`select verify_seal($1) as v`, [s1.code.toLowerCase() + ' ']))[0].v;
+ok('anyone with the code can verify the summary', v1.status === 'valid' && v1.client === s1.client_name && v1.figures.profit === 120000 && v1.report_open === false && !('access_code' in v1));
+ok('an unknown code finds nothing', (await anon(`select verify_seal('VB-ZZZZ-ZZZZ') as v`))[0].v === null);
+await denied('the full report needs the access code', () => anon(`select verify_seal_report($1, 'WRONG1')`, [s1.code]), /access code is not right/);
+ok('with the access code, the report opens', (await anon(`select verify_seal_report($1, $2) as r`, [s1.code, s1.access_code.toLowerCase()]))[0].r.opinion[0] === 'We have audited');
+await denied('staff cannot open the report to the public', () => as(C, `select set_seal_sharing($1, true)`, [s1.id]), /Only a partner/);
+await denied('another firm cannot either', () => as(B, `select set_seal_sharing($1, true)`, [s1.id]), /Only a partner/);
+await as(A, `select set_seal_sharing($1, true)`, [s1.id]);
+ok('once the partner allows it, the report opens with the code alone', (await anon(`select verify_seal_report($1, '') as r`, [s1.code]))[0].r.opinion[0] === 'We have audited');
+await as(A, `select reopen_engagement($1, $2, $3, $4)`, [e1.id, ...reason]);
+ok('reopening the file marks its seal reopened', (await anon(`select verify_seal($1) as v`, [s1.code]))[0].v.status === 'reopened');
+await as(A, `select sign_engagement($1)`, [e1.id]);
+const s2 = (await as(A, `select * from report_seals where engagement_id = $1 order by version desc limit 1`, [e1.id]))[0];
+const v1b = (await anon(`select verify_seal($1) as v`, [s1.code]))[0].v;
+ok('signing again issues a new seal and supersedes the old one', s2.version === s1.version + 1 && s2.status === 'valid' && v1b.status === 'superseded' && v1b.superseded_by === s2.code);
+ok('the new seal has its own code and fingerprint', s2.code !== s1.code && s2.hash !== s1.hash);
+
 console.log(failed ? `\n${failed} check(s) failed` : '\nAll database checks passed');
 process.exit(failed ? 1 : 0);

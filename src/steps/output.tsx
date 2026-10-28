@@ -1,3 +1,4 @@
+import { SealCard, SealMark, useSeal } from '../seal';
 import { useState } from 'react';
 import { downloadWorkbook } from '../excel';
 import { formPhrase, governorsOf, legalFormOf } from '../content/entities';
@@ -822,9 +823,16 @@ function ReportSheet({ ctx, draft, ready }: { ctx: Ctx; draft: ReturnType<typeof
         </div>
       </div>
       )}
+      {signed && <ReportSeal engagementId={eng.id} signedAt={eng.signedAt} />}
       <PageFoot ctx={ctx} />
     </section>
   );
+}
+
+/** The verification seal beside the signature, once the file is signed and sealed. */
+function ReportSeal({ engagementId, signedAt }: { engagementId: string; signedAt: string | null | undefined }) {
+  const { seal } = useSeal(engagementId, signedAt);
+  return seal ? <SealMark seal={seal} /> : null;
 }
 
 export function ReportStep(ctx: Ctx) {
@@ -1091,6 +1099,7 @@ export function SignOffStep(ctx: Ctx) {
           </p>
         </div>
       )}
+      {signed && <SealCard engagementId={eng.id} signedAt={eng.signedAt ?? null} partner={ws.me.role === 'partner'} />}
       <div className="card stack">
         <h3>Independence</h3>
         <p className="small muted" style={{ margin: 0 }}>
@@ -1166,8 +1175,12 @@ export function SignOffStep(ctx: Ctx) {
               onClick={() =>
                 void run(async () => {
                   // Keep the wording the partner is signing, so the signed report can never be redrafted.
-                  const { signedReport: _old, ...settings } = eng.report;
-                  await repo.updateEngagement(eng.id, { report: { ...settings, signedReport: draftFor(ctx, settings) } });
+                  const { signedReport: _old, signedFigures: _figs, ...settings } = eng.report;
+                  const c = statements.cur;
+                  const signedFigures = statements.npo
+                    ? { npo: true, revenue: c.totalIncome, result: c.profit, totalAssets: c.totalAssets, netAssets: c.totalEquity }
+                    : { revenue: c.v.revenue ?? 0, result: c.profit, totalAssets: c.totalAssets, netAssets: c.totalEquity };
+                  await repo.updateEngagement(eng.id, { report: { ...settings, signedReport: draftFor(ctx, settings), signedFigures } });
                   await repo.sign(eng.id);
                   reload();
                 })

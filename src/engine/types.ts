@@ -100,6 +100,8 @@ export interface ReportSettings {
   otherMatter?: string;
   /** The report exactly as it stood when the partner signed. A signed report is shown from this, never redrafted. */
   signedReport?: { title: string; addressee: string; sections: { heading: string; paragraphs: string[] }[] };
+  /** The headline figures as they stood when the partner signed. Kept on the verification seal. */
+  signedFigures?: SealFigures;
   /** A material misstatement the auditor found in the other information. Blank when there is nothing to report. */
   otherInformation?: string;
   /** Canada, compilation (CSRS 4200): the basis of accounting agreed with management. */
@@ -209,4 +211,14 @@ export interface ChecklistAnswer {
   note: string;
   by: string;
   at: string;
+}
+
+/** The headline figures a verification seal carries, in minor units of the engagement currency. */
+export interface SealFigures {
+  /** A not-for-profit shows total income and its surplus or deficit. */
+  npo?: boolean;
+  revenue: number;
+  result: number;
+  totalAssets: number;
+  netAssets: number;
 }

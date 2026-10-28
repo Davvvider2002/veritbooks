@@ -1,6 +1,6 @@
 # VeritBooks: platform definition
 
-Version 0.25, 26 October 2026.
+Version 0.26, 28 October 2026.
 
 ## What it is
 
@@ -349,6 +349,7 @@ A visitor who is not signed in sees the landing page at the front door. Sign-in 
 4. Only an engagement partner can sign, and only an engagement partner can reopen a signed file, with a recorded reason. The database enforces both, not only the screen. Licence numbers (the partner's, the firm's, and in Nigeria the CEO's and CFO's) are optional from version 0.22: printed when held, flagged as advisory when not.
 5. A signed file cannot be edited or deleted by anyone, including the partner who signed it.
 6. Users cannot write to or delete from the audit trail.
+7. A verification seal is issued by the database at signing and cannot be written, changed or deleted by any user. Reopening marks it reopened; signing again issues a new seal and marks the old one superseded.
 
 ## Importing several years
 
@@ -552,3 +553,16 @@ The work programmes, accounting policy wording and report wording are starter co
 | `firm_invites` | Email, role, and whether the invitation was accepted. |
 | `evidence` | One row per attached file: name, size, what it supports, who added it. The file is in the `evidence` storage bucket. |
 | `audit_log` | Who changed what, and when. |
+
+
+## Release 0.26: verification seal
+
+When a partner signs, the database seals the signed report. The seal records the firm, the partner and their licence number, the client and its registration number, the year end, the engagement type, the opinion, four headline figures (revenue or total income, profit or surplus, total assets, total equity or net assets), the report wording as signed, and the time of signing. It fingerprints all of it with SHA-256 and gives the seal a code such as VB-7KQ4-M2XD.
+
+- **On the report.** A QR code and the code are printed beside the signature, with the address veritbooks.com/verify.
+- **The public check.** Anyone can scan the QR code or enter the code at veritbooks.com/verify, with no sign-in. They see whether the seal is valid, reopened, superseded or withdrawn, the summary, and the headline figures to compare with the statements they hold.
+- **The full report.** It stays private by default. The firm gives its client a six-character access code to pass to a bank, embassy or regulator. A partner can instead open the report to anyone with the code.
+- **Reopening and re-signing.** Reopening a signed file marks its seal reopened. Signing again issues a new seal, and the old one shows as superseded with a link to the new one.
+- **What it proves.** Origin and integrity: who signed what, and when. It is not a legal digital signature and does not speak to the quality of the work. The public page says so.
+- **Database.** Migration 0029 adds the report_seals table (read by firm members only, written only by the signing trigger), and the functions verify_seal, verify_seal_report and set_seal_sharing.
+- **Not yet.** A fingerprint of the PDF itself, and withdrawal of a seal by the firm. The status exists; the action will follow.

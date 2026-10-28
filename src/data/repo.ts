@@ -9,6 +9,7 @@ import type {
   ProgrammeState,
   ReportSettings,
   Role,
+  SealFigures,
   TbLine,
   Testing,
 } from '../engine/types';
@@ -493,6 +494,14 @@ export interface Repo {
   portalUpload(token: string, view: PortalView, requestId: string, file: File): Promise<void>;
 
   sign(engagementId: string): Promise<void>;
+  /** The verification seals issued for this file, newest first. Firm members only. */
+  listSeals(engagementId: string): Promise<Seal[]>;
+  /** A partner chooses whether anyone with the code may read the full report. */
+  setSealSharing(sealId: string, open: boolean): Promise<void>;
+  /** The public check of a seal. No sign-in needed. Null when no report carries the code. */
+  verifySeal(code: string): Promise<Seal | null>;
+  /** The full signed report, when the firm allows it or with the access code. No sign-in needed. */
+  verifySealReport(code: string, access: string): Promise<SignedReport>;
   /** A partner reopens a signed file under ISA 230 or ISA 560, with the reason and its effect. */
   reopen(engagementId: string, kind: AmendmentKind, reason: string, effect: string): Promise<void>;
   /** Every time the file was reopened after signing, oldest first. */
@@ -656,4 +665,36 @@ export class LockedError extends Error {
   constructor() {
     super('This engagement is signed and locked.');
   }
+}
+
+export type SignedReport = NonNullable<ReportSettings['signedReport']>;
+export type SealStatus = 'valid' | 'reopened' | 'superseded' | 'withdrawn';
+
+/** The record made when a partner signs: who signed what, for whom, and when, fingerprinted. */
+export interface Seal {
+  id?: string;
+  code: string;
+  version: number;
+  status: SealStatus;
+  /** The code of the seal that replaced this one, when the file was signed again. */
+  supersededBy: string | null;
+  firmName: string;
+  firmLicence: string | null;
+  country: string | null;
+  partnerName: string | null;
+  partnerLicence: string | null;
+  clientName: string;
+  clientNumber: string | null;
+  yearEnd: string;
+  type: EngagementType;
+  opinion: string | null;
+  currency: string | null;
+  figures: Partial<SealFigures>;
+  signedAt: string;
+  reopenedAt: string | null;
+  hash: string;
+  /** Whether anyone with the code may read the full report. */
+  reportOpen: boolean;
+  /** Shown to the firm only. The client passes it on to whoever needs the full report. */
+  accessCode?: string;
 }

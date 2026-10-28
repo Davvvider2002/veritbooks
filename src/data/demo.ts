@@ -30,6 +30,8 @@ import {
   type StoredBankLine,
   type User,
   type Amendment,
+  type Seal,
+  type SignedReport,
 } from './repo';
 
 /**
@@ -201,6 +203,37 @@ export function createDemoRepo(): Repo {
     // Countries added since this browser's store was made.
     for (const c of COUNTRY_PRICING) if (!pl.countries.some((x) => x.code === c.code)) pl.countries.push({ ...c, plans: { ...c.plans }, engagements: { ...c.engagements } });
     return pl.countries;
+  };
+  // Verification seals, issued at signing as the database does (migration 0029).
+  type DemoSeal = Seal & { id: string; firmId: string; accessCode: string; report: SignedReport };
+  const sealStore = () => (((s as any).seals ??= {}) as Record<string, DemoSeal[]>);
+  const seals = (engId: string) => (sealStore()[engId] ??= []);
+  const findSeal = (code: string) => Object.values(sealStore()).flat().find((x) => x.code === code.trim().toUpperCase());
+  const SEAL_ALPHA = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  const sealChars = (n: number) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => SEAL_ALPHA[b % SEAL_ALPHA.length]).join('');
+  const issueSeal = async (e: Engagement & { firmId: string }, firm: Firm) => {
+    const list = seals(e.id);
+    const client = s.clients.find((c) => c.id === e.clientId);
+    let code = '';
+    do code = `VB-${sealChars(4)}-${sealChars(4)}`;
+    while (findSeal(code));
+    const version = list.reduce((a, x) => Math.max(a, x.version), 0) + 1;
+    const report = (e.report.signedReport ?? { title: '', addressee: '', sections: [] }) as SignedReport;
+    const figures = e.report.signedFigures ?? {};
+    const payload = JSON.stringify({ engagement: e.id, version, firm: firm.name, partner: e.signedByName, client: client?.name, year_end: e.yearEnd, type: e.type, opinion: e.report.opinion ?? null, currency: e.currency, figures, report, signed_at: e.signedAt });
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+    const seal: DemoSeal = {
+      id: uid(), firmId: e.firmId, code, version, status: 'valid', supersededBy: null,
+      firmName: firm.name, firmLicence: e.firmFrc || null, country: firm.country ?? null,
+      partnerName: e.signedByName, partnerLicence: e.signedByFrc || null,
+      clientName: client?.name ?? '', clientNumber: client?.rcNumber || null,
+      yearEnd: e.yearEnd, type: e.type, opinion: e.type === 'compilation' ? null : (e.report.opinion ?? 'unmodified'),
+      currency: e.currency ?? null, figures, signedAt: e.signedAt ?? new Date().toISOString(), reopenedAt: null,
+      hash: Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join(''),
+      reportOpen: false, accessCode: sealChars(6), report,
+    };
+    for (const x of list) if (x.status === 'valid' || x.status === 'reopened') Object.assign(x, { status: 'superseded', supersededBy: code });
+    list.push(seal);
   };
   const countryBy = (code: string | undefined): CountryPricing => countries().find((c) => c.code === (code ?? 'NG')) ?? countries()[0];
   const countryOfFirm = (id: string): CountryPricing => countryBy(s.firms[id]?.firm.country);
@@ -1620,8 +1653,32 @@ export function createDemoRepo(): Repo {
       e.firmFrc = f.firm.frcNumber;
       e.signedAt = new Date().toISOString();
       for (const a of ((s as any).amendments?.[id] ?? []) as Amendment[]) if (!a.resignedAt) Object.assign(a, { resignedByName: e.signedByName, resignedAt: e.signedAt });
+      await issueSeal(e, f.firm);
       log(id, 'engagements', 'update', { status: 'locked' });
       save();
+    },
+    async listSeals(id) {
+      eng(id);
+      return seals(id).map(({ report: _r, ...x }) => ({ ...x })).sort((a, b) => b.version - a.version);
+    },
+    async setSealSharing(sealId, open) {
+      const x = Object.values(sealStore()).flat().find((y) => y.id === sealId);
+      const m = s.firms[firmId()]?.members.find((y) => y.userId === me().id);
+      if (!x || x.firmId !== firmId() || m?.role !== 'partner') throw new Error('Only a partner of the firm can change who may read the report.');
+      x.reportOpen = open;
+      save();
+    },
+    async verifySeal(code) {
+      const x = findSeal(code);
+      if (!x) return null;
+      const { report: _r, accessCode: _a, id: _i, firmId: _f, ...pub } = x;
+      return pub;
+    },
+    async verifySealReport(code, access) {
+      const x = findSeal(code);
+      if (!x) throw new Error('No report carries that code.');
+      if (!x.reportOpen && access.trim().toUpperCase() !== x.accessCode) throw new Error('That access code is not right. Ask the company or its accountants for it.');
+      return x.report;
     },
     async reopen(id, kind, reason, effect) {
       const e = eng(id);
@@ -1647,6 +1704,7 @@ export function createDemoRepo(): Repo {
       });
       const { signedReport: _signed, ...report } = e.report;
       Object.assign(e, { status: 'in_progress', signedByName: null, signedByFrc: null, firmFrc: null, signedAt: null, report });
+      for (const x of seals(id)) if (x.status === 'valid') Object.assign(x, { status: 'reopened', reopenedAt: new Date().toISOString() });
       log(id, 'engagements', 'update', { status: 'in_progress', reopened: kind, reason: reason.trim() });
       save();
     },
