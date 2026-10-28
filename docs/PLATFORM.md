@@ -555,9 +555,9 @@ The work programmes, accounting policy wording and report wording are starter co
 | `audit_log` | Who changed what, and when. |
 
 
-## Release 0.26: verification seal
+## Release 0.26: VeritSign, the verification seal
 
-When a partner signs, the database seals the signed report. The seal records the firm, the partner and their licence number, the client and its registration number, the year end, the engagement type, the opinion, four headline figures (revenue or total income, profit or surplus, total assets, total equity or net assets), the report wording as signed, and the time of signing. It fingerprints all of it with SHA-256 and gives the seal a code such as VB-7KQ4-M2XD.
+VeritSign is the name of the feature. When a partner signs, the database seals the signed report. The seal records the firm, the partner and their licence number, the client and its registration number, the year end, the engagement type, the opinion, four headline figures (revenue or total income, profit or surplus, total assets, total equity or net assets), the report wording as signed, and the time of signing. It fingerprints all of it with SHA-256 and gives the seal a code such as VB-7KQ4-M2XD.
 
 - **On the report.** A QR code and the code are printed beside the signature, with the address veritbooks.com/verify.
 - **The public check.** Anyone can scan the QR code or enter the code at veritbooks.com/verify, with no sign-in. They see whether the seal is valid, reopened, superseded or withdrawn, the summary, and the headline figures to compare with the statements they hold.

@@ -334,5 +334,8 @@ button.danger { color: var(--bad); border-color: var(--bad); }
 .seal-qr svg { width: 100%; height: 100%; display: block; }
 .seal-mark { display: flex; align-items: center; gap: 12px; margin-top: 18px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 6px; width: fit-content; max-width: 100%; break-inside: avoid; }
 .seal-mark .small { line-height: 1.45; }
+.verify-table { width: 100%; table-layout: fixed; }
 .verify-table th { text-align: left; font-weight: 500; color: var(--muted); }
+.verify-table td, .verify-table th { overflow-wrap: anywhere; white-space: normal; }
+@media (max-width: 520px) { .verify .card { padding-left: 12px; padding-right: 12px; } .verify-table th { width: 42% !important; } }
 .verify-report { box-shadow: none; margin: 0; max-width: none; }

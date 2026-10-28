@@ -52,10 +52,10 @@ export function useSeal(engagementId: string, signedAt: string | null | undefine
 /** The seal printed beside the signature on the report. */
 export function SealMark({ seal }: { seal: Seal }) {
   return (
-    <div className="seal-mark" aria-label="Verification seal">
+    <div className="seal-mark" aria-label="VeritSign seal">
       <SealQr code={seal.code} size={84} />
       <div className="small">
-        <strong>Verification seal</strong>
+        <strong>VeritSign</strong>
         <br />
         Code {seal.code}
         <br />
@@ -85,7 +85,7 @@ export function SealCard({ engagementId, signedAt, partner }: { engagementId: st
   if (!seal)
     return (
       <div className="card">
-        <h3>Verification seal</h3>
+        <h3>VeritSign</h3>
         <p className="small muted" style={{ marginBottom: 0 }}>
           {all.length ? 'No seal is valid for this file.' : 'This file was signed before seals were issued. Reopen and sign it again to issue one.'}
         </p>
@@ -98,13 +98,13 @@ export function SealCard({ engagementId, signedAt, partner }: { engagementId: st
     });
   };
   return (
-    <div className="card stack" aria-label="Verification seal">
+    <div className="card stack" aria-label="VeritSign seal">
       <div className="between">
-        <h3 style={{ margin: 0 }}>Verification seal</h3>
+        <h3 style={{ margin: 0 }}>VeritSign</h3>
         <span className="tag ok">Valid</span>
       </div>
       <p className="small muted" style={{ margin: 0 }}>
-        VeritBooks sealed the report when it was signed. The QR code and code are printed beside the signature. Anyone holding the report can scan it, or enter the code at {verifyHost()}, to confirm who signed it, when, and the headline figures. If you reopen the file, the seal shows as reopened. Signing again issues a new seal and marks this one superseded.
+        VeritSign sealed the report when it was signed. The QR code and code are printed beside the signature. Anyone holding the report can scan it, or enter the code at {verifyHost()}, to confirm who signed it, when, and the headline figures. If you reopen the file, the seal shows as reopened. Signing again issues a new seal and marks this one superseded.
       </p>
       <div className="row" style={{ alignItems: 'flex-start', gap: 20 }}>
         <SealQr code={seal.code} size={132} />
@@ -185,9 +185,10 @@ export function VerifyPage({ code }: { code?: string }) {
   };
   return (
     <div className="page verify" style={{ maxWidth: 760 }}>
-      <h1 style={{ marginBottom: 4 }}>Verify a report</h1>
+      <div className="small muted" style={{ letterSpacing: 1, textTransform: 'uppercase' }}>VeritSign</div>
+      <h1 style={{ marginTop: 4, marginBottom: 4 }}>Verify a report</h1>
       <p className="muted" style={{ marginTop: 0 }}>
-        Financial statements signed on VeritBooks carry a verification seal: a QR code and a code such as VB-7KQ4-M2XD beside the signature. Enter the code to confirm the report is genuine and see what was signed.
+        Financial statements signed on VeritBooks carry a VeritSign seal: a QR code and a code such as VB-7KQ4-M2XD beside the signature. Enter the code to confirm the report is genuine and see what was signed.
       </p>
       <form
         className="row"
