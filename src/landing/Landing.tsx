@@ -423,9 +423,6 @@ export function Landing() {
                 <a className="lp-btn solid" href="/verify">
                   Try the verify page
                 </a>
-                <Go to={CTA.getStarted} className="lp-btn line">
-                  Start 14-Day Free Trial
-                </Go>
               </div>
               <p className="lp-vs-note">A seal proves who signed the report, when, and what it said. It does not speak to the quality of the work.</p>
             </div>
