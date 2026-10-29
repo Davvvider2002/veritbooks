@@ -40,12 +40,12 @@ export const YOUTUBE: { url: string; handle: string; title: string; text: string
 
 /**
  * Pages and contact details that have not been supplied. Leave a value as null and the footer
- * shows the item as "to be published" instead of a dead link. The contact email is taken from
+ * leaves the item out instead of showing a dead link. The contact email is taken from
  * the support email set in the admin console when one is set there.
  */
 export const LINKS: { privacy: string | null; terms: string | null; contactEmail: string | null } = {
-  privacy: null,
-  terms: null,
+  privacy: '/privacy',
+  terms: '/terms',
   contactEmail: null,
 };
 

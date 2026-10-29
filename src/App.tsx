@@ -8,6 +8,7 @@ import { SecondFactor } from './mfa';
 import { Landing } from './landing/Landing';
 import { PortalPage } from './portal';
 import { VerifyPage } from './seal';
+import { PrivacyPage, TermsPage } from './legal';
 import { QualityPage } from './quality';
 import { repo } from './data';
 import type { User, Workspace } from './data/repo';
@@ -38,6 +39,8 @@ export function App() {
   const partners = /^\/partners\/?$/.test(path);
   // Anyone holding a signed report checks its seal here, with no sign-in.
   const verify = /^\/verify(?:\/([^/]+))?\/?$/.exec(path);
+  // The privacy policy and terms are public pages.
+  const legal = /^\/(privacy|terms)\/?$/.exec(path)?.[1];
 
   const refresh = async () => {
     try {
@@ -51,7 +54,7 @@ export function App() {
       if (mfa.enrolled && !mfa.verified) return setSession({ state: 'second-factor', user });
       // A platform admin with no firm of their own belongs in the admin console, not firm setup.
       // A public page (a seal check or a client's upload link) is never redirected away from.
-      const publicPage = /^\/(verify|r)(\/|$)/.test(window.location.pathname);
+      const publicPage = /^\/(verify|r|privacy|terms)(\/|$)/.test(window.location.pathname);
       if (!ws && !publicPage && (await repo.adminStatus()).admin) return nav('/admin', { replace: true });
       // A partner with no firm of their own, or someone who signed up to be one, belongs in the partner portal.
       if (!ws) {
@@ -83,6 +86,17 @@ export function App() {
   if (partners && session.state !== 'new-password') return <PartnerApp />;
   // A visitor who is not signed in sees the public site at the front door.
   if (session.state === 'signed-out' && path === '/') return <Landing />;
+  if (legal)
+    return (
+      <>
+        <header className="topbar">
+          <a className="brand" href="/" style={{ textDecoration: 'none' }}>
+            Verit<span>Books</span>
+          </a>
+        </header>
+        {legal === 'privacy' ? <PrivacyPage /> : <TermsPage />}
+      </>
+    );
   if (verify)
     return (
       <>

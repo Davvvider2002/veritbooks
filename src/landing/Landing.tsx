@@ -733,9 +733,9 @@ export function Landing() {
             <Go to={CTA.signIn}>Sign in</Go>
           </nav>
           <div className="lp-legal">
-            {contact ? <a href={`mailto:${contact}`}>Contact: {contact}</a> : <span>Contact details to be published</span>}
-            {LINKS.privacy ? <Go to={LINKS.privacy}>Privacy Policy</Go> : <span>Privacy Policy, to be published</span>}
-            {LINKS.terms ? <Go to={LINKS.terms}>Terms of Service</Go> : <span>Terms of Service, to be published</span>}
+            {contact && <a href={`mailto:${contact}`}>Contact: {contact}</a>}
+            {LINKS.privacy && <Go to={LINKS.privacy}>Privacy Policy</Go>}
+            {LINKS.terms && <Go to={LINKS.terms}>Terms of Service</Go>}
           </div>
         </div>
         <div className="lp-wrap">
