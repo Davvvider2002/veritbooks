@@ -34,7 +34,10 @@ export function PrivacyPage() {
     >
       <S h="1. Who we are and our role">
         <p>
-          VeritBooks provides software that accounting and audit firms use to prepare financial statements and run audit, review and compilation engagements. For the accounts of people who use VeritBooks, and for visitors to our website, VeritBooks decides how personal information is used and is responsible for it.
+          VeritBooks provides software that accounting and audit firms use to prepare financial statements and run audit, review and compilation engagements. It is operated by Bakkiego in South Africa and by VBG in Nigeria.
+        </p>
+        <p>
+          If your firm is in South Africa, Bakkiego is responsible for your personal information. For firms in every other country we serve, and for visitors to our website outside South Africa, VBG is responsible. In this policy, “VeritBooks”, “we” and “us” mean the company responsible for you. For the accounts of people who use VeritBooks, and for visitors to our website, that company decides how personal information is used and is responsible for it.
         </p>
         <p>
           For the client records a firm puts into VeritBooks (trial balances, ledgers, bank statements, evidence and reports), the firm decides what is collected and why. VeritBooks processes that information on the firm’s behalf and only to provide the service. Questions about a client’s own information should go first to the firm that holds it.
@@ -124,12 +127,17 @@ export function TermsPage() {
       title="Terms of Service"
       intro="These terms govern the use of VeritBooks by accounting and audit firms, their staff and our referral partners. By creating an account or using the service, you agree to them on behalf of yourself and your firm."
     >
-      <S h="1. The service">
+      <S h="1. Who you contract with">
+        <p>
+          VeritBooks is operated by Bakkiego in South Africa and by VBG in Nigeria. If your firm is in South Africa, your agreement is with Bakkiego. If your firm is in any other country we serve, your agreement is with VBG. In these terms, “VeritBooks”, “we” and “us” mean that company. The country is the one recorded for your firm when it was set up.
+        </p>
+      </S>
+      <S h="2. The service">
         <p>
           VeritBooks is software for preparing financial statements and managing audit, review and compilation engagements. It includes engagement files, working papers, statement drafting, partner sign-off, VeritSign verification seals and optional AI assistance. We may improve and change features over time.
         </p>
       </S>
-      <S h="2. Accounts">
+      <S h="3. Accounts">
         <ul>
           <li>The person who sets up a firm confirms they may bind that firm to these terms.</li>
           <li>Each user needs their own account. Keep your password and second factor secure, and tell us promptly of any unauthorised use.</li>
@@ -137,22 +145,22 @@ export function TermsPage() {
           <li>Information you give us, including licence numbers, must be accurate and kept up to date.</li>
         </ul>
       </S>
-      <S h="3. Professional responsibility">
+      <S h="4. Professional responsibility">
         <p>
           VeritBooks is a tool. It does not provide accounting, audit, tax or legal advice, and it does not perform engagements. The firm and its engagement partners remain fully responsible for their professional judgement, for compliance with the standards and laws that apply to them, and for every report they sign. Checks, prompts, templates and AI drafts help with that work; they do not replace it.
         </p>
       </S>
-      <S h="4. VeritSign">
+      <S h="5. VeritSign">
         <p>
           A VeritSign seal confirms that a report was signed on VeritBooks by the named partner, when it was signed, and what it said. It does not certify the quality of the work, and it is not a qualified electronic signature. By signing, a partner agrees that the seal summary may be shown to anyone who holds the seal code, and that the full report may be shown to anyone with the access code or, where the partner chooses, the seal code alone.
         </p>
       </S>
-      <S h="5. Your data">
+      <S h="6. Your data">
         <p>
           Your firm owns the information it puts into VeritBooks. You give us permission to store and process it only to provide, secure and support the service. You confirm that you have the right to upload it, including any permission your clients must give. Our Privacy Policy explains how we handle personal information.
         </p>
       </S>
-      <S h="6. Acceptable use">
+      <S h="7. Acceptable use">
         <p>You must not:</p>
         <ul>
           <li>use VeritBooks to prepare, sign or present a report you know to be false or misleading;</li>
@@ -162,7 +170,7 @@ export function TermsPage() {
           <li>upload unlawful content or malicious code.</li>
         </ul>
       </S>
-      <S h="7. Trial, plans and payment">
+      <S h="8. Trial, plans and payment">
         <ul>
           <li>New firms receive a 14-day free trial with every feature. No card is needed to start.</li>
           <li>After the trial, a firm may choose a plan or pay for single engagements at the prices shown for its country on veritbooks.com and in the application, including any tax stated there.</li>
@@ -172,33 +180,37 @@ export function TermsPage() {
           <li>Except where the law requires otherwise, payments already made are not refundable.</li>
         </ul>
       </S>
-      <S h="8. Partner programme">
+      <S h="9. Partner programme">
         <p>Referral partners are bound by these terms and by the partner programme terms shown in the partner portal. Commissions are earned only on payments actually received.</p>
       </S>
-      <S h="9. Availability and support">
+      <S h="10. Availability and support">
         <p>
           We work to keep VeritBooks available and secure. The service may sometimes be interrupted for maintenance or by events outside our control. We will tell you about planned interruptions where we can.
         </p>
       </S>
-      <S h="10. Suspension and closure">
+      <S h="11. Suspension and closure">
         <p>
           A partner may ask us to close the firm’s account at any time. We may suspend or close an account that breaches these terms, fails to pay, or puts the service or other users at risk. Where reasonable, we will give notice first so that the firm can export its information. Signed reports keep their VeritSign record so that they remain verifiable.
         </p>
       </S>
-      <S h="11. Liability">
+      <S h="12. Liability">
         <p>
           VeritBooks is provided with reasonable care and skill. To the extent the law allows, we are not liable for indirect or consequential loss, lost profits or lost data, or for any professional judgement, report or opinion a firm issues. Our total liability in any 12-month period is limited to the fees the firm paid us in that period. Nothing in these terms limits liability that cannot be limited by law.
         </p>
       </S>
-      <S h="12. Changes to these terms">
+      <S h="13. Changes to these terms">
         <p>
           We may update these terms. We will post changes on this page and, where they are significant, tell account holders by email or in the application before they take effect. Continuing to use VeritBooks after that date means you accept the updated terms.
         </p>
       </S>
-      <S h="13. Disputes">
+      <S h="14. Disputes">
         <p>
-          If a dispute arises, we will first try to resolve it with you in good faith. Nothing in these terms takes away rights you have under the consumer or data protection laws of your country.
+          If a dispute arises, we will first try to resolve it with you in good faith.
         </p>
+        <p>
+          If your firm is in South Africa, these terms are governed by the laws of the Republic of South Africa, and the South African courts have jurisdiction. If your firm is in any other country, these terms are governed by the laws of the Federal Republic of Nigeria, and the Nigerian courts have jurisdiction.
+        </p>
+        <p>Nothing in these terms takes away rights you have under the consumer or data protection laws of your country.</p>
       </S>
     </Page>
   );

@@ -740,7 +740,7 @@ export function Landing() {
         </div>
         <div className="lp-wrap">
           <p className="lp-scope">{SCOPE}</p>
-          <p className="lp-copy">© {new Date().getFullYear()} VeritBooks</p>
+          <p className="lp-copy">© {new Date().getFullYear()} VeritBooks. Operated by Bakkiego (South Africa) and VBG (Nigeria).</p>
         </div>
       </footer>
     </div>
