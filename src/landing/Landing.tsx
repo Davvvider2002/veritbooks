@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import QRCode from 'qrcode';
 import { repo } from '../data';
 import type { PublicPrices } from '../data/repo';
 import { priceText } from '../engine/billing';
@@ -140,6 +141,26 @@ const AI = [
   'Draft accounting policy wording, with placeholders for unknown facts',
 ];
 
+const VERITSIGN: [string, string][] = [
+  ['Sealed at signing', 'Nothing extra for your team to do. The seal is issued the moment the partner signs.'],
+  ['Checked by anyone', 'No account and no app. A phone camera is enough.'],
+  ['Private by default', 'The verifier sees the summary. The full report opens only with the access code your client shares.'],
+  ['Always current', 'Reopen a file and the seal says so. Sign again and the old report points to the new one.'],
+];
+
+/** The QR code on the hero's sample seal. It opens the verify page. */
+function SampleQr() {
+  const [svg, setSvg] = useState('');
+  useEffect(() => {
+    let live = true;
+    QRCode.toString(`${window.location.origin}/verify`, { type: 'svg', margin: 0, errorCorrectionLevel: 'M' }).then((x) => live && setSvg(x), () => undefined);
+    return () => {
+      live = false;
+    };
+  }, []);
+  return <span className="lp-sealcard-qr" aria-hidden="true" dangerouslySetInnerHTML={{ __html: svg }} />;
+}
+
 const TRUST = [
   ['Computed, not typed', 'Financial statement figures are computed from the trial balance and journals. They are not typed into statement lines.'],
   ['Traceable figures', 'Figures can be traced to the underlying accounts and supporting records.'],
@@ -275,6 +296,7 @@ export function Landing() {
   const nav = [
     ['#features', 'Features'],
     ['#how', 'How it works'],
+    ['#veritsign', 'VeritSign'],
     ['#pricing', 'Pricing'],
     ['#faq', 'FAQ'],
   ];
@@ -313,8 +335,25 @@ export function Landing() {
           <figure className="lp-photo">
             <img src={HERO.src} alt={HERO.alt} width={HERO.width} height={HERO.height} fetchPriority="high" decoding="async" />
           </figure>
+          <a className="lp-sealcard" href="#veritsign" aria-label="VeritSign: a sample verified report. Read more.">
+            <SampleQr />
+            <span className="lp-sealcard-text">
+              <span className="lp-sealcard-kicker">VeritSign</span>
+              <span className="lp-sealcard-status">
+                <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="8" fill="currentColor" /><path d="M4.5 8.2l2.3 2.3 4.7-4.8" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                Valid report
+              </span>
+              <span className="lp-sealcard-line">Independent auditor’s report</span>
+              <span className="lp-sealcard-line muted">Signed 20 Mar 2026<span className="lp-sealcard-code"> · VB-7KQ4-M2XD</span></span>
+            </span>
+          </a>
           <div className="lp-wrap lp-hero-in">
             <div className="lp-hero-text">
+              <a className="lp-new" href="#veritsign">
+                <span className="lp-new-tag">New</span>
+                <span>VeritSign: every signed report, verifiable by QR code</span>
+                <span aria-hidden="true">→</span>
+              </a>
               <p className="lp-eyebrow">Accounting &amp; Audit Software</p>
               <h1>From trial balance to signed financial statements.</h1>
               <p className="lp-lead">
@@ -345,7 +384,7 @@ export function Landing() {
               <ul className="lp-attrs">
                 <li>IFRS for SMEs</li>
                 <li>Audit | Review | Compilation</li>
-                <li>West Africa and South Africa</li>
+                <li>West Africa, South Africa and Canada</li>
               </ul>
             </div>
           </div>
@@ -362,6 +401,66 @@ export function Landing() {
                 <p>{x.text}</p>
               </div>
             ))}
+          </div>
+        </section>
+
+        <section className="lp-section lp-vs" id="veritsign" aria-labelledby="vs-title">
+          <div className="lp-wrap lp-split">
+            <div>
+              <p className="lp-label">New · VeritSign</p>
+              <h2 id="vs-title">Signed once. Verified anywhere.</h2>
+              <p>
+                Every report your partners sign on VeritBooks now carries a VeritSign seal. Banks, embassies and regulators scan the QR code and confirm, in seconds, that the report is genuine.
+              </p>
+              <ul className="lp-ticks">
+                {VERITSIGN.map(([head, text]) => (
+                  <li key={head}>
+                    <strong>{head}.</strong> {text}
+                  </li>
+                ))}
+              </ul>
+              <div className="lp-cta">
+                <a className="lp-btn solid" href="/verify">
+                  Try the verify page
+                </a>
+                <Go to={CTA.getStarted} className="lp-btn line">
+                  Start 14-Day Free Trial
+                </Go>
+              </div>
+              <p className="lp-vs-note">A seal proves who signed the report, when, and what it said. It does not speak to the quality of the work.</p>
+            </div>
+            <figure className="lp-vs-visual">
+              <img className="lp-vs-report" src="/landing/veritsign-report.png" alt="A signed auditor’s report with the VeritSign QR code and code under the partner’s signature" loading="lazy" decoding="async" width={1208} height={1166} />
+              <span className="lp-vs-phone">
+                <img src="/landing/veritsign-phone.png" alt="The verify page on a phone, showing a valid seal with the signing partner, firm and headline figures" loading="lazy" decoding="async" width={585} height={1700} />
+              </span>
+              <figcaption>Shown with sample data: a fictional firm and client.</figcaption>
+            </figure>
+          </div>
+          <div className="lp-wrap">
+            <ol className="lp-vs-steps">
+              <li>
+                <span>1</span>
+                <div>
+                  <h3>The partner signs</h3>
+                  <p>VeritSign seals the partner, firm, client, opinion, headline figures and wording.</p>
+                </div>
+              </li>
+              <li>
+                <span>2</span>
+                <div>
+                  <h3>The QR code prints</h3>
+                  <p>Beside the signature, with a short code and the time of sealing.</p>
+                </div>
+              </li>
+              <li>
+                <span>3</span>
+                <div>
+                  <h3>Anyone verifies</h3>
+                  <p>A phone camera and veritbooks.com/verify. No account, no app, no call.</p>
+                </div>
+              </li>
+            </ol>
           </div>
         </section>
 
