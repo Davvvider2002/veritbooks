@@ -316,12 +316,16 @@ export function ImportStep({ eng, client, lines, adjustments, locked, reload }: 
 
 /**
  * Clears the imported trial balance so a revised one can be imported, as clients often send a
- * draft and then a final version. Only before the file is signed. Journals and mapping are kept.
+ * draft and then a final version. Only before the file is signed. Mapping is kept; the partner
+ * chooses whether the journals passed are kept or deleted with it.
  */
 function PurgeTrialBalance({ ctx, held, onDone }: { ctx: Pick<Ctx, 'eng' | 'lines' | 'adjustments' | 'reload'>; held: number; onDone: (n: string) => void }) {
   const { eng, lines, adjustments, reload } = ctx;
   const [scope, setScope] = useState<'current' | 'all'>('current');
+  // Whether the journals passed go too. Kept unless the partner chooses otherwise.
+  const [dropJournals, setDropJournals] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const journals = adjustments.length;
   const { busy, error, run } = useAction();
   const year = Number(eng.yearEnd.slice(0, 4));
   const used = new Set(adjustments.flatMap((a) => a.lines.map((j) => j.lineId)));
@@ -337,7 +341,7 @@ function PurgeTrialBalance({ ctx, held, onDone }: { ctx: Pick<Ctx, 'eng' | 'line
         )}
       </div>
       <p className="small muted" style={{ margin: 0 }}>
-        Clients often revise a trial balance after sending a draft. Purge the one imported here, then import the revised file above. This is possible until the file is signed. Journals stay, and are matched to the new file by account code. Mapping is remembered for this client, so the new accounts map as before.
+        Clients often revise a trial balance after sending a draft. Purge the one imported here, then import the revised file above. This is possible until the file is signed. You choose whether the journals passed stay, matched to the new file by account code, or are deleted with it. Mapping is remembered for this client, so the new accounts map as before.
       </p>
       {confirming && (
         <div className="stack">
@@ -353,9 +357,28 @@ function PurgeTrialBalance({ ctx, held, onDone }: { ctx: Pick<Ctx, 'eng' | 'line
               </label>
             )}
           </div>
+          {journals > 0 && (
+            <fieldset className="stack" style={{ border: 0, padding: 0, margin: '10px 0 0', gap: 6 }} aria-label="Journals passed">
+              <legend className="small" style={{ fontWeight: 600, marginBottom: 6 }}>
+                There {journals === 1 ? 'is 1 journal' : `are ${journals} journals`} passed on this file. What should happen to {journals === 1 ? 'it' : 'them'}?
+              </legend>
+              <label className="row small">
+                <input type="radio" name="purge-journals" checked={!dropJournals} onChange={() => setDropJournals(false)} />
+                Keep the journals passed, and match them to the new trial balance by account code
+              </label>
+              <label className="row small">
+                <input type="radio" name="purge-journals" checked={dropJournals} onChange={() => setDropJournals(true)} />
+                Delete the journals passed too, so the year starts clean
+              </label>
+            </fieldset>
+          )}
           <div className="banner warn">
             {scope === 'current' ? `The ${year} balances of ${lines.length} accounts will be cleared.` : `All ${held} years of balances on ${lines.length} accounts will be cleared.`}
-            {kept > 0 && (scope === 'current' ? ' Journals on this file stay attached to their accounts.' : ` ${kept} account${kept === 1 ? '' : 's'} used by journals ${kept === 1 ? 'stays' : 'stay'}, at nil, until the new files are imported.`)} The purge is recorded in the audit trail.
+            {journals > 0 &&
+              (dropJournals
+                ? ` ${journals === 1 ? 'The journal passed' : journals === 2 ? 'Both journals passed' : `All ${journals} journals passed`}, including any bank (BR) and tax (TAX) journals, will be deleted.`
+                : kept > 0 && (scope === 'current' ? ' Journals on this file stay attached to their accounts.' : ` ${kept} account${kept === 1 ? '' : 's'} used by journals ${kept === 1 ? 'stays' : 'stay'}, at nil, until the new files are imported.`))}{' '}
+            The purge is recorded in the audit trail.
           </div>
           <ErrorNote error={error} />
           <div className="row">
@@ -364,9 +387,14 @@ function PurgeTrialBalance({ ctx, held, onDone }: { ctx: Pick<Ctx, 'eng' | 'line
               disabled={busy}
               onClick={() =>
                 void run(async () => {
-                  await repo.replaceLines(eng.id, purgeLines(lines, adjustments, scope));
+                  // Journals go first, so no account is kept at nil only to hold them.
+                  const drop = dropJournals && journals > 0;
+                  if (drop) await repo.deleteAdjustments(adjustments.map((a) => a.id));
+                  await repo.replaceLines(eng.id, purgeLines(lines, drop ? [] : adjustments, scope));
                   setConfirming(false);
-                  onDone(scope === 'current' ? `The ${year} trial balance was purged. Import the revised file.` : 'The trial balance was purged for every year. Import the revised files.');
+                  setDropJournals(false);
+                  const also = drop ? ` and its ${journals} journal${journals === 1 ? '' : 's'} deleted` : '';
+                  onDone(scope === 'current' ? `The ${year} trial balance was purged${also}. Import the revised file.` : `The trial balance was purged for every year${also}. Import the revised files.`);
                   reload();
                 })
               }

@@ -557,6 +557,12 @@ export function createSupabaseRepo(url: string, key: string): Repo {
       const { error } = await db.from('adjustments').delete().eq('id', adjId);
       fail(error);
     },
+    async deleteAdjustments(ids) {
+      for (let i = 0; i < ids.length; i += 200) {
+        const { error } = await db.from('adjustments').delete().in('id', ids.slice(i, i + 200));
+        fail(error);
+      }
+    },
 
     async listLedger(id, period = 'current') {
       const read = (byYear: boolean) =>

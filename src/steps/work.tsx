@@ -459,6 +459,26 @@ function JournalsPassed({ ctx }: { ctx: Ctx }) {
   const { busy, error, run } = useAction();
   const shown = reg.entries.filter((e) => only === 'all' || e.source === only);
   const dr = shown.reduce((t, e) => t + e.total, 0);
+  // Journals ticked for deletion. Only those still listed under the current filter count.
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const chosen = shown.filter((e) => picked.has(e.id));
+  const allShown = shown.length > 0 && chosen.length === shown.length;
+  const toggle = (id: string) =>
+    setPicked((p) => {
+      const n = new Set(p);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  const toggleAll = () => setPicked(allShown ? new Set() : new Set(shown.map((e) => e.id)));
+  const removeChosen = () =>
+    void run(async () => {
+      await repo.deleteAdjustments(chosen.map((e) => e.id));
+      setPicked(new Set());
+      setConfirmDelete(false);
+      reload();
+    });
   return (
     <div className="card stack" aria-label="Journals passed">
       <div className="between" style={{ flexWrap: 'wrap', gap: 10 }}>
@@ -505,6 +525,38 @@ function JournalsPassed({ ctx }: { ctx: Ctx }) {
           </span>
         ))}
       </div>
+      {!locked && shown.length > 0 && (
+        <div className="row" style={{ gap: 12, flexWrap: 'wrap' }} aria-label="Delete journals">
+          <label className="row small">
+            <input type="checkbox" checked={allShown} onChange={toggleAll} aria-label="Select all journals shown" />
+            Select all{only === 'all' ? '' : ` ${SOURCE_LABEL[only]}`} ({shown.length})
+          </label>
+          {chosen.length > 0 && !confirmDelete && (
+            <button className="danger" disabled={busy} onClick={() => setConfirmDelete(true)}>
+              Delete selected ({chosen.length})
+            </button>
+          )}
+          {chosen.length > 0 && confirmDelete && (
+            <span className="row" style={{ gap: 8 }}>
+              <span className="small">
+                Delete {chosen.length} journal{chosen.length === 1 ? '' : 's'} ({chosen.map((e) => e.ref).slice(0, 6).join(', ')}
+                {chosen.length > 6 ? ' and others' : ''})? The deletion is recorded in the audit trail.
+              </span>
+              <button className="danger" disabled={busy} onClick={removeChosen}>
+                Confirm delete
+              </button>
+              <button className="link" onClick={() => setConfirmDelete(false)}>
+                Cancel
+              </button>
+            </span>
+          )}
+          {chosen.length > 0 && !confirmDelete && (
+            <button className="link" onClick={() => setPicked(new Set())}>
+              Clear selection
+            </button>
+          )}
+        </div>
+      )}
       <ErrorNote error={error} />
       <div className="grid-view" style={{ maxHeight: 'none' }}>
         <table className="data" aria-label="Register of journals passed">
@@ -524,7 +576,14 @@ function JournalsPassed({ ctx }: { ctx: Ctx }) {
             {shown.map((e) =>
               e.lines.map((l, i) => (
                 <tr key={`${e.id}-${i}`} className={i === 0 ? 'jnl-first' : undefined} style={i === 0 ? { borderTop: '2px solid var(--line, #d9d9d9)' } : undefined}>
-                  <td className="freeze edge">{i === 0 && <strong>{e.ref}</strong>}</td>
+                  <td className="freeze edge">
+                    {i === 0 && (
+                      <label className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
+                        {!locked && <input type="checkbox" checked={picked.has(e.id)} onChange={() => toggle(e.id)} aria-label={`Select ${e.ref}`} />}
+                        <strong>{e.ref}</strong>
+                      </label>
+                    )}
+                  </td>
                   <td className="small">{i === 0 && SOURCE_LABEL[e.source]}</td>
                   <td className="small">{i === 0 && e.description}</td>
                   <td>

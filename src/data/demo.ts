@@ -763,6 +763,16 @@ export function createDemoRepo(): Repo {
       log(id, 'adjustments', 'insert', { ref: a.ref, posted: a.posted });
       save();
     },
+    async deleteAdjustments(ids) {
+      const want = new Set(ids);
+      for (const [engId, list] of Object.entries(s.adjustments)) {
+        if (!list.some((a) => want.has(a.id))) continue;
+        open(engId);
+        for (const gone of list.filter((a) => want.has(a.id))) log(engId, 'adjustments', 'delete', { ref: gone.ref });
+        s.adjustments[engId] = list.filter((a) => !want.has(a.id));
+      }
+      save();
+    },
     async deleteAdjustment(adjId) {
       for (const [engId, list] of Object.entries(s.adjustments)) {
         const i = list.findIndex((a) => a.id === adjId);

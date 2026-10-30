@@ -462,6 +462,8 @@ export interface Repo {
   listAdjustments(engagementId: string): Promise<Adjustment[]>;
   addAdjustment(engagementId: string, a: Omit<Adjustment, 'id'>): Promise<void>;
   deleteAdjustment(id: string): Promise<void>;
+  /** Deletes several journals at once, before the file is signed. */
+  deleteAdjustments(ids: string[]): Promise<void>;
 
   /** The general ledger of the year under audit, or of the year before it. */
   listLedger(engagementId: string, period?: LedgerPeriod): Promise<GlEntry[]>;
