@@ -88,6 +88,15 @@ export function suggestGifi(l: Pick<TbLine, 'name' | 'mapCode'>): string | null 
     }
     case 'intangibles':
       return has(n, 'goodwill') ? (accumulated(n) ? '2013' : '2012') : accumulated(n) ? '2011' : '2010';
+    case 'investment_property':
+      return has(n, 'land') && !has(n, 'building') ? '1600' : accumulated(n) ? '1681' : '1680';
+    case 'right_of_use':
+    case 'biological_assets':
+      return accumulated(n) ? '1901' : '1900';
+    case 'lease_liabilities_c':
+      return '2920';
+    case 'lease_liabilities_nc':
+      return '3140';
     case 'investments':
       return has(n, 'related', 'subsidiar', 'affiliate', 'associate') ? '2240' : '2300';
     case 'deferred_tax_asset':

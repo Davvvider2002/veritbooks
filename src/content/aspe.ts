@@ -31,6 +31,18 @@ export function aspePolicies(opts: { taxMethod?: 'taxes-payable' | 'future'; npo
       title: 'Intangible assets',
       text: 'Intangible assets with finite useful lives are recorded at cost less accumulated amortization, and are amortized on the straight-line basis over their estimated useful lives (Section 3064).',
     },
+    right_of_use: {
+      title: 'Leases',
+      text: `A lease that transfers substantially all of the benefits and risks of ownership is accounted for as a capital lease. The asset is recorded at the present value of the minimum lease payments and amortized over its estimated useful life, and the obligation is reduced by the payments less the interest charged (Section 3065). Other leases are operating leases, and their payments are expensed as incurred.`,
+    },
+    investment_property: {
+      title: 'Rental properties',
+      text: 'Rental properties are recorded at cost less accumulated amortization, and are amortized over their estimated useful lives. They are tested for impairment when events indicate that their carrying amount may not be recoverable (Sections 3061 and 3063).',
+    },
+    biological_assets: {
+      title: 'Agricultural assets',
+      text: 'Livestock and crops are measured at the lower of cost and net realizable value. [Describe the policy the entity adopts for agricultural assets.]',
+    },
     inventories: {
       title: 'Inventory',
       text: 'Inventory is measured at the lower of cost and net realizable value. Cost is determined on the [first-in, first-out / weighted average cost] basis (Section 3031).',

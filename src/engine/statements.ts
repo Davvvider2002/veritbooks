@@ -526,6 +526,20 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[], opts
     });
     const asPart = (r: Row): Part => ({ label: r.label, cur: r.cur ?? 0, prior: null, parts: r.parts });
     const depreciation = groupParts('Depreciation and amortisation', curOnly(depParts));
+    // Depreciation of right-of-use assets: the year's increase in their accumulated depreciation
+    // (the credit-balance accounts). A new lease adds to the asset and the liability without
+    // moving cash, so these assets are left out of investing, and the lease payments are found
+    // from the two together under financing.
+    const nowBal = adjustedBalances(lines, adjustments, 'current');
+    const rouDepParts: Part[] = lines
+      .filter((l) => l.mapCode === 'right_of_use' && ((nowBal.get(l.id) ?? 0) < 0 || (l.prior ?? 0) < 0))
+      .flatMap((l) => [
+        { label: `${l.name} at end of year`, cur: -(nowBal.get(l.id) ?? 0), prior: null, code: 'right_of_use', lineId: l.id, period: 'current' as const },
+        { label: `${l.name} at start of year`, cur: l.prior ?? 0, prior: null, code: 'right_of_use', lineId: l.id, period: 'prior' as const },
+      ]);
+    const rouDep = rouDepParts.reduce((a, x) => a + x.cur, 0);
+    const negate = (xs: Part[]): Part[] => xs.map((x) => ({ ...x, cur: -x.cur }));
+    const held = (...codes: string[]) => codes.some((c) => cur.v[c] !== 0 || prior.v[c] !== 0);
     const operating = [
       line(npo ? 'Surplus/(deficit) before tax' : 'Profit before tax', cur.pbt, pbtParts),
       line('Depreciation and amortisation', cur.depreciation, depParts),
@@ -549,9 +563,11 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[], opts
     const investing = [
       line(
         'Purchase of property, plant, equipment and intangibles, net of disposals',
-        -(d('ppe') + d('intangibles') + cur.depreciation),
-        [...change('ppe', -1), ...change('intangibles', -1), ...negateParts([depreciation])],
+        -(d('ppe') + d('intangibles') + cur.depreciation - rouDep),
+        [...change('ppe', -1), ...change('intangibles', -1), ...negateParts([depreciation]), ...rouDepParts],
       ),
+      ...(held('investment_property') ? [line('Purchase of investment property, net of disposals', -d('investment_property'), change('investment_property', -1))] : []),
+      ...(held('biological_assets') ? [line('Purchase of biological assets, net of disposals', -d('biological_assets'), change('biological_assets', -1))] : []),
       line('Change in investments', -d('investments'), change('investments', -1)),
       line('Finance income received', cur.v.finance_income, [leaf('finance_income')]),
     ];
@@ -559,6 +575,15 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[], opts
     const financing = [
       line('Proceeds from issue of shares', d('share_capital') + d('share_premium'), [...change('share_capital'), ...change('share_premium')]),
       line('Net movement in borrowings', d('borrowings_nc') + d('borrowings_c'), [...change('borrowings_nc'), ...change('borrowings_c')]),
+      ...(held('right_of_use', 'lease_liabilities_nc', 'lease_liabilities_c')
+        ? [
+            line(
+              'Principal elements of lease payments',
+              d('lease_liabilities_nc') + d('lease_liabilities_c') - d('right_of_use') - rouDep,
+              [...change('lease_liabilities_nc'), ...change('lease_liabilities_c'), ...change('right_of_use', -1), ...negate(rouDepParts)],
+            ),
+          ]
+        : []),
       line('Finance costs paid', -cur.v.finance_costs, [leaf('finance_costs', -1)]),
       line('Dividends paid', -cur.v.dividends, [leaf('dividends', -1)]),
       line('Movement in other reserves', d('other_reserves'), change('other_reserves')),

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { repo } from '../data';
-import { disclosureGaps, intangiblesSchedule, ppeSchedule, STANDARD_NOTES, taxReconciliation, type PpeRow } from '../engine/disclosures';
+import { disclosureGaps, intangiblesSchedule, ppeSchedule, rightOfUseSchedule, STANDARD_NOTES, taxReconciliation, type PpeRow } from '../engine/disclosures';
 import { fmt, fmt2, parseAmount, cur } from '../engine/money';
 import type { Disclosures, EarlierYear } from '../engine/types';
 import { ErrorNote, Field, useAction } from '../ui';
@@ -92,6 +92,7 @@ export function DisclosuresStep({ eng, lines, adjustments, statements: st, locke
   const d = useMemo(() => toDisclosures(f), [f]);
   const ppe = ppeSchedule(lines, adjustments, st.cur, d.ppeDisposals);
   const intg = intangiblesSchedule(lines, adjustments, st.cur, d.ppeDisposals);
+  const rou = rightOfUseSchedule(lines, adjustments, st.cur, d.ppeDisposals);
   const tax = taxReconciliation(st.cur, d);
   const gaps = disclosureGaps(d, st, lines, adjustments, eng.yearEnd, jur);
 
@@ -173,6 +174,7 @@ export function DisclosuresStep({ eng, lines, adjustments, statements: st, locke
         [
           ['Property, plant and equipment', ppe, 'depreciation', 'property, plant and equipment'],
           ...(intg || lines.some((l) => l.mapCode === 'intangibles') ? [['Intangible assets', intg, 'amortisation', 'intangible assets']] : []),
+          ...(rou || lines.some((l) => l.mapCode === 'right_of_use') ? [['Right-of-use assets', rou, 'depreciation', 'right-of-use assets']] : []),
         ] as [string, typeof ppe, string, string][]
       ).map(([title, sched, word, lower]) => (
         <div className="card stack" key={title} aria-label={`${title} movement`}>
@@ -214,17 +216,26 @@ export function DisclosuresStep({ eng, lines, adjustments, statements: st, locke
           )}
         </div>
       ))}
-      {(ppe || intg) && (
-        <div className={`banner ${(ppe ?? intg)!.chargeDifference === 0 ? 'info' : 'bad'}`} aria-label="Depreciation and amortisation check">
-          {ppe && intg
-            ? `Depreciation per the property, plant and equipment schedule ${cur()}${fmt(ppe.totalDepreciation.increase, { zero: '0' })}, plus amortisation per the intangible assets schedule ${cur()}${fmt(intg.totalDepreciation.increase, { zero: '0' })}. `
-            : `Charge per the schedule ${cur()}${fmt((ppe ?? intg)!.totalDepreciation.increase, { zero: '0' })}. `}
-          Depreciation and amortisation in profit or loss {cur()}{fmt(st.cur.depreciation, { zero: '0' })}.{' '}
-          {(ppe ?? intg)!.chargeDifference === 0
-            ? 'They agree.'
-            : `They differ by ${cur()}${fmt(Math.abs((ppe ?? intg)!.chargeDifference))}. Check the disposals, and that every depreciation and amortisation account is tagged as depreciation in the mapping.`}
-        </div>
-      )}
+      {(ppe || intg || rou) &&
+        (() => {
+          const any = (ppe ?? intg ?? rou)!;
+          const parts = (
+            [
+              [ppe, 'depreciation per the property, plant and equipment schedule'],
+              [intg, 'amortisation per the intangible assets schedule'],
+              [rou, 'depreciation per the right-of-use assets schedule'],
+            ] as [typeof ppe, string][]
+          ).filter(([x]) => x);
+          const charged = parts.map(([x, what]) => `${what} ${cur()}${fmt(x!.totalDepreciation.increase, { zero: '0' })}`).join(', plus ');
+          return (
+            <div className={`banner ${any.chargeDifference === 0 ? 'info' : 'bad'}`} aria-label="Depreciation and amortisation check">
+              {charged.charAt(0).toUpperCase() + charged.slice(1)}. Depreciation and amortisation in profit or loss {cur()}{fmt(st.cur.depreciation, { zero: '0' })}.{' '}
+              {any.chargeDifference === 0
+                ? 'They agree.'
+                : `They differ by ${cur()}${fmt(Math.abs(any.chargeDifference))}. Check the disposals, and that every depreciation and amortisation account is tagged as depreciation in the mapping.`}
+            </div>
+          );
+        })()}
 
       <div className="card stack">
         <h3>Tax reconciliation</h3>

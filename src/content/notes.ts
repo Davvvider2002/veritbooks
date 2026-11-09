@@ -22,6 +22,18 @@ export const POLICIES: Record<string, { title: string; text: string }> = {
     title: 'Intangible assets',
     text: 'Intangible assets are stated at cost less accumulated amortisation and accumulated impairment losses, and are amortised on a straight-line basis over their estimated useful lives.',
   },
+  right_of_use: {
+    title: 'Leases',
+    text: 'Where a lease is recognised in the statement of financial position, the right-of-use asset is measured at cost less accumulated depreciation and impairment, and is depreciated over the shorter of the lease term and the useful life of the asset. The lease liability is measured at the present value of the remaining lease payments, and interest on it is charged to profit or loss as finance costs.',
+  },
+  investment_property: {
+    title: 'Investment property',
+    text: 'Investment property is property held to earn rentals or for capital appreciation. It is measured at fair value at each reporting date, with changes in fair value recognised in profit or loss. Where fair value cannot be measured reliably without undue cost or effort, it is measured at cost less accumulated depreciation and impairment.',
+  },
+  biological_assets: {
+    title: 'Biological assets',
+    text: 'Biological assets are measured at fair value less costs to sell, with changes recognised in profit or loss. Where fair value cannot be measured readily without undue cost or effort, they are measured at cost less accumulated depreciation and impairment. Agricultural produce harvested is measured at fair value less costs to sell at the point of harvest.',
+  },
   inventories: {
     title: 'Inventories',
     text: 'Inventories are stated at the lower of cost and estimated selling price less costs to complete and sell.',

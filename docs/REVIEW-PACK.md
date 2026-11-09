@@ -46,12 +46,15 @@ Reviewer: ______________________  Date: ____________  Accepted / Accepted with c
 
 ## 3. Statement lines
 
-Every account is mapped to one of 35 lines. The statements are built from these lines only. Review whether the set is enough for the entities in scope, and whether any line is missing, such as investment property, biological assets, government grants, and employee benefit obligations.
+Every account is mapped to one of 40 lines. The statements are built from these lines only. Review whether the set is enough for the entities in scope, and whether any line is missing, such as investment property, biological assets, government grants, and employee benefit obligations.
 
 | Code | Line | Section |
 | --- | --- | --- |
 | ppe | Property, plant and equipment | Non-current assets |
 | intangibles | Intangible assets | Non-current assets |
+| right_of_use | Right-of-use assets | Non-current assets |
+| investment_property | Investment property | Non-current assets |
+| biological_assets | Biological assets | Non-current assets |
 | investments | Investments | Non-current assets |
 | deferred_tax_asset | Deferred tax asset | Non-current assets |
 | inventories | Inventories | Current assets |
@@ -65,11 +68,13 @@ Every account is mapped to one of 35 lines. The statements are built from these 
 | restricted_funds | Restricted funds | Equity |
 | endowment_funds | Endowment funds | Equity |
 | borrowings_nc | Borrowings | Non-current liabilities |
+| lease_liabilities_nc | Lease liabilities | Non-current liabilities |
 | deferred_tax_liability | Deferred tax liability | Non-current liabilities |
 | provisions | Provisions | Non-current liabilities |
 | trade_payables | Trade payables | Current liabilities |
 | other_payables | Other payables and accruals | Current liabilities |
 | borrowings_c | Borrowings and bank overdrafts | Current liabilities |
+| lease_liabilities_c | Lease liabilities, current portion | Current liabilities |
 | current_tax_payable | Current tax payable | Current liabilities |
 | revenue | Revenue | Income |
 | other_income | Other income | Income |
@@ -115,8 +120,15 @@ Version 0.1-starter. Every step that applies must be ticked before sign-off. A s
 | a-int-1 | Intangible assets | Vouch additions to supporting documents, confirm the entity controls each asset, and check that capitalised development costs meet the recognition criteria, with research costs expensed. | intangibles |
 | a-int-2 | Intangible assets | Recompute amortisation, and review the useful life, residual value and method for each class. | intangibles |
 | a-int-3 | Intangible assets | Assess indicators of impairment, and review management’s impairment assessment of goodwill. | intangibles |
+| a-rou-1 | Right-of-use assets and lease liabilities | Obtain the register of leases, agree new and modified leases to the contracts, and check that every lease the framework requires on the statement of financial position is recognised. | right_of_use, lease_liabilities_nc, lease_liabilities_c |
+| a-rou-2 | Right-of-use assets and lease liabilities | Recompute the lease liability and interest using the lease term and discount rate, recompute depreciation of the right-of-use assets, and test the split of the liability between current and non-current. | right_of_use, lease_liabilities_nc, lease_liabilities_c |
+| a-ivp-1 | Investment property | Confirm title and existence of each property, and check that it is held to earn rentals or for capital appreciation rather than used in the business. | investment_property |
+| a-ivp-2 | Investment property | Test the fair value to the valuation report, assess the valuer’s competence, independence and assumptions, and agree fair value gains or losses and transfers. | investment_property |
+| a-ivp-3 | Investment property | Agree rental income to tenancy agreements and receipts, and test direct operating expenses. | investment_property |
+| a-bio-1 | Biological assets | Attend or observe a physical count of the living animals or plants at or near the year end, and test mortality, births and harvest records. | biological_assets |
+| a-bio-2 | Biological assets | Test fair value less costs to sell to market prices for similar assets and the costs of getting them to market, or, where fair value cannot be measured without undue cost or effort, test cost less depreciation and impairment. | biological_assets |
 | a-ivt-1 | Investments | Confirm the existence and ownership of each investment with share certificates, registrars, custodians or title documents. | investments |
-| a-ivt-2 | Investments | Check that each investment is classified correctly (subsidiary, associate, joint venture, investment property or financial asset) and measured on the basis the framework requires for that class. | investments |
+| a-ivt-2 | Investments | Check that each investment is classified correctly (subsidiary, associate, joint venture or financial asset, with investment property shown on its own line) and measured on the basis the framework requires for that class. | investments |
 | a-ivt-3 | Investments | Test fair values and valuations to quoted prices or the valuer’s report, assess the valuer’s competence and independence, and assess impairment. | investments |
 | a-ivt-4 | Investments | Agree dividend, interest and rental income from investments, and gains or losses on disposal, to supporting documents. | investments |
 | a-pay-1 | Payables | Test payables to supplier statements and search for unrecorded liabilities. | trade_payables |
@@ -895,7 +907,7 @@ Reviewer: ______________________  Date: ____________  Accepted / Accepted with c
 
 ## 6. Disclosure checklist
 
-Version 0.1-starter. 56 items. Each is a plain-language summary of a disclosure area. It is not the text of the Standard and it is not complete. Sign-off is blocked while any applicable item has no answer.
+Version 0.1-starter. 61 items. Each is a plain-language summary of a disclosure area. It is not the text of the Standard and it is not complete. Sign-off is blocked while any applicable item has no answer.
 
 "Applies when" names the statement lines that make an item relevant. An item with none always applies. "Covered by the software" means the software marks the item as met from the file itself, without asking the preparer: check that each of these is a sound basis.
 
@@ -932,8 +944,9 @@ Version 0.1-starter. 56 items. Each is a plain-language summary of a disclosure 
 | s13-expense | Section 13: Inventories | The amount of inventories recognised as an expense, any write-downs or reversals, and inventories pledged as security are disclosed. | inventories | No. The preparer answers. |
 | s14-policy | Sections 9, 14 and 15: Subsidiaries, associates and joint arrangements | Where investments include subsidiaries, associates or joint ventures: the accounting policy for them in these statements and their carrying amounts are disclosed. | investments | No. The preparer answers. |
 | s14-fair-value | Sections 9, 14 and 15: Subsidiaries, associates and joint arrangements | For investments in associates and joint ventures: the fair value where a published price quotation exists, and the share of profit or loss and of discontinued operations. | investments | No. The preparer answers. |
-| s16-measurement | Section 16: Investment property | Where investments include investment property: the measurement basis, and the methods and significant assumptions used to determine fair value, including whether a qualified independent valuer was used. | investments | No. The preparer answers. |
-| s16-reconciliation | Section 16: Investment property | For investment property: a reconciliation of the carrying amount, with additions, disposals, fair value gains and losses and transfers, and any restrictions on realisation or on remittance of income. | investments | No. The preparer answers. |
+| s16-measurement | Section 16: Investment property | For investment property: the measurement basis, and the methods and significant assumptions used to determine fair value, including whether a qualified independent valuer was used. | investment_property | No. The preparer answers. |
+| s16-reconciliation | Section 16: Investment property | For investment property: a reconciliation of the carrying amount, with additions, disposals, fair value gains and losses and transfers, and any restrictions on realisation or on remittance of income. | investment_property | No. The preparer answers. |
+| s16-income | Section 16: Investment property | Rental income from investment property, and the direct operating expenses of property that earned rental income, are disclosed. | investment_property | No. The preparer answers. |
 | s17-bases | Section 17: Property, plant and equipment | For each class: the measurement basis, the depreciation method and the useful lives or rates. | ppe | No. The preparer answers. |
 | s17-reconciliation | Section 17: Property, plant and equipment | For each class: cost and accumulated depreciation at the start and end of the period, with additions, disposals and depreciation reconciled. | ppe | Yes, when the movement schedule agrees to the depreciation charge. |
 | s17-pledged | Section 17: Property, plant and equipment | Property pledged as security, restrictions on title, and contractual commitments to acquire property, plant and equipment are disclosed. | ppe | No. The preparer answers. |
@@ -942,6 +955,8 @@ Version 0.1-starter. 56 items. Each is a plain-language summary of a disclosure 
 | s18-goodwill | Section 18: Intangible assets | Where goodwill is held: its useful life, the reasons it was chosen if no reliable estimate was possible, and a reconciliation of its carrying amount, with any impairment. | intangibles | No. The preparer answers. |
 | s18-research | Section 18: Intangible assets | Research and development expenditure recognised as an expense in the period, intangibles pledged as security, and contractual commitments to acquire intangibles are disclosed. | intangibles | No. The preparer answers. |
 | s20-leases | Section 20: Leases | Lease payments recognised as an expense, and the total of future minimum lease payments by period, are disclosed, with a general description of significant leasing arrangements. | Always | No. The preparer answers. |
+| s20-rou | Section 20: Leases | For leased assets carried in the statement of financial position: the carrying amount by class of asset, the depreciation for the year, and additions in the year. | right_of_use | Yes, when the right-of-use movement schedule agrees to the depreciation charge. |
+| s20-liabilities | Section 20: Leases | Lease liabilities are split between current and non-current, with a maturity analysis of the future lease payments and the interest on them. | lease_liabilities_nc, lease_liabilities_c | No. The preparer answers. |
 | s21-provisions | Section 21: Provisions and contingencies | For each class of provision: a reconciliation of the movement, the nature of the obligation, and the expected timing and uncertainties. | provisions | No. The preparer answers. |
 | s21-contingent | Section 21: Provisions and contingencies | Contingent liabilities are described, with an estimate of their financial effect, unless the possibility of an outflow is remote. | Always | Yes, when the note has any text. |
 | s21-commitments | Section 21: Provisions and contingencies | Capital commitments at the reporting date are disclosed. | Always | Yes, when the note has any text. |
@@ -957,6 +972,8 @@ Version 0.1-starter. 56 items. Each is a plain-language summary of a disclosure 
 | s33-control | Section 33: Related party disclosures | Any parent and ultimate controlling party is named, whether or not there were transactions with them. | Always | No. The preparer answers. |
 | s33-key-management | Section 33: Related party disclosures | Key management personnel compensation is disclosed in total. | Always | Yes, when directors’ remuneration is entered. |
 | s33-transactions | Section 33: Related party disclosures | For related party transactions: the relationship, the amounts, outstanding balances with their terms, and any provision for doubtful amounts. | Always | Yes, when transactions are listed or the preparer confirms there are none. |
+| s34-biological | Section 34: Specialised activities (agriculture) | For each class of biological asset: a description, the measurement basis (fair value or cost), and the methods and significant assumptions used to determine fair value. | biological_assets | No. The preparer answers. |
+| s34-reconciliation | Section 34: Specialised activities (agriculture) | A reconciliation of the carrying amount of biological assets, with gains or losses from changes in fair value less costs to sell, purchases, sales and harvest. | biological_assets | No. The preparer answers. |
 
 Missing sections to consider: Section 9 (consolidated statements), 12 (other financial instruments), 14 and 15 (associates and joint ventures), 16 (investment property), 19 (business combinations and goodwill), 22 (liabilities and equity), 24 (government grants), 26 (share-based payment), 30 (foreign currency), 34 (specialised activities), 35 (transition).
 
@@ -971,6 +988,9 @@ Version 0.1-starter. A policy prints in note 2 when the company has the line. Th
 | revenue | Revenue | Revenue is measured at the fair value of the consideration received or receivable, net of value added tax, discounts and returns. Revenue from the sale of goods is recognised when the significant risks and rewards of ownership pass to the buyer. Revenue from services is recognised by reference to the stage of completion. |
 | ppe | Property, plant and equipment | Property, plant and equipment is stated at cost less accumulated depreciation and accumulated impairment losses. Depreciation is charged on a straight-line basis over the estimated useful lives of the assets. Land is not depreciated. |
 | intangibles | Intangible assets | Intangible assets are stated at cost less accumulated amortisation and accumulated impairment losses, and are amortised on a straight-line basis over their estimated useful lives. |
+| right_of_use | Leases | Where a lease is recognised in the statement of financial position, the right-of-use asset is measured at cost less accumulated depreciation and impairment, and is depreciated over the shorter of the lease term and the useful life of the asset. The lease liability is measured at the present value of the remaining lease payments, and interest on it is charged to profit or loss as finance costs. |
+| investment_property | Investment property | Investment property is property held to earn rentals or for capital appreciation. It is measured at fair value at each reporting date, with changes in fair value recognised in profit or loss. Where fair value cannot be measured reliably without undue cost or effort, it is measured at cost less accumulated depreciation and impairment. |
+| biological_assets | Biological assets | Biological assets are measured at fair value less costs to sell, with changes recognised in profit or loss. Where fair value cannot be measured readily without undue cost or effort, they are measured at cost less accumulated depreciation and impairment. Agricultural produce harvested is measured at fair value less costs to sell at the point of harvest. |
 | inventories | Inventories | Inventories are stated at the lower of cost and estimated selling price less costs to complete and sell. |
 | trade_receivables | Trade and other receivables | Receivables are recognised at the transaction price. At each reporting date their carrying amounts are reviewed for objective evidence of impairment, and any impairment loss is recognised in profit or loss. |
 | cash | Cash and cash equivalents | Cash and cash equivalents comprise cash in hand and demand deposits with banks. |
@@ -1443,6 +1463,9 @@ Questions for a Canadian reviewer:
 | ca-a-ppe-1 | Capital assets | Vouch additions and disposals, test ownership, recompute amortization and consider impairment (Sections 3061 and 3063). | ppe |
 | ca-a-int-1 | Intangible assets and goodwill | Vouch additions, confirm the entity controls each asset, and check that capitalized development costs meet the criteria in Section 3064, with research costs expensed. | intangibles |
 | ca-a-int-2 | Intangible assets and goodwill | Recompute amortization of intangibles with limited lives, and test goodwill and other intangibles for impairment when events indicate it (Sections 3064 and 3063). | intangibles |
+| ca-a-rou-1 | Capital leases | Agree new leases to the contracts, check the classification of each lease as capital or operating (Section 3065), and recompute the obligation, interest and amortization of the leased assets. | right_of_use, lease_liabilities_nc, lease_liabilities_c |
+| ca-a-ivp-1 | Rental properties | Confirm title and existence of properties held to earn rentals, test their carrying amount, amortization and impairment, and agree rental income to the leases. | investment_property |
+| ca-a-bio-1 | Agricultural assets | Observe a count of livestock or crops at or near the year end, and test their measurement under the policy the entity adopts. | biological_assets |
 | ca-a-ivt-1 | Investments | Confirm the existence and ownership of each investment with share certificates, brokers, custodians or the investee. | investments |
 | ca-a-ivt-2 | Investments | Check the method used for each investment (cost, equity or consolidation for subsidiaries, joint arrangements and significantly influenced companies under Section 3051; fair value or cost for other financial assets under Section 3856), and test the carrying amount. | investments |
 | ca-a-ivt-3 | Investments | Test quoted prices and valuations, assess impairment, and agree investment income and gains or losses on disposal to supporting documents. | investments |
@@ -1511,6 +1534,7 @@ Questions for a Canadian reviewer:
 | ca-3063-impairment | Section 3063: Impairment of long-lived assets | Any impairment of long-lived assets is described, with the amount and the facts that led to it. | ppe, intangibles |
 | ca-3064-intangibles | Section 3064: Goodwill and intangible assets | Intangible assets and goodwill are disclosed, with the amortization method and period, and any impairment. | intangibles |
 | ca-3065-leases | Section 3065: Leases | For capital leases: the assets and obligations, interest, and future minimum lease payments. For operating leases: future minimum payments for each of the next five years. | Always |
+| ca-3065-capital | Section 3065: Leases | Assets under capital lease are shown with their cost and accumulated amortization, and the obligations are split between the current portion and the long-term portion. | right_of_use, lease_liabilities_nc, lease_liabilities_c |
 | ca-3240-shares | Section 3240: Share capital | For each class of shares: the number authorized and issued, the rights and privileges, and changes in the year. | share_capital, share_premium |
 | ca-3251-equity | Section 3251: Equity | Changes in each component of equity in the year are presented, including dividends. | Always |
 | ca-3280-obligations | Section 3280: Contractual obligations | Significant contractual obligations, and commitments to acquire assets, are disclosed. | Always |
@@ -1546,6 +1570,9 @@ These financial statements have been prepared in accordance with Canadian accoun
 | revenue | Revenue recognition | The Company recognizes revenue when persuasive evidence of an arrangement exists, the goods have been delivered or the services rendered, the price is fixed or determinable, and collection is reasonably assured (Section 3400). Revenue is recorded net of sales taxes, discounts and returns. |
 | ppe | Property and equipment | Property and equipment are recorded at cost less accumulated amortization. Amortization is provided on the straight-line basis over the estimated useful lives of the assets. An asset is tested for impairment when events or changes in circumstances indicate that its carrying amount may not be recoverable, and is written down when its carrying amount exceeds its fair value (Section 3063). |
 | intangibles | Intangible assets | Intangible assets with finite useful lives are recorded at cost less accumulated amortization, and are amortized on the straight-line basis over their estimated useful lives (Section 3064). |
+| right_of_use | Leases | A lease that transfers substantially all of the benefits and risks of ownership is accounted for as a capital lease. The asset is recorded at the present value of the minimum lease payments and amortized over its estimated useful life, and the obligation is reduced by the payments less the interest charged (Section 3065). Other leases are operating leases, and their payments are expensed as incurred. |
+| investment_property | Rental properties | Rental properties are recorded at cost less accumulated amortization, and are amortized over their estimated useful lives. They are tested for impairment when events indicate that their carrying amount may not be recoverable (Sections 3061 and 3063). |
+| biological_assets | Agricultural assets | Livestock and crops are measured at the lower of cost and net realizable value. [Describe the policy the entity adopts for agricultural assets.] |
 | inventories | Inventory | Inventory is measured at the lower of cost and net realizable value. Cost is determined on the [first-in, first-out / weighted average cost] basis (Section 3031). |
 | trade_receivables | Financial instruments | The Company initially measures its financial assets and financial liabilities at fair value, adjusted for transaction costs where they are subsequently measured at amortized cost. It subsequently measures its financial assets and financial liabilities at amortized cost, except for investments in equity instruments quoted in an active market, which are measured at fair value. Financial assets measured at amortized cost are tested for impairment when there are indicators of impairment (Section 3856). |
 | cash | Cash and cash equivalents | Cash and cash equivalents consist of cash on hand and balances with banks, and short-term investments with maturities of three months or less from the date of acquisition. |
@@ -1559,6 +1586,9 @@ These financial statements have been prepared in accordance with Canadian accoun
 | revenue | Revenue recognition | The Organization follows the deferral method of accounting for contributions. Restricted contributions are recognized as revenue in the year in which the related expenses are incurred. Unrestricted contributions are recognized as revenue when received or receivable if the amount can be reasonably estimated and collection is reasonably assured. Endowment contributions are recognized as direct increases in net assets. Revenue from services and goods is recognized when the service is provided or the goods are delivered. |
 | ppe | Capital assets | Capital assets are recorded at cost less accumulated amortization. Amortization is provided on the straight-line basis over the estimated useful lives of the assets. An asset is tested for impairment when events or changes in circumstances indicate that its carrying amount may not be recoverable, and is written down when its carrying amount exceeds its fair value or replacement cost (Section 4433). |
 | intangibles | Intangible assets | Intangible assets with finite useful lives are recorded at cost less accumulated amortization, and are amortized on the straight-line basis over their estimated useful lives (Section 3064). |
+| right_of_use | Leases | A lease that transfers substantially all of the benefits and risks of ownership is accounted for as a capital lease. The asset is recorded at the present value of the minimum lease payments and amortized over its estimated useful life, and the obligation is reduced by the payments less the interest charged (Section 3065). Other leases are operating leases, and their payments are expensed as incurred. |
+| investment_property | Rental properties | Rental properties are recorded at cost less accumulated amortization, and are amortized over their estimated useful lives. They are tested for impairment when events indicate that their carrying amount may not be recoverable (Sections 3061 and 3063). |
+| biological_assets | Agricultural assets | Livestock and crops are measured at the lower of cost and net realizable value. [Describe the policy the entity adopts for agricultural assets.] |
 | inventories | Inventory | Inventory is measured at the lower of cost and net realizable value. Cost is determined on the [first-in, first-out / weighted average cost] basis (Section 3031). |
 | trade_receivables | Financial instruments | The Organization initially measures its financial assets and financial liabilities at fair value, adjusted for transaction costs where they are subsequently measured at amortized cost. It subsequently measures its financial assets and financial liabilities at amortized cost, except for investments in equity instruments quoted in an active market, which are measured at fair value. Financial assets measured at amortized cost are tested for impairment when there are indicators of impairment (Section 3856). |
 | cash | Cash and cash equivalents | Cash and cash equivalents consist of cash on hand and balances with banks, and short-term investments with maturities of three months or less from the date of acquisition. |

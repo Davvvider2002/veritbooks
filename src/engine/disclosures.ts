@@ -38,7 +38,7 @@ const total = (name: string, rows: PpeRow[]): PpeRow => ({
  * the year are whatever then explains the movement. A credit balance is the accumulated
  * depreciation or amortisation. Null when there is no prior year, or nothing is mapped to the class.
  */
-function movement(code: 'ppe' | 'intangibles', lines: TbLine[], adjustments: Adjustment[], disposals: Record<string, Kobo>, chargeName: string) {
+function movement(code: 'ppe' | 'intangibles' | 'right_of_use', lines: TbLine[], adjustments: Adjustment[], disposals: Record<string, Kobo>, chargeName: string) {
   const mine = lines.filter((l) => l.mapCode === code);
   if (mine.length === 0 || !mine.some((l) => l.prior !== null)) return null;
   const bal = adjustedBalances(lines, adjustments, 'current');
@@ -63,12 +63,13 @@ function movement(code: 'ppe' | 'intangibles', lines: TbLine[], adjustments: Adj
 
 /**
  * The charge both schedules explain, less the depreciation and amortisation tagged in the mapping.
- * Depreciation and amortisation share one tag, so the two schedules are checked together.
+ * Depreciation and amortisation share one tag, so the schedules are checked together.
  */
 function chargeGap(lines: TbLine[], adjustments: Adjustment[], cur: Figures, disposals: Record<string, Kobo>): Kobo {
   const p = movement('ppe', lines, adjustments, disposals, '');
   const i = movement('intangibles', lines, adjustments, disposals, '');
-  return (p?.totalDepreciation.increase ?? 0) + (i?.totalDepreciation.increase ?? 0) - cur.depreciation;
+  const r = movement('right_of_use', lines, adjustments, disposals, '');
+  return (p?.totalDepreciation.increase ?? 0) + (i?.totalDepreciation.increase ?? 0) + (r?.totalDepreciation.increase ?? 0) - cur.depreciation;
 }
 
 /**
@@ -84,6 +85,11 @@ export function ppeSchedule(lines: TbLine[], adjustments: Adjustment[], cur: Fig
  * Movement schedule for intangible assets: cost and accumulated amortisation, as for property,
  * plant and equipment. Returns null when there is no prior year, or nothing is mapped to intangibles.
  */
+export function rightOfUseSchedule(lines: TbLine[], adjustments: Adjustment[], cur: Figures, disposals: Record<string, Kobo> = {}): PpeSchedule | null {
+  const m = movement('right_of_use', lines, adjustments, disposals, 'Total accumulated depreciation');
+  return m && { ...m, chargeDifference: chargeGap(lines, adjustments, cur, disposals) };
+}
+
 export function intangiblesSchedule(lines: TbLine[], adjustments: Adjustment[], cur: Figures, disposals: Record<string, Kobo> = {}): PpeSchedule | null {
   const m = movement('intangibles', lines, adjustments, disposals, 'Total accumulated amortisation');
   return m && { ...m, chargeDifference: chargeGap(lines, adjustments, cur, disposals) };
@@ -229,12 +235,14 @@ export function disclosureGaps(
   if (!d.registeredOffice?.trim()) gaps.push('Enter the registered office.');
   if (!st.hasPrior) {
     gaps.push('Import the prior year trial balance: comparatives, the cash flow and the fixed asset schedule depend on it.');
-  } else if (lines.some((l) => l.mapCode === 'ppe' || l.mapCode === 'intangibles')) {
+  } else if (lines.some((l) => l.mapCode === 'ppe' || l.mapCode === 'intangibles' || l.mapCode === 'right_of_use')) {
     const p = ppeSchedule(lines, adjustments, st.cur, d.ppeDisposals);
     const i = intangiblesSchedule(lines, adjustments, st.cur, d.ppeDisposals);
-    const both = !!p && !!i;
-    if ((p ?? i)?.chargeDifference)
-      gaps.push(`The ${both ? 'fixed asset and intangible asset schedules do' : p ? 'fixed asset schedule does' : 'intangible asset schedule does'} not agree to the depreciation and amortisation charge. Check disposals and the depreciation tags in the mapping.`);
+    const r = rightOfUseSchedule(lines, adjustments, st.cur, d.ppeDisposals);
+    const names = [p && 'fixed asset', i && 'intangible asset', r && 'right-of-use asset'].filter(Boolean) as string[];
+    const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)} schedules do` : `${names[0]} schedule does`;
+    if ((p ?? i ?? r)?.chargeDifference) gaps.push(`The ${list} not agree to the depreciation and amortisation charge. Check disposals and the depreciation tags in the mapping.`);
+    if (r && [...r.cost, ...r.depreciation].some((x) => x.increase < 0)) gaps.push('The right-of-use asset schedule shows negative additions or a negative charge. Enter the disposals or terminated leases.');
     if (p && [...p.cost, ...p.depreciation].some((r) => r.increase < 0)) gaps.push('The fixed asset schedule shows negative additions or a negative charge. Enter the disposals.');
     if (i && [...i.cost, ...i.depreciation].some((r) => r.increase < 0)) gaps.push('The intangible asset schedule shows negative additions or a negative amortisation charge. Enter the disposals.');
   }

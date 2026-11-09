@@ -21,6 +21,7 @@ export type AutoKey =
   | 'cash_components'
   | 'ppe_reconciliation'
   | 'intangibles_reconciliation'
+  | 'rou_reconciliation'
   | 'tax_reconciliation'
   | 'related_parties'
   | 'key_management'
@@ -62,6 +63,7 @@ const S = {
   s29: 'Section 29: Income tax',
   s32: 'Section 32: Events after the end of the reporting period',
   s33: 'Section 33: Related party disclosures',
+  s34: 'Section 34: Specialised activities (agriculture)',
 };
 
 export const CHECKLIST: ChecklistItem[] = [
@@ -106,8 +108,9 @@ export const CHECKLIST: ChecklistItem[] = [
   { id: 's14-policy', section: S.s14, text: 'Where investments include subsidiaries, associates or joint ventures: the accounting policy for them in these statements and their carrying amounts are disclosed.', when: ['investments'] },
   { id: 's14-fair-value', section: S.s14, text: 'For investments in associates and joint ventures: the fair value where a published price quotation exists, and the share of profit or loss and of discontinued operations.', when: ['investments'] },
 
-  { id: 's16-measurement', section: S.s16, text: 'Where investments include investment property: the measurement basis, and the methods and significant assumptions used to determine fair value, including whether a qualified independent valuer was used.', when: ['investments'] },
-  { id: 's16-reconciliation', section: S.s16, text: 'For investment property: a reconciliation of the carrying amount, with additions, disposals, fair value gains and losses and transfers, and any restrictions on realisation or on remittance of income.', when: ['investments'] },
+  { id: 's16-measurement', section: S.s16, text: 'For investment property: the measurement basis, and the methods and significant assumptions used to determine fair value, including whether a qualified independent valuer was used.', when: ['investment_property'] },
+  { id: 's16-reconciliation', section: S.s16, text: 'For investment property: a reconciliation of the carrying amount, with additions, disposals, fair value gains and losses and transfers, and any restrictions on realisation or on remittance of income.', when: ['investment_property'] },
+  { id: 's16-income', section: S.s16, text: 'Rental income from investment property, and the direct operating expenses of property that earned rental income, are disclosed.', when: ['investment_property'] },
 
   { id: 's17-bases', section: S.s17, text: 'For each class: the measurement basis, the depreciation method and the useful lives or rates.', when: ['ppe'] },
   { id: 's17-reconciliation', section: S.s17, text: 'For each class: cost and accumulated depreciation at the start and end of the period, with additions, disposals and depreciation reconciled.', when: ['ppe'], auto: 'ppe_reconciliation' },
@@ -119,6 +122,8 @@ export const CHECKLIST: ChecklistItem[] = [
   { id: 's18-research', section: S.s18, text: 'Research and development expenditure recognised as an expense in the period, intangibles pledged as security, and contractual commitments to acquire intangibles are disclosed.', when: ['intangibles'] },
 
   { id: 's20-leases', section: S.s20, text: 'Lease payments recognised as an expense, and the total of future minimum lease payments by period, are disclosed, with a general description of significant leasing arrangements.' },
+  { id: 's20-rou', section: S.s20, text: 'For leased assets carried in the statement of financial position: the carrying amount by class of asset, the depreciation for the year, and additions in the year.', when: ['right_of_use'], auto: 'rou_reconciliation' },
+  { id: 's20-liabilities', section: S.s20, text: 'Lease liabilities are split between current and non-current, with a maturity analysis of the future lease payments and the interest on them.', when: ['lease_liabilities_nc', 'lease_liabilities_c'] },
 
   { id: 's21-provisions', section: S.s21, text: 'For each class of provision: a reconciliation of the movement, the nature of the obligation, and the expected timing and uncertainties.', when: ['provisions'] },
   { id: 's21-contingent', section: S.s21, text: 'Contingent liabilities are described, with an estimate of their financial effect, unless the possibility of an outflow is remote.', auto: 'contingencies' },
@@ -142,4 +147,7 @@ export const CHECKLIST: ChecklistItem[] = [
   { id: 's33-control', section: S.s33, text: 'Any parent and ultimate controlling party is named, whether or not there were transactions with them.' },
   { id: 's33-key-management', section: S.s33, text: 'Key management personnel compensation is disclosed in total.', auto: 'key_management' },
   { id: 's33-transactions', section: S.s33, text: 'For related party transactions: the relationship, the amounts, outstanding balances with their terms, and any provision for doubtful amounts.', auto: 'related_parties' },
+
+  { id: 's34-biological', section: S.s34, text: 'For each class of biological asset: a description, the measurement basis (fair value or cost), and the methods and significant assumptions used to determine fair value.', when: ['biological_assets'] },
+  { id: 's34-reconciliation', section: S.s34, text: 'A reconciliation of the carrying amount of biological assets, with gains or losses from changes in fair value less costs to sell, purchases, sales and harvest.', when: ['biological_assets'] },
 ];

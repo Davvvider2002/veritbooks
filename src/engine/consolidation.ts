@@ -654,6 +654,7 @@ export function groupCashFlow(cur: Consolidated, prior: Consolidated): { rows: R
   const taxPaid = -(cur.v.income_tax_expense - d('current_tax_payable') - d('deferred_tax_liability') + d('deferred_tax_asset'));
   const investing = [
     line('Purchase of property, plant, equipment and intangibles, net of disposals', -(d('ppe') + d('intangibles') + cur.depreciation)),
+    line('Purchase of investment property and biological assets, net of disposals', -(d('investment_property') + d('biological_assets'))),
     line('Change in other investments', -(d('investments') - (cur.associateShare - cur.associateDividends))),
     line('Dividends received from associates and joint ventures', cur.associateDividends),
     line('Finance income received', cur.v.finance_income),
@@ -661,6 +662,8 @@ export function groupCashFlow(cur: Consolidated, prior: Consolidated): { rows: R
   const financing = [
     line('Proceeds from issue of shares', d('share_capital') + d('share_premium')),
     line('Net movement in borrowings', d('borrowings_nc') + d('borrowings_c')),
+    // The group's right-of-use depreciation is not separated here, so it stays in the property line above.
+    line('Lease liabilities and right-of-use assets, net movement', d('lease_liabilities_nc') + d('lease_liabilities_c') - d('right_of_use')),
     line('Finance costs paid', -cur.v.finance_costs),
     line('Dividends paid to owners of the parent', -cur.parentDividends),
     line('Dividends paid to non-controlling interests', -cur.nciDividends),

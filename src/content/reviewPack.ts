@@ -322,6 +322,7 @@ const AUTO_BASIS: Record<string, string> = {
   cash_components: 'Yes, always. The cash note lists its accounts.',
   ppe_reconciliation: 'Yes, when the movement schedule agrees to the depreciation charge.',
   intangibles_reconciliation: 'Yes, when the movement schedule agrees to the amortisation charge.',
+  rou_reconciliation: 'Yes, when the right-of-use movement schedule agrees to the depreciation charge.',
   tax_reconciliation: 'Yes, when the reconciliation has no unexplained difference.',
   related_parties: 'Yes, when transactions are listed or the preparer confirms there are none.',
   key_management: 'Yes, when directors’ remuneration is entered.',

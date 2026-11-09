@@ -21,6 +21,9 @@ export interface LineItem {
 export const CHART: LineItem[] = [
   { code: 'ppe', label: 'Property, plant and equipment', section: 'nca' },
   { code: 'intangibles', label: 'Intangible assets', section: 'nca' },
+  { code: 'right_of_use', label: 'Right-of-use assets', section: 'nca' },
+  { code: 'investment_property', label: 'Investment property', section: 'nca' },
+  { code: 'biological_assets', label: 'Biological assets', section: 'nca' },
   { code: 'investments', label: 'Investments', section: 'nca' },
   { code: 'deferred_tax_asset', label: 'Deferred tax asset', section: 'nca' },
 
@@ -38,12 +41,14 @@ export const CHART: LineItem[] = [
   { code: 'endowment_funds', label: 'Endowment funds', section: 'equity' },
 
   { code: 'borrowings_nc', label: 'Borrowings', section: 'ncl' },
+  { code: 'lease_liabilities_nc', label: 'Lease liabilities', section: 'ncl' },
   { code: 'deferred_tax_liability', label: 'Deferred tax liability', section: 'ncl' },
   { code: 'provisions', label: 'Provisions', section: 'ncl' },
 
   { code: 'trade_payables', label: 'Trade payables', section: 'cl' },
   { code: 'other_payables', label: 'Other payables and accruals', section: 'cl' },
   { code: 'borrowings_c', label: 'Borrowings and bank overdrafts', section: 'cl' },
+  { code: 'lease_liabilities_c', label: 'Lease liabilities, current portion', section: 'cl' },
   { code: 'current_tax_payable', label: 'Current tax payable', section: 'cl' },
 
   { code: 'revenue', label: 'Revenue', section: 'income' },

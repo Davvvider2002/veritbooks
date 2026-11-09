@@ -1,6 +1,6 @@
 # VeritBooks: platform definition
 
-Version 0.27, 10 November 2026.
+Version 0.28, 10 November 2026.
 
 ## What it is
 
@@ -578,3 +578,15 @@ Raised by a practitioner: the software charted a course of action for property, 
 - **Mapping.** Accumulated amortisation is suggested as intangible assets, not property, plant and equipment. Patents, trademarks, copyrights, franchises and development costs are recognised as intangibles.
 - **Disclosure checklist.** New items for intangibles (reconciliation checked automatically, goodwill, research and development), investment property (Section 16), and subsidiaries, associates and joint arrangements (Sections 9, 14 and 15). Canada adds Section 3051.
 - **Quality dashboard.** Lines are not loaded there, so a step tied to a balance counts once work is recorded on it.
+
+
+## Release 0.28: investment property, right-of-use assets and biological assets
+
+- **New statement lines.** Right-of-use assets, investment property and biological assets are non-current assets in their own right, no longer folded into investments or property, plant and equipment. Lease liabilities are split into non-current and current. Lead schedules W (right-of-use assets and lease liabilities), Q (investment property) and X (biological assets). Under ASPE and ASNPO they read as assets and obligations under capital lease.
+- **Cash flow.** A new lease adds to the asset and the liability without moving cash, so right-of-use assets stay out of investing. Their depreciation is taken from the movement in their accumulated depreciation, and lease principal paid shows under financing. Investment property and biological assets bought or sold show under investing. In the consolidated cash flow, the group's right-of-use depreciation stays within the property line.
+- **Notes.** Right-of-use assets get a movement schedule like property, plant and equipment. The depreciation and amortisation check now covers all three schedules. Accounting policies for leases, investment property and biological assets, with Canadian wording.
+- **Work programme.** Steps for leases (register, contracts, recomputation of the liability, interest and depreciation, current and non-current split), investment property (title, use, valuation and valuer, rental income) and biological assets (count, fair value less costs to sell or cost).
+- **Disclosure checklist.** Investment property (Section 16), leased assets and lease liabilities (Section 20), agriculture (Section 34), and ASPE Section 3065 for capital leases.
+- **Mapping.** Right-of-use, lease liability, investment property and livestock accounts are recognised. Depreciation, interest, rent and fair value gains on them stay in profit or loss. "Livestock" no longer matches inventory.
+- **iXBRL and GIFI.** Each new line has its IFRS taxonomy concept and a GIFI suggestion.
+- **AI mapping assistant.** The list of lines in the assist function includes the new ones. The function must be redeployed for it to suggest them.

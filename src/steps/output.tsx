@@ -10,7 +10,7 @@ import { repo } from '../data';
 import { buildChecklist, checklistOpen } from '../engine/checklist';
 import { analyticalReview, unexplainedMovements } from '../engine/analytical';
 import { canSign, computeMateriality, signOffChecks } from '../engine/checks';
-import { directorList, disclosureGaps, financialSummary, intangiblesSchedule, ppeSchedule, priorEquity, taxReconciliation, type PpeRow } from '../engine/disclosures';
+import { directorList, disclosureGaps, financialSummary, intangiblesSchedule, ppeSchedule, rightOfUseSchedule, priorEquity, taxReconciliation, type PpeRow } from '../engine/disclosures';
 import type { EquityTable, Period, Source } from '../engine/statements';
 import { TracePanel } from './trace';
 import { fmt, cur } from '../engine/money';
@@ -93,6 +93,7 @@ export function StatementsStep(ctx: Ctx) {
   const gaps = disclosureGaps(d, st, lines, adjustments, eng.yearEnd, j);
   const ppe = ppeSchedule(lines, adjustments, st.cur, d.ppeDisposals);
   const intg = intangiblesSchedule(lines, adjustments, st.cur, d.ppeDisposals);
+  const rou = rightOfUseSchedule(lines, adjustments, st.cur, d.ppeDisposals);
   const tax = taxReconciliation(st.cur, d);
   const equityPrior = priorEquity(st);
   const summary = financialSummary(st, eng.yearEnd, d.earlierYears);
@@ -419,7 +420,7 @@ export function StatementsStep(ctx: Ctx) {
           </>
         )}
         {st.noteBreakdowns.map((n) =>
-          (n.code === 'ppe' && ppe) || (n.code === 'intangibles' && intg) ? (
+          (n.code === 'ppe' && ppe) || (n.code === 'intangibles' && intg) || (n.code === 'right_of_use' && rou) ? (
             ((mv: NonNullable<typeof ppe>, word: string, label: string) => (
             <div key={n.code}>
               <h3>
@@ -471,7 +472,7 @@ export function StatementsStep(ctx: Ctx) {
                 </table>
               </div>
             </div>
-            ))(n.code === 'ppe' ? ppe! : intg!, n.code === 'ppe' ? 'depreciation' : 'amortisation', n.code === 'ppe' ? 'Property, plant and equipment' : 'Intangible assets')
+            ))(n.code === 'ppe' ? ppe! : n.code === 'right_of_use' ? rou! : intg!, n.code === 'intangibles' ? 'amortisation' : 'depreciation', n.code === 'ppe' ? 'Property, plant and equipment' : n.code === 'right_of_use' ? 'Right-of-use assets' : 'Intangible assets')
           ) : (
           <div key={n.code}>
             <h3>

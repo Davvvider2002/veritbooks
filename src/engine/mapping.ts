@@ -8,6 +8,12 @@ type Rule = [RegExp, string, Nature?];
  * The auditor confirms every line, and confirmed mappings are remembered per client.
  */
 const RULES: Rule[] = [
+  // Balance sheet lines only: a charge, gain, interest or income on these assets goes to profit or loss below.
+  [/^(?=.*(right[- ]of[- ]use|\brou\b))(?:(?=.*accum)|(?!.*(depreciation|amorti|interest|expense|charge))).*/, 'right_of_use'],
+  [/^(?!.*(interest|expense|charge|payment)).*((current portion|due within).*lease (liabilit|obligation)|lease (liabilit|obligation).*(current|due within))/, 'lease_liabilities_c'],
+  [/^(?!.*(interest|expense|charge|payment)).*(lease (liabilit|obligation)|finance lease (creditor|payable|liabilit)|obligations? under (finance|capital) lease)/, 'lease_liabilities_nc'],
+  [/^(?!.*(income|rent|gain|loss|revaluation surplus|expense)).*investment propert/, 'investment_property'],
+  [/^(?!.*(income|sale|gain|loss|expense|feed|cost)).*(biological|livestock|plantation|orchard|poultry|cattle|herd|\bflock\b|fish stock|growing crop|standing crop|timber stand)/, 'biological_assets'],
   [/accum\w*\.? amort|provision for amort/, 'intangibles'],
   [/accum\w*\.? depr|provision for depr/, 'ppe'],
   [/depreciation|amorti[sz]ation/, 'admin_expenses', 'depreciation'],
@@ -38,7 +44,7 @@ const RULES: Rule[] = [
   [/\brent\b|\brates\b|electric|diesel|\bfuel|\bpower\b|telephone|internet|printing|stationer|insurance|repair|maintenance|\baudit|legal|professional|consult|travel|transport|bank charge|subscription|donation|security (expense|cost|service)|cleaning|office (expense|suppl|running|cost)|general exp|sundry exp|miscellaneous|entertainment|utilit|licen[cs]e fee|\bhire\b|exchange loss|loss on/, 'admin_expenses', 'other'],
   [/trade (debtor|receivable)|accounts? receivable|debtors|receivables/, 'trade_receivables'],
   [/trade (creditor|payable)|accounts? payable|creditors|payables/, 'trade_payables'],
-  [/inventor|stock\b|work in progress|raw material|finished goods/, 'inventories'],
+  [/inventor|(?<!live|fish )stock\b|work in progress|raw material|finished goods/, 'inventories'],
   [/cash|bank|petty|\bimprest\b/, 'cash'],
   [/goodwill|intangible|software|patent|trademark|copyright|franchise|development cost/, 'intangibles'],
   [/investment/, 'investments'],
