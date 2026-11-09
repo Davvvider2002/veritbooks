@@ -14,6 +14,11 @@ export interface ProgrammeItem {
   id: string;
   area: string;
   text: string;
+  /**
+   * Statement lines that call for the step. It applies when any of them has a balance in any year
+   * of the trial balance. Omit for steps every engagement needs.
+   */
+  when?: string[];
 }
 
 const audit: ProgrammeItem[] = [
@@ -26,12 +31,25 @@ const audit: ProgrammeItem[] = [
   { id: 'a-pln-4', area: 'Planning', text: 'Agree opening balances to the prior year signed financial statements.' },
   { id: 'a-cash-1', area: 'Cash and bank', text: 'Obtain bank confirmations and agree them to the bank reconciliations.' },
   { id: 'a-cash-2', area: 'Cash and bank', text: 'Test reconciling items to after-date bank statements.' },
-  { id: 'a-rec-1', area: 'Receivables', text: 'Test the receivables listing to the ledger and to after-date receipts or confirmations.' },
-  { id: 'a-rec-2', area: 'Receivables', text: 'Assess the allowance for impairment of receivables.' },
-  { id: 'a-inv-1', area: 'Inventories', text: 'Attend the inventory count, or perform alternative procedures, and test cost against net realisable value.' },
-  { id: 'a-ppe-1', area: 'Property, plant and equipment', text: 'Vouch additions and disposals, test ownership and recompute depreciation.' },
-  { id: 'a-pay-1', area: 'Payables', text: 'Test payables to supplier statements and search for unrecorded liabilities.' },
+  { id: 'a-rec-1', area: 'Receivables', text: 'Test the receivables listing to the ledger and to after-date receipts or confirmations.', when: ['trade_receivables'] },
+  { id: 'a-rec-2', area: 'Receivables', text: 'Assess the allowance for impairment of receivables.', when: ['trade_receivables'] },
+  { id: 'a-orc-1', area: 'Other receivables and prepayments', text: 'Vouch other receivables and prepayments to supporting documents, assess recoverability, and recompute prepayments for the period they cover.', when: ['other_receivables'] },
+  { id: 'a-inv-1', area: 'Inventories', text: 'Attend the inventory count, or perform alternative procedures, and test cost against net realisable value.', when: ['inventories'] },
+  { id: 'a-ppe-1', area: 'Property, plant and equipment', text: 'Vouch additions and disposals, test ownership and recompute depreciation.', when: ['ppe'] },
+  { id: 'a-int-1', area: 'Intangible assets', text: 'Vouch additions to supporting documents, confirm the entity controls each asset, and check that capitalised development costs meet the recognition criteria, with research costs expensed.', when: ['intangibles'] },
+  { id: 'a-int-2', area: 'Intangible assets', text: 'Recompute amortisation, and review the useful life, residual value and method for each class.', when: ['intangibles'] },
+  { id: 'a-int-3', area: 'Intangible assets', text: 'Assess indicators of impairment, and review management’s impairment assessment of goodwill.', when: ['intangibles'] },
+  { id: 'a-ivt-1', area: 'Investments', text: 'Confirm the existence and ownership of each investment with share certificates, registrars, custodians or title documents.', when: ['investments'] },
+  { id: 'a-ivt-2', area: 'Investments', text: 'Check that each investment is classified correctly (subsidiary, associate, joint venture, investment property or financial asset) and measured on the basis the framework requires for that class.', when: ['investments'] },
+  { id: 'a-ivt-3', area: 'Investments', text: 'Test fair values and valuations to quoted prices or the valuer’s report, assess the valuer’s competence and independence, and assess impairment.', when: ['investments'] },
+  { id: 'a-ivt-4', area: 'Investments', text: 'Agree dividend, interest and rental income from investments, and gains or losses on disposal, to supporting documents.', when: ['investments'] },
+  { id: 'a-pay-1', area: 'Payables', text: 'Test payables to supplier statements and search for unrecorded liabilities.', when: ['trade_payables'] },
+  { id: 'a-opy-1', area: 'Other payables and accruals', text: 'Test accruals and other payables to after-date payments and supporting documents.', when: ['other_payables'] },
+  { id: 'a-bor-1', area: 'Borrowings', text: 'Confirm borrowings with lenders, agree terms to the loan agreements, recompute interest, and test the split between current and non-current.', when: ['borrowings_nc', 'borrowings_c'] },
+  { id: 'a-bor-2', area: 'Borrowings', text: 'Review compliance with covenants at the year end, and identify assets pledged as security.', when: ['borrowings_nc', 'borrowings_c'] },
+  { id: 'a-prv-1', area: 'Provisions', text: 'Check each provision meets the recognition criteria, test the estimate to evidence and after-date events, and identify contingent liabilities, including through confirmations from the entity’s lawyers.', when: ['provisions'] },
   { id: 'a-tax-1', area: 'Taxation', text: 'Recompute the income tax charge and agree balances to assessments and remittances.' },
+  { id: 'a-tax-2', area: 'Taxation', text: 'Recompute deferred tax from the temporary differences, and assess whether any deferred tax asset is recoverable.', when: ['deferred_tax_asset', 'deferred_tax_liability'] },
   { id: 'a-eq-1', area: 'Equity', text: 'Agree share capital to the company records at the Corporate Affairs Commission.' },
   { id: 'a-rev-1', area: 'Revenue', text: 'Test revenue for occurrence, accuracy and cut-off.' },
   { id: 'a-exp-1', area: 'Expenses', text: 'Test expenses and payroll to supporting documents, and test cut-off.' },

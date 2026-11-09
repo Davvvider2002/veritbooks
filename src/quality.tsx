@@ -163,7 +163,8 @@ export function QualityPage({ ws }: { ws: Workspace }) {
               </thead>
               <tbody>
                 {data.engagements.map((e) => {
-                  const steps = programmeFor(e.type, e.planning, ws.firm.country);
+                  // Lines are not loaded here, so a step tied to a balance counts once work is recorded on it.
+                  const steps = programmeFor(e.type, e.planning, ws.firm.country).filter((s) => !s.when || e.programme[s.id]);
                   const done = steps.filter((s) => e.programme[s.id]?.done).length;
                   const confirmed = Object.keys(e.planning.independence ?? {}).length;
                   return (

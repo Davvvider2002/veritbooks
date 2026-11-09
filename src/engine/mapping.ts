@@ -8,7 +8,8 @@ type Rule = [RegExp, string, Nature?];
  * The auditor confirms every line, and confirmed mappings are remembered per client.
  */
 const RULES: Rule[] = [
-  [/accum\w*\.? (depr|amort)|provision for depr/, 'ppe'],
+  [/accum\w*\.? amort|provision for amort/, 'intangibles'],
+  [/accum\w*\.? depr|provision for depr/, 'ppe'],
   [/depreciation|amorti[sz]ation/, 'admin_expenses', 'depreciation'],
   [/overdraft/, 'borrowings_c'],
   [/interest (income|receiv|earned)|investment income/, 'finance_income'],
@@ -39,7 +40,7 @@ const RULES: Rule[] = [
   [/trade (creditor|payable)|accounts? payable|creditors|payables/, 'trade_payables'],
   [/inventor|stock\b|work in progress|raw material|finished goods/, 'inventories'],
   [/cash|bank|petty|\bimprest\b/, 'cash'],
-  [/goodwill|intangible|software/, 'intangibles'],
+  [/goodwill|intangible|software|patent|trademark|copyright|franchise|development cost/, 'intangibles'],
   [/investment/, 'investments'],
   [/land|building|plant|machine|vehicle|furniture|fitting|fixture|equipment|computer|capital work|leasehold/, 'ppe'],
   [/short.?term (loan|borrowing)|current portion/, 'borrowings_c'],

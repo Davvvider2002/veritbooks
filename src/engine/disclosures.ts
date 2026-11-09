@@ -33,45 +33,60 @@ const total = (name: string, rows: PpeRow[]): PpeRow => ({
 });
 
 /**
- * Movement schedule for property, plant and equipment, one row per ledger account.
- * Opening and closing come from the two trial balances. The preparer enters disposals;
- * additions and the charge for the year are whatever then explains the movement.
- * Returns null when there is no prior year, or nothing is mapped to property, plant and equipment.
+ * The movement of one class of long-lived asset, one row per ledger account. Opening and closing
+ * come from the two trial balances. The preparer enters disposals; additions and the charge for
+ * the year are whatever then explains the movement. A credit balance is the accumulated
+ * depreciation or amortisation. Null when there is no prior year, or nothing is mapped to the class.
  */
-export function ppeSchedule(
-  lines: TbLine[],
-  adjustments: Adjustment[],
-  cur: Figures,
-  disposals: Record<string, Kobo> = {},
-): PpeSchedule | null {
-  const ppe = lines.filter((l) => l.mapCode === 'ppe');
-  if (ppe.length === 0 || !ppe.some((l) => l.prior !== null)) return null;
+function movement(code: 'ppe' | 'intangibles', lines: TbLine[], adjustments: Adjustment[], disposals: Record<string, Kobo>, chargeName: string) {
+  const mine = lines.filter((l) => l.mapCode === code);
+  if (mine.length === 0 || !mine.some((l) => l.prior !== null)) return null;
   const bal = adjustedBalances(lines, adjustments, 'current');
   const cost: PpeRow[] = [];
   const depreciation: PpeRow[] = [];
-  for (const l of ppe) {
+  for (const l of mine) {
     const opening = l.prior ?? 0;
     const closing = bal.get(l.id) ?? 0;
     if (opening === 0 && closing === 0) continue;
     const d = Math.max(0, disposals[l.code] ?? 0);
     if (opening < 0 || closing < 0) {
-      // A credit balance: accumulated depreciation, shown as a positive figure.
+      // A credit balance: accumulated depreciation or amortisation, shown as a positive figure.
       depreciation.push({ code: l.code, name: l.name, opening: -opening, increase: -closing + opening + d, disposals: d, closing: -closing });
     } else {
       cost.push({ code: l.code, name: l.name, opening, increase: closing - opening + d, disposals: d, closing });
     }
   }
   const totalCost = total('Total cost', cost);
-  const totalDepreciation = total('Total accumulated depreciation', depreciation);
-  return {
-    cost,
-    depreciation,
-    totalCost,
-    totalDepreciation,
-    carryingClosing: totalCost.closing - totalDepreciation.closing,
-    carryingOpening: totalCost.opening - totalDepreciation.opening,
-    chargeDifference: totalDepreciation.increase - cur.depreciation,
-  };
+  const totalDepreciation = total(chargeName, depreciation);
+  return { cost, depreciation, totalCost, totalDepreciation, carryingClosing: totalCost.closing - totalDepreciation.closing, carryingOpening: totalCost.opening - totalDepreciation.opening };
+}
+
+/**
+ * The charge both schedules explain, less the depreciation and amortisation tagged in the mapping.
+ * Depreciation and amortisation share one tag, so the two schedules are checked together.
+ */
+function chargeGap(lines: TbLine[], adjustments: Adjustment[], cur: Figures, disposals: Record<string, Kobo>): Kobo {
+  const p = movement('ppe', lines, adjustments, disposals, '');
+  const i = movement('intangibles', lines, adjustments, disposals, '');
+  return (p?.totalDepreciation.increase ?? 0) + (i?.totalDepreciation.increase ?? 0) - cur.depreciation;
+}
+
+/**
+ * Movement schedule for property, plant and equipment. Disposals are entered by account code.
+ * Returns null when there is no prior year, or nothing is mapped to property, plant and equipment.
+ */
+export function ppeSchedule(lines: TbLine[], adjustments: Adjustment[], cur: Figures, disposals: Record<string, Kobo> = {}): PpeSchedule | null {
+  const m = movement('ppe', lines, adjustments, disposals, 'Total accumulated depreciation');
+  return m && { ...m, chargeDifference: chargeGap(lines, adjustments, cur, disposals) };
+}
+
+/**
+ * Movement schedule for intangible assets: cost and accumulated amortisation, as for property,
+ * plant and equipment. Returns null when there is no prior year, or nothing is mapped to intangibles.
+ */
+export function intangiblesSchedule(lines: TbLine[], adjustments: Adjustment[], cur: Figures, disposals: Record<string, Kobo> = {}): PpeSchedule | null {
+  const m = movement('intangibles', lines, adjustments, disposals, 'Total accumulated amortisation');
+  return m && { ...m, chargeDifference: chargeGap(lines, adjustments, cur, disposals) };
 }
 
 export interface TaxReconciliation {
@@ -214,10 +229,14 @@ export function disclosureGaps(
   if (!d.registeredOffice?.trim()) gaps.push('Enter the registered office.');
   if (!st.hasPrior) {
     gaps.push('Import the prior year trial balance: comparatives, the cash flow and the fixed asset schedule depend on it.');
-  } else if (lines.some((l) => l.mapCode === 'ppe')) {
-    const s = ppeSchedule(lines, adjustments, st.cur, d.ppeDisposals);
-    if (s && s.chargeDifference !== 0) gaps.push('The fixed asset schedule does not agree to the depreciation charge. Check disposals and the depreciation tags in the mapping.');
-    if (s && [...s.cost, ...s.depreciation].some((r) => r.increase < 0)) gaps.push('The fixed asset schedule shows negative additions or a negative charge. Enter the disposals.');
+  } else if (lines.some((l) => l.mapCode === 'ppe' || l.mapCode === 'intangibles')) {
+    const p = ppeSchedule(lines, adjustments, st.cur, d.ppeDisposals);
+    const i = intangiblesSchedule(lines, adjustments, st.cur, d.ppeDisposals);
+    const both = !!p && !!i;
+    if ((p ?? i)?.chargeDifference)
+      gaps.push(`The ${both ? 'fixed asset and intangible asset schedules do' : p ? 'fixed asset schedule does' : 'intangible asset schedule does'} not agree to the depreciation and amortisation charge. Check disposals and the depreciation tags in the mapping.`);
+    if (p && [...p.cost, ...p.depreciation].some((r) => r.increase < 0)) gaps.push('The fixed asset schedule shows negative additions or a negative charge. Enter the disposals.');
+    if (i && [...i.cost, ...i.depreciation].some((r) => r.increase < 0)) gaps.push('The intangible asset schedule shows negative additions or a negative amortisation charge. Enter the disposals.');
   }
   // A Canadian not-for-profit is exempt under the Income Tax Act, so it has no tax reconciliation.
   if (st.cur.v.income_tax_expense !== 0 || (st.cur.pbt > 0 && !(j?.code === 'CA' && st.npo))) {

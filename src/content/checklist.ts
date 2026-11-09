@@ -20,6 +20,7 @@ export type AutoKey =
   | 'equity_statement'
   | 'cash_components'
   | 'ppe_reconciliation'
+  | 'intangibles_reconciliation'
   | 'tax_reconciliation'
   | 'related_parties'
   | 'key_management'
@@ -48,6 +49,8 @@ const S = {
   s10: 'Section 10: Accounting policies, estimates and errors',
   s11: 'Section 11: Basic financial instruments',
   s13: 'Section 13: Inventories',
+  s14: 'Sections 9, 14 and 15: Subsidiaries, associates and joint arrangements',
+  s16: 'Section 16: Investment property',
   s17: 'Section 17: Property, plant and equipment',
   s18: 'Section 18: Intangible assets',
   s20: 'Section 20: Leases',
@@ -100,11 +103,20 @@ export const CHECKLIST: ChecklistItem[] = [
   { id: 's13-policy', section: S.s13, text: 'The policy for measuring inventories, including the cost formula, is disclosed, with the carrying amount by classification.', when: ['inventories'] },
   { id: 's13-expense', section: S.s13, text: 'The amount of inventories recognised as an expense, any write-downs or reversals, and inventories pledged as security are disclosed.', when: ['inventories'] },
 
+  { id: 's14-policy', section: S.s14, text: 'Where investments include subsidiaries, associates or joint ventures: the accounting policy for them in these statements and their carrying amounts are disclosed.', when: ['investments'] },
+  { id: 's14-fair-value', section: S.s14, text: 'For investments in associates and joint ventures: the fair value where a published price quotation exists, and the share of profit or loss and of discontinued operations.', when: ['investments'] },
+
+  { id: 's16-measurement', section: S.s16, text: 'Where investments include investment property: the measurement basis, and the methods and significant assumptions used to determine fair value, including whether a qualified independent valuer was used.', when: ['investments'] },
+  { id: 's16-reconciliation', section: S.s16, text: 'For investment property: a reconciliation of the carrying amount, with additions, disposals, fair value gains and losses and transfers, and any restrictions on realisation or on remittance of income.', when: ['investments'] },
+
   { id: 's17-bases', section: S.s17, text: 'For each class: the measurement basis, the depreciation method and the useful lives or rates.', when: ['ppe'] },
   { id: 's17-reconciliation', section: S.s17, text: 'For each class: cost and accumulated depreciation at the start and end of the period, with additions, disposals and depreciation reconciled.', when: ['ppe'], auto: 'ppe_reconciliation' },
   { id: 's17-pledged', section: S.s17, text: 'Property pledged as security, restrictions on title, and contractual commitments to acquire property, plant and equipment are disclosed.', when: ['ppe'] },
 
-  { id: 's18-intangibles', section: S.s18, text: 'For each class: useful lives or amortisation rates, the method, a reconciliation of the carrying amount, and where amortisation is charged.', when: ['intangibles'] },
+  { id: 's18-intangibles', section: S.s18, text: 'For each class: useful lives or amortisation rates, the method, and the line in the statement of comprehensive income where amortisation is charged.', when: ['intangibles'] },
+  { id: 's18-reconciliation', section: S.s18, text: 'For each class: cost and accumulated amortisation at the start and end of the period, with additions, disposals and amortisation reconciled.', when: ['intangibles'], auto: 'intangibles_reconciliation' },
+  { id: 's18-goodwill', section: S.s18, text: 'Where goodwill is held: its useful life, the reasons it was chosen if no reliable estimate was possible, and a reconciliation of its carrying amount, with any impairment.', when: ['intangibles'] },
+  { id: 's18-research', section: S.s18, text: 'Research and development expenditure recognised as an expense in the period, intangibles pledged as security, and contractual commitments to acquire intangibles are disclosed.', when: ['intangibles'] },
 
   { id: 's20-leases', section: S.s20, text: 'Lease payments recognised as an expense, and the total of future minimum lease payments by period, are disclosed, with a general description of significant leasing arrangements.' },
 

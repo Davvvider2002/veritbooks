@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { repo } from '../data';
-import { disclosureGaps, ppeSchedule, STANDARD_NOTES, taxReconciliation, type PpeRow } from '../engine/disclosures';
+import { disclosureGaps, intangiblesSchedule, ppeSchedule, STANDARD_NOTES, taxReconciliation, type PpeRow } from '../engine/disclosures';
 import { fmt, fmt2, parseAmount, cur } from '../engine/money';
 import type { Disclosures, EarlierYear } from '../engine/types';
 import { ErrorNote, Field, useAction } from '../ui';
@@ -91,6 +91,7 @@ export function DisclosuresStep({ eng, lines, adjustments, statements: st, locke
   };
   const d = useMemo(() => toDisclosures(f), [f]);
   const ppe = ppeSchedule(lines, adjustments, st.cur, d.ppeDisposals);
+  const intg = intangiblesSchedule(lines, adjustments, st.cur, d.ppeDisposals);
   const tax = taxReconciliation(st.cur, d);
   const gaps = disclosureGaps(d, st, lines, adjustments, eng.yearEnd, jur);
 
@@ -168,50 +169,62 @@ export function DisclosuresStep({ eng, lines, adjustments, statements: st, locke
         </div>
       </div>
 
-      <div className="card stack">
-        <h3>Property, plant and equipment</h3>
-        {!ppe ? (
-          <p className="muted" style={{ margin: 0 }}>
-            {st.hasPrior ? 'No accounts are mapped to property, plant and equipment.' : 'The movement schedule needs the prior year trial balance.'}
-          </p>
-        ) : (
-          <>
-            <p className="small muted" style={{ margin: 0 }}>
-              Opening and closing balances come from the two trial balances. Enter the cost of assets disposed of, and the depreciation eliminated on them. Additions and the charge for the year are whatever then explains the movement.
+      {(
+        [
+          ['Property, plant and equipment', ppe, 'depreciation', 'property, plant and equipment'],
+          ...(intg || lines.some((l) => l.mapCode === 'intangibles') ? [['Intangible assets', intg, 'amortisation', 'intangible assets']] : []),
+        ] as [string, typeof ppe, string, string][]
+      ).map(([title, sched, word, lower]) => (
+        <div className="card stack" key={title} aria-label={`${title} movement`}>
+          <h3>{title}</h3>
+          {!sched ? (
+            <p className="muted" style={{ margin: 0 }}>
+              {st.hasPrior ? `No accounts are mapped to ${lower}.` : 'The movement schedule needs the prior year trial balance.'}
             </p>
-            <div className="scroll-x">
-              <table className="data">
-                <thead>
-                  <tr>
-                    <th>Cost</th>
-                    <th className="num">Opening</th>
-                    <th className="num">Additions</th>
-                    <th className="num">Disposals</th>
-                    <th className="num">Closing</th>
-                  </tr>
-                </thead>
-                <tbody>{ppe.cost.map((r) => ppeRow(r, 'Additions'))}</tbody>
-                <thead>
-                  <tr>
-                    <th>Accumulated depreciation</th>
-                    <th className="num">Opening</th>
-                    <th className="num">Charge</th>
-                    <th className="num">On disposals</th>
-                    <th className="num">Closing</th>
-                  </tr>
-                </thead>
-                <tbody>{ppe.depreciation.map((r) => ppeRow(r, 'Charge for the year'))}</tbody>
-              </table>
-            </div>
-            <div className={`banner ${ppe.chargeDifference === 0 ? 'info' : 'bad'}`}>
-              Charge per this schedule {cur()}{fmt(ppe.totalDepreciation.increase, { zero: '0' })}. Depreciation in profit or loss {cur()}{fmt(st.cur.depreciation, { zero: '0' })}.{' '}
-              {ppe.chargeDifference === 0
-                ? 'They agree.'
-                : `They differ by ${cur()}${fmt(Math.abs(ppe.chargeDifference))}. Check the disposals, and that every depreciation account is tagged as depreciation in the mapping.`}
-            </div>
-          </>
-        )}
-      </div>
+          ) : (
+            <>
+              <p className="small muted" style={{ margin: 0 }}>
+                Opening and closing balances come from the two trial balances. Enter the cost of assets disposed of, and the {word} eliminated on them. Additions and the charge for the year are whatever then explains the movement.
+              </p>
+              <div className="scroll-x">
+                <table className="data">
+                  <thead>
+                    <tr>
+                      <th>Cost</th>
+                      <th className="num">Opening</th>
+                      <th className="num">Additions</th>
+                      <th className="num">Disposals</th>
+                      <th className="num">Closing</th>
+                    </tr>
+                  </thead>
+                  <tbody>{sched.cost.map((r) => ppeRow(r, 'Additions'))}</tbody>
+                  <thead>
+                    <tr>
+                      <th>Accumulated {word}</th>
+                      <th className="num">Opening</th>
+                      <th className="num">Charge</th>
+                      <th className="num">On disposals</th>
+                      <th className="num">Closing</th>
+                    </tr>
+                  </thead>
+                  <tbody>{sched.depreciation.map((r) => ppeRow(r, 'Charge for the year'))}</tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      ))}
+      {(ppe || intg) && (
+        <div className={`banner ${(ppe ?? intg)!.chargeDifference === 0 ? 'info' : 'bad'}`} aria-label="Depreciation and amortisation check">
+          {ppe && intg
+            ? `Depreciation per the property, plant and equipment schedule ${cur()}${fmt(ppe.totalDepreciation.increase, { zero: '0' })}, plus amortisation per the intangible assets schedule ${cur()}${fmt(intg.totalDepreciation.increase, { zero: '0' })}. `
+            : `Charge per the schedule ${cur()}${fmt((ppe ?? intg)!.totalDepreciation.increase, { zero: '0' })}. `}
+          Depreciation and amortisation in profit or loss {cur()}{fmt(st.cur.depreciation, { zero: '0' })}.{' '}
+          {(ppe ?? intg)!.chargeDifference === 0
+            ? 'They agree.'
+            : `They differ by ${cur()}${fmt(Math.abs((ppe ?? intg)!.chargeDifference))}. Check the disposals, and that every depreciation and amortisation account is tagged as depreciation in the mapping.`}
+        </div>
+      )}
 
       <div className="card stack">
         <h3>Tax reconciliation</h3>

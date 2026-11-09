@@ -85,14 +85,14 @@ export function buildReviewPack(): string {
 
   // ---------------------------------------------------------------------
   p('## 4. Work programmes');
-  p(`Version ${PROGRAMME_VERSION}. Every step must be ticked before sign-off. Review for completeness against the standard named, and for wording.`);
+  p(`Version ${PROGRAMME_VERSION}. Every step that applies must be ticked before sign-off. A step with an "Applies when" entry appears only when one of those statement lines holds a balance in any year of the trial balance, so each asset and liability class brings its own steps. Review for completeness against the standard named, and for wording.`);
   for (const [type, standard] of [
     ['audit', 'International Standards on Auditing'],
     ['review', 'ISRE 2400 (Revised)'],
     ['compilation', 'ISRS 4410 (Revised)'],
   ] as const) {
     p(`### ${type[0].toUpperCase()}${type.slice(1)} programme (${standard})`);
-    table(['Id', 'Area', 'Step'], PROGRAMMES[type].map((i) => [i.id, i.area, i.text]));
+    table(['Id', 'Area', 'Step', 'Applies when'], PROGRAMMES[type].map((i) => [i.id, i.area, i.text, i.when?.join(', ') ?? 'Always']));
   }
   signOff();
 
@@ -275,7 +275,7 @@ export function buildReviewPack(): string {
   p('### 14.1 Work programmes');
   for (const type of ['audit', 'review', 'compilation'] as const) {
     p(`**${type === 'audit' ? 'Audit (CAS)' : type === 'review' ? 'Review (CSRE 2400)' : 'Compilation (CSRS 4200)'}**`);
-    table(['Id', 'Area', 'Step'], PROGRAMMES_CA[type].map((i) => [i.id, i.area, i.text]));
+    table(['Id', 'Area', 'Step', 'Applies when'], PROGRAMMES_CA[type].map((i) => [i.id, i.area, i.text, i.when?.join(', ') ?? 'Always']));
   }
   p('### 14.2 Disclosure checklist, ASPE');
   table(['Id', 'Section', 'Item', 'Applies when'], checklistCanada(false).map((i) => [i.id, i.section, i.text, i.when?.join(', ') ?? 'Always']));
@@ -321,6 +321,7 @@ const AUTO_BASIS: Record<string, string> = {
   equity_statement: 'Yes, always. The statement is produced.',
   cash_components: 'Yes, always. The cash note lists its accounts.',
   ppe_reconciliation: 'Yes, when the movement schedule agrees to the depreciation charge.',
+  intangibles_reconciliation: 'Yes, when the movement schedule agrees to the amortisation charge.',
   tax_reconciliation: 'Yes, when the reconciliation has no unexplained difference.',
   related_parties: 'Yes, when transactions are listed or the preparer confirms there are none.',
   key_management: 'Yes, when directors’ remuneration is entered.',

@@ -1,6 +1,6 @@
 # VeritBooks: platform definition
 
-Version 0.26, 28 October 2026.
+Version 0.27, 10 November 2026.
 
 ## What it is
 
@@ -566,3 +566,15 @@ VeritSign is the name of the feature. When a partner signs, the database seals t
 - **What it proves.** Origin and integrity: who signed what, and when. It is not a legal digital signature and does not speak to the quality of the work. The public page says so.
 - **Database.** Migration 0029 adds the report_seals table (read by firm members only, written only by the signing trigger), and the functions verify_seal, verify_seal_report and set_seal_sharing.
 - **Not yet.** A fingerprint of the PDF itself, and withdrawal of a seal by the firm. The status exists; the action will follow.
+
+
+## Release 0.27: every asset and liability class gets its own work
+
+Raised by a practitioner: the software charted a course of action for property, plant and equipment, but not for other assets.
+
+- **A programme built from the trial balance.** Work programme steps can now be tied to statement lines. A step appears only when one of its lines holds a balance in any year. Property, plant and equipment, intangible assets, investments, inventories, trade receivables, other receivables and prepayments, trade payables, other payables and accruals, borrowings, provisions and deferred tax each bring their own steps. A service company no longer sees an inventory count step. Canada has the same, worded for ASPE.
+- **New audit steps.** Intangible assets (control and recognition, amortisation and useful lives, impairment and goodwill). Investments (existence and ownership, classification and measurement, fair value and valuer, investment income). Other receivables, other payables, borrowings (confirmation, terms, interest, classification, covenants, security), provisions (recognition, estimates, lawyers' confirmations) and deferred tax.
+- **Intangible assets movement note.** Cost and accumulated amortisation, with additions, disposals and the charge, as for property, plant and equipment. The charge on both schedules is checked together against depreciation and amortisation in profit or loss.
+- **Mapping.** Accumulated amortisation is suggested as intangible assets, not property, plant and equipment. Patents, trademarks, copyrights, franchises and development costs are recognised as intangibles.
+- **Disclosure checklist.** New items for intangibles (reconciliation checked automatically, goodwill, research and development), investment property (Section 16), and subsidiaries, associates and joint arrangements (Sections 9, 14 and 15). Canada adds Section 3051.
+- **Quality dashboard.** Lines are not loaded there, so a step tied to a balance counts once work is recorded on it.

@@ -1,5 +1,5 @@
 import type { AutoKey, ChecklistItem } from '../content/checklist';
-import { ppeSchedule, taxReconciliation } from './disclosures';
+import { intangiblesSchedule, ppeSchedule, taxReconciliation } from './disclosures';
 import type { Statements } from './statements';
 import type { Adjustment, ChecklistAnswer, Disclosures, TbLine } from './types';
 
@@ -76,6 +76,11 @@ function auto(key: AutoKey, g: ChecklistInput): [boolean, string] {
       const s = st.hasPrior ? ppeSchedule(g.lines, g.adjustments, st.cur, d.ppeDisposals) : null;
       if (!s) return [false, 'The movement schedule needs the prior year trial balance.'];
       return s.chargeDifference === 0 ? [true, 'The movement schedule is produced and agrees to the depreciation charge.'] : [false, 'The movement schedule does not agree to the depreciation charge.'];
+    }
+    case 'intangibles_reconciliation': {
+      const s = st.hasPrior ? intangiblesSchedule(g.lines, g.adjustments, st.cur, d.ppeDisposals) : null;
+      if (!s) return [false, 'The movement schedule needs the prior year trial balance.'];
+      return s.chargeDifference === 0 ? [true, 'The movement schedule is produced and agrees to the amortisation charge.'] : [false, 'The movement schedule does not agree to the depreciation and amortisation charge.'];
     }
     case 'tax_reconciliation': {
       const t = taxReconciliation(st.cur, d);

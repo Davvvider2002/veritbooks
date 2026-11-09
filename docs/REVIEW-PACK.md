@@ -92,58 +92,71 @@ Reviewer: ______________________  Date: ____________  Accepted / Accepted with c
 
 ## 4. Work programmes
 
-Version 0.1-starter. Every step must be ticked before sign-off. Review for completeness against the standard named, and for wording.
+Version 0.1-starter. Every step that applies must be ticked before sign-off. A step with an "Applies when" entry appears only when one of those statement lines holds a balance in any year of the trial balance, so each asset and liability class brings its own steps. Review for completeness against the standard named, and for wording.
 
 ### Audit programme (International Standards on Auditing)
 
-| Id | Area | Step |
-| --- | --- | --- |
-| a-acc-1 | Acceptance | Confirm independence and ethical requirements for the firm and the team. |
-| a-acc-2 | Acceptance | Agree the engagement letter with those charged with governance. |
-| a-acc-3 | Acceptance | Confirm the entity is not a public interest entity and that this methodology is appropriate for it. |
-| a-pln-1 | Planning | Document the understanding of the entity, its environment and its system of internal control. |
-| a-pln-2 | Planning | Set overall materiality, performance materiality and the clearly trivial threshold. |
-| a-pln-3 | Planning | Identify and assess risks of material misstatement, including fraud and management override. |
-| a-pln-4 | Planning | Agree opening balances to the prior year signed financial statements. |
-| a-cash-1 | Cash and bank | Obtain bank confirmations and agree them to the bank reconciliations. |
-| a-cash-2 | Cash and bank | Test reconciling items to after-date bank statements. |
-| a-rec-1 | Receivables | Test the receivables listing to the ledger and to after-date receipts or confirmations. |
-| a-rec-2 | Receivables | Assess the allowance for impairment of receivables. |
-| a-inv-1 | Inventories | Attend the inventory count, or perform alternative procedures, and test cost against net realisable value. |
-| a-ppe-1 | Property, plant and equipment | Vouch additions and disposals, test ownership and recompute depreciation. |
-| a-pay-1 | Payables | Test payables to supplier statements and search for unrecorded liabilities. |
-| a-tax-1 | Taxation | Recompute the income tax charge and agree balances to assessments and remittances. |
-| a-eq-1 | Equity | Agree share capital to the company records at the Corporate Affairs Commission. |
-| a-rev-1 | Revenue | Test revenue for occurrence, accuracy and cut-off. |
-| a-exp-1 | Expenses | Test expenses and payroll to supporting documents, and test cut-off. |
-| a-jnl-1 | Journals | Test journal entries and other adjustments for evidence of management override. |
-| a-cmp-1 | Completion | Evaluate going concern and events after the reporting date. |
-| a-cmp-2 | Completion | Evaluate misstatements and conclude on the schedule of unadjusted differences. |
-| a-cmp-3 | Completion | Review the financial statements against the disclosure requirements of the framework and the companies law of the client’s country. |
-| a-cmp-4 | Completion | Obtain the signed letter of representation and the directors’ approval of the financial statements. |
-| a-cmp-5 | Completion | Complete the engagement partner review of the file. |
+| Id | Area | Step | Applies when |
+| --- | --- | --- | --- |
+| a-acc-1 | Acceptance | Confirm independence and ethical requirements for the firm and the team. | Always |
+| a-acc-2 | Acceptance | Agree the engagement letter with those charged with governance. | Always |
+| a-acc-3 | Acceptance | Confirm the entity is not a public interest entity and that this methodology is appropriate for it. | Always |
+| a-pln-1 | Planning | Document the understanding of the entity, its environment and its system of internal control. | Always |
+| a-pln-2 | Planning | Set overall materiality, performance materiality and the clearly trivial threshold. | Always |
+| a-pln-3 | Planning | Identify and assess risks of material misstatement, including fraud and management override. | Always |
+| a-pln-4 | Planning | Agree opening balances to the prior year signed financial statements. | Always |
+| a-cash-1 | Cash and bank | Obtain bank confirmations and agree them to the bank reconciliations. | Always |
+| a-cash-2 | Cash and bank | Test reconciling items to after-date bank statements. | Always |
+| a-rec-1 | Receivables | Test the receivables listing to the ledger and to after-date receipts or confirmations. | trade_receivables |
+| a-rec-2 | Receivables | Assess the allowance for impairment of receivables. | trade_receivables |
+| a-orc-1 | Other receivables and prepayments | Vouch other receivables and prepayments to supporting documents, assess recoverability, and recompute prepayments for the period they cover. | other_receivables |
+| a-inv-1 | Inventories | Attend the inventory count, or perform alternative procedures, and test cost against net realisable value. | inventories |
+| a-ppe-1 | Property, plant and equipment | Vouch additions and disposals, test ownership and recompute depreciation. | ppe |
+| a-int-1 | Intangible assets | Vouch additions to supporting documents, confirm the entity controls each asset, and check that capitalised development costs meet the recognition criteria, with research costs expensed. | intangibles |
+| a-int-2 | Intangible assets | Recompute amortisation, and review the useful life, residual value and method for each class. | intangibles |
+| a-int-3 | Intangible assets | Assess indicators of impairment, and review management’s impairment assessment of goodwill. | intangibles |
+| a-ivt-1 | Investments | Confirm the existence and ownership of each investment with share certificates, registrars, custodians or title documents. | investments |
+| a-ivt-2 | Investments | Check that each investment is classified correctly (subsidiary, associate, joint venture, investment property or financial asset) and measured on the basis the framework requires for that class. | investments |
+| a-ivt-3 | Investments | Test fair values and valuations to quoted prices or the valuer’s report, assess the valuer’s competence and independence, and assess impairment. | investments |
+| a-ivt-4 | Investments | Agree dividend, interest and rental income from investments, and gains or losses on disposal, to supporting documents. | investments |
+| a-pay-1 | Payables | Test payables to supplier statements and search for unrecorded liabilities. | trade_payables |
+| a-opy-1 | Other payables and accruals | Test accruals and other payables to after-date payments and supporting documents. | other_payables |
+| a-bor-1 | Borrowings | Confirm borrowings with lenders, agree terms to the loan agreements, recompute interest, and test the split between current and non-current. | borrowings_nc, borrowings_c |
+| a-bor-2 | Borrowings | Review compliance with covenants at the year end, and identify assets pledged as security. | borrowings_nc, borrowings_c |
+| a-prv-1 | Provisions | Check each provision meets the recognition criteria, test the estimate to evidence and after-date events, and identify contingent liabilities, including through confirmations from the entity’s lawyers. | provisions |
+| a-tax-1 | Taxation | Recompute the income tax charge and agree balances to assessments and remittances. | Always |
+| a-tax-2 | Taxation | Recompute deferred tax from the temporary differences, and assess whether any deferred tax asset is recoverable. | deferred_tax_asset, deferred_tax_liability |
+| a-eq-1 | Equity | Agree share capital to the company records at the Corporate Affairs Commission. | Always |
+| a-rev-1 | Revenue | Test revenue for occurrence, accuracy and cut-off. | Always |
+| a-exp-1 | Expenses | Test expenses and payroll to supporting documents, and test cut-off. | Always |
+| a-jnl-1 | Journals | Test journal entries and other adjustments for evidence of management override. | Always |
+| a-cmp-1 | Completion | Evaluate going concern and events after the reporting date. | Always |
+| a-cmp-2 | Completion | Evaluate misstatements and conclude on the schedule of unadjusted differences. | Always |
+| a-cmp-3 | Completion | Review the financial statements against the disclosure requirements of the framework and the companies law of the client’s country. | Always |
+| a-cmp-4 | Completion | Obtain the signed letter of representation and the directors’ approval of the financial statements. | Always |
+| a-cmp-5 | Completion | Complete the engagement partner review of the file. | Always |
 
 ### Review programme (ISRE 2400 (Revised))
 
-| Id | Area | Step |
-| --- | --- | --- |
-| r-acc-1 | Acceptance | Confirm independence and ethical requirements, and agree the engagement letter. |
-| r-pln-1 | Planning | Document the understanding of the entity and determine materiality. |
-| r-enq-1 | Procedures | Make enquiries of management on each material item, estimates, related parties and unusual transactions. |
-| r-ana-1 | Procedures | Perform analytical procedures on each material item and investigate unexpected relationships. |
-| r-add-1 | Procedures | Perform additional procedures where a matter suggests the statements may be materially misstated. |
-| r-cmp-1 | Completion | Evaluate going concern and events after the reporting date. |
-| r-cmp-2 | Completion | Obtain written representations and complete the partner review. |
+| Id | Area | Step | Applies when |
+| --- | --- | --- | --- |
+| r-acc-1 | Acceptance | Confirm independence and ethical requirements, and agree the engagement letter. | Always |
+| r-pln-1 | Planning | Document the understanding of the entity and determine materiality. | Always |
+| r-enq-1 | Procedures | Make enquiries of management on each material item, estimates, related parties and unusual transactions. | Always |
+| r-ana-1 | Procedures | Perform analytical procedures on each material item and investigate unexpected relationships. | Always |
+| r-add-1 | Procedures | Perform additional procedures where a matter suggests the statements may be materially misstated. | Always |
+| r-cmp-1 | Completion | Evaluate going concern and events after the reporting date. | Always |
+| r-cmp-2 | Completion | Obtain written representations and complete the partner review. | Always |
 
 ### Compilation programme (ISRS 4410 (Revised))
 
-| Id | Area | Step |
-| --- | --- | --- |
-| c-acc-1 | Acceptance | Confirm ethical requirements and agree the engagement letter. |
-| c-und-1 | Understanding | Document the understanding of the business, its records and the reporting framework. |
-| c-cmp-1 | Compilation | Compile the statements from the records, and discuss significant judgments with management. |
-| c-cmp-2 | Compilation | Read the compiled statements and raise anything that appears incomplete or misleading. |
-| c-cmp-3 | Completion | Obtain management’s acknowledgment of responsibility for the statements. |
+| Id | Area | Step | Applies when |
+| --- | --- | --- | --- |
+| c-acc-1 | Acceptance | Confirm ethical requirements and agree the engagement letter. | Always |
+| c-und-1 | Understanding | Document the understanding of the business, its records and the reporting framework. | Always |
+| c-cmp-1 | Compilation | Compile the statements from the records, and discuss significant judgments with management. | Always |
+| c-cmp-2 | Compilation | Read the compiled statements and raise anything that appears incomplete or misleading. | Always |
+| c-cmp-3 | Completion | Obtain management’s acknowledgment of responsibility for the statements. | Always |
 
 Reviewer: ______________________  Date: ____________  Accepted / Accepted with changes / Rejected
 
@@ -882,7 +895,7 @@ Reviewer: ______________________  Date: ____________  Accepted / Accepted with c
 
 ## 6. Disclosure checklist
 
-Version 0.1-starter. 49 items. Each is a plain-language summary of a disclosure area. It is not the text of the Standard and it is not complete. Sign-off is blocked while any applicable item has no answer.
+Version 0.1-starter. 56 items. Each is a plain-language summary of a disclosure area. It is not the text of the Standard and it is not complete. Sign-off is blocked while any applicable item has no answer.
 
 "Applies when" names the statement lines that make an item relevant. An item with none always applies. "Covered by the software" means the software marks the item as met from the file itself, without asking the preparer: check that each of these is a sound basis.
 
@@ -917,10 +930,17 @@ Version 0.1-starter. 49 items. Each is a plain-language summary of a disclosure 
 | s11-impairment | Section 11: Basic financial instruments | Impairment losses on receivables, and the income, expense, gains and losses on financial instruments, are disclosed. | trade_receivables, other_receivables, investments | No. The preparer answers. |
 | s13-policy | Section 13: Inventories | The policy for measuring inventories, including the cost formula, is disclosed, with the carrying amount by classification. | inventories | No. The preparer answers. |
 | s13-expense | Section 13: Inventories | The amount of inventories recognised as an expense, any write-downs or reversals, and inventories pledged as security are disclosed. | inventories | No. The preparer answers. |
+| s14-policy | Sections 9, 14 and 15: Subsidiaries, associates and joint arrangements | Where investments include subsidiaries, associates or joint ventures: the accounting policy for them in these statements and their carrying amounts are disclosed. | investments | No. The preparer answers. |
+| s14-fair-value | Sections 9, 14 and 15: Subsidiaries, associates and joint arrangements | For investments in associates and joint ventures: the fair value where a published price quotation exists, and the share of profit or loss and of discontinued operations. | investments | No. The preparer answers. |
+| s16-measurement | Section 16: Investment property | Where investments include investment property: the measurement basis, and the methods and significant assumptions used to determine fair value, including whether a qualified independent valuer was used. | investments | No. The preparer answers. |
+| s16-reconciliation | Section 16: Investment property | For investment property: a reconciliation of the carrying amount, with additions, disposals, fair value gains and losses and transfers, and any restrictions on realisation or on remittance of income. | investments | No. The preparer answers. |
 | s17-bases | Section 17: Property, plant and equipment | For each class: the measurement basis, the depreciation method and the useful lives or rates. | ppe | No. The preparer answers. |
 | s17-reconciliation | Section 17: Property, plant and equipment | For each class: cost and accumulated depreciation at the start and end of the period, with additions, disposals and depreciation reconciled. | ppe | Yes, when the movement schedule agrees to the depreciation charge. |
 | s17-pledged | Section 17: Property, plant and equipment | Property pledged as security, restrictions on title, and contractual commitments to acquire property, plant and equipment are disclosed. | ppe | No. The preparer answers. |
-| s18-intangibles | Section 18: Intangible assets | For each class: useful lives or amortisation rates, the method, a reconciliation of the carrying amount, and where amortisation is charged. | intangibles | No. The preparer answers. |
+| s18-intangibles | Section 18: Intangible assets | For each class: useful lives or amortisation rates, the method, and the line in the statement of comprehensive income where amortisation is charged. | intangibles | No. The preparer answers. |
+| s18-reconciliation | Section 18: Intangible assets | For each class: cost and accumulated amortisation at the start and end of the period, with additions, disposals and amortisation reconciled. | intangibles | Yes, when the movement schedule agrees to the amortisation charge. |
+| s18-goodwill | Section 18: Intangible assets | Where goodwill is held: its useful life, the reasons it was chosen if no reliable estimate was possible, and a reconciliation of its carrying amount, with any impairment. | intangibles | No. The preparer answers. |
+| s18-research | Section 18: Intangible assets | Research and development expenditure recognised as an expense in the period, intangibles pledged as security, and contractual commitments to acquire intangibles are disclosed. | intangibles | No. The preparer answers. |
 | s20-leases | Section 20: Leases | Lease payments recognised as an expense, and the total of future minimum lease payments by period, are disclosed, with a general description of significant leasing arrangements. | Always | No. The preparer answers. |
 | s21-provisions | Section 21: Provisions and contingencies | For each class of provision: a reconciliation of the movement, the nature of the obligation, and the expected timing and uncertainties. | provisions | No. The preparer answers. |
 | s21-contingent | Section 21: Provisions and contingencies | Contingent liabilities are described, with an estimate of their financial effect, unless the possibility of an outflow is remote. | Always | Yes, when the note has any text. |
@@ -1404,64 +1424,72 @@ Questions for a Canadian reviewer:
 
 **Audit (CAS)**
 
-| Id | Area | Step |
-| --- | --- | --- |
-| ca-a-acc-1 | Acceptance | Confirm independence and the other requirements of the CPA Code of Professional Conduct for the firm and the team. |
-| ca-a-acc-2 | Acceptance | Agree the terms of the engagement in an engagement letter (CAS 210). |
-| ca-a-acc-3 | Acceptance | Confirm the entity is not a reporting issuer, that ASPE or ASNPO is an acceptable framework for it, and that the engagement partner holds a public accounting licence that covers the audit in the province. |
-| ca-a-pln-1 | Planning | Document the understanding of the entity, its environment, the framework and its system of internal control (CAS 315). |
-| ca-a-pln-2 | Planning | Set materiality and performance materiality, and the clearly trivial threshold (CAS 320). |
-| ca-a-pln-3 | Planning | Identify and assess risks of material misstatement due to fraud, including management override and revenue recognition (CAS 240). |
-| ca-a-pln-4 | Planning | Obtain evidence on opening balances, or agree them to last year’s audited statements (CAS 510). |
-| ca-a-pln-5 | Planning | Identify related parties and transactions with them (CAS 550; ASPE Section 3840). |
-| ca-a-cash-1 | Cash | Obtain bank confirmations and agree them to the year-end bank reconciliations (CAS 505). |
-| ca-a-cash-2 | Cash | Test reconciling items to bank statements after the year end. |
-| ca-a-rec-1 | Receivables | Agree the aged receivables listing to the ledger, and test balances to confirmations or receipts after the year end. |
-| ca-a-rec-2 | Receivables | Assess the allowance for doubtful accounts and impairment of financial assets (Section 3856). |
-| ca-a-inv-1 | Inventory | Attend the inventory count, or perform alternative procedures, and test the lower of cost and net realizable value (CAS 501; Section 3031). |
-| ca-a-ppe-1 | Capital assets | Vouch additions and disposals, test ownership, recompute amortization and consider impairment (Sections 3061 and 3063). |
-| ca-a-pay-1 | Payables | Test payables to supplier statements and search for unrecorded liabilities. |
-| ca-a-pay-2 | Government remittances | Test GST/HST, payroll source deductions and workers’ compensation remittances for completeness and timeliness. Directors can be personally liable for unremitted amounts. |
-| ca-a-tax-1 | Income taxes | Recompute income taxes under the method the entity uses (taxes payable or future income taxes, Section 3465), and agree balances to notices of assessment and instalments. |
-| ca-a-eq-1 | Equity | Agree share capital and dividends to the minute book and to the corporate registry (Corporations Canada or the provincial registry). |
-| ca-a-debt-1 | Debt | Confirm long-term debt, test covenants at the year end and their effect on classification, and the principal repayments for the next five years (Section 3856). |
-| ca-a-rev-1 | Revenue | Test revenue for occurrence, accuracy and cut-off against the revenue recognition policy (Section 3400). |
-| ca-a-exp-1 | Expenses | Test expenses and payroll to supporting documents, and test cut-off. |
-| ca-a-jnl-1 | Journals | Test journal entries and other adjustments for evidence of management override (CAS 240). |
-| ca-a-cmp-1 | Completion | Evaluate management’s going concern assessment (CAS 570) and events after the reporting date (CAS 560; Section 3820). |
-| ca-a-cmp-2 | Completion | Accumulate misstatements and conclude on the uncorrected misstatements (CAS 450). |
-| ca-a-cmp-3 | Completion | Review the financial statements against ASPE or ASNPO disclosure requirements. |
-| ca-a-cmp-4 | Completion | Obtain the signed management representation letter (CAS 580), dated as near as practicable to the report date. |
-| ca-a-cmp-5 | Completion | Communicate with those charged with governance, including significant deficiencies in internal control (CAS 260 and CAS 265). |
-| ca-a-cmp-6 | Completion | Complete the engagement partner review, and an engagement quality review where the firm’s policies require one (CSQM 2). |
+| Id | Area | Step | Applies when |
+| --- | --- | --- | --- |
+| ca-a-acc-1 | Acceptance | Confirm independence and the other requirements of the CPA Code of Professional Conduct for the firm and the team. | Always |
+| ca-a-acc-2 | Acceptance | Agree the terms of the engagement in an engagement letter (CAS 210). | Always |
+| ca-a-acc-3 | Acceptance | Confirm the entity is not a reporting issuer, that ASPE or ASNPO is an acceptable framework for it, and that the engagement partner holds a public accounting licence that covers the audit in the province. | Always |
+| ca-a-pln-1 | Planning | Document the understanding of the entity, its environment, the framework and its system of internal control (CAS 315). | Always |
+| ca-a-pln-2 | Planning | Set materiality and performance materiality, and the clearly trivial threshold (CAS 320). | Always |
+| ca-a-pln-3 | Planning | Identify and assess risks of material misstatement due to fraud, including management override and revenue recognition (CAS 240). | Always |
+| ca-a-pln-4 | Planning | Obtain evidence on opening balances, or agree them to last year’s audited statements (CAS 510). | Always |
+| ca-a-pln-5 | Planning | Identify related parties and transactions with them (CAS 550; ASPE Section 3840). | Always |
+| ca-a-cash-1 | Cash | Obtain bank confirmations and agree them to the year-end bank reconciliations (CAS 505). | Always |
+| ca-a-cash-2 | Cash | Test reconciling items to bank statements after the year end. | Always |
+| ca-a-rec-1 | Receivables | Agree the aged receivables listing to the ledger, and test balances to confirmations or receipts after the year end. | trade_receivables |
+| ca-a-rec-2 | Receivables | Assess the allowance for doubtful accounts and impairment of financial assets (Section 3856). | trade_receivables |
+| ca-a-orc-1 | Other receivables and prepaid expenses | Vouch other receivables and prepaid expenses to supporting documents, assess recoverability, and recompute prepaids for the period they cover. | other_receivables |
+| ca-a-inv-1 | Inventory | Attend the inventory count, or perform alternative procedures, and test the lower of cost and net realizable value (CAS 501; Section 3031). | inventories |
+| ca-a-ppe-1 | Capital assets | Vouch additions and disposals, test ownership, recompute amortization and consider impairment (Sections 3061 and 3063). | ppe |
+| ca-a-int-1 | Intangible assets and goodwill | Vouch additions, confirm the entity controls each asset, and check that capitalized development costs meet the criteria in Section 3064, with research costs expensed. | intangibles |
+| ca-a-int-2 | Intangible assets and goodwill | Recompute amortization of intangibles with limited lives, and test goodwill and other intangibles for impairment when events indicate it (Sections 3064 and 3063). | intangibles |
+| ca-a-ivt-1 | Investments | Confirm the existence and ownership of each investment with share certificates, brokers, custodians or the investee. | investments |
+| ca-a-ivt-2 | Investments | Check the method used for each investment (cost, equity or consolidation for subsidiaries, joint arrangements and significantly influenced companies under Section 3051; fair value or cost for other financial assets under Section 3856), and test the carrying amount. | investments |
+| ca-a-ivt-3 | Investments | Test quoted prices and valuations, assess impairment, and agree investment income and gains or losses on disposal to supporting documents. | investments |
+| ca-a-pay-1 | Payables | Test payables to supplier statements and search for unrecorded liabilities. | trade_payables |
+| ca-a-opy-1 | Accrued liabilities | Test accrued liabilities and other payables to payments after the year end and supporting documents. | other_payables |
+| ca-a-prv-1 | Contingencies and provisions | Test each recorded obligation to evidence and events after the year end, and identify contingent liabilities, including through lawyers’ letters (Section 3290). | provisions |
+| ca-a-pay-2 | Government remittances | Test GST/HST, payroll source deductions and workers’ compensation remittances for completeness and timeliness. Directors can be personally liable for unremitted amounts. | Always |
+| ca-a-tax-1 | Income taxes | Recompute income taxes under the method the entity uses (taxes payable or future income taxes, Section 3465), and agree balances to notices of assessment and instalments. | Always |
+| ca-a-eq-1 | Equity | Agree share capital and dividends to the minute book and to the corporate registry (Corporations Canada or the provincial registry). | Always |
+| ca-a-debt-1 | Debt | Confirm long-term debt, test covenants at the year end and their effect on classification, and the principal repayments for the next five years (Section 3856). | borrowings_nc, borrowings_c |
+| ca-a-rev-1 | Revenue | Test revenue for occurrence, accuracy and cut-off against the revenue recognition policy (Section 3400). | Always |
+| ca-a-exp-1 | Expenses | Test expenses and payroll to supporting documents, and test cut-off. | Always |
+| ca-a-jnl-1 | Journals | Test journal entries and other adjustments for evidence of management override (CAS 240). | Always |
+| ca-a-cmp-1 | Completion | Evaluate management’s going concern assessment (CAS 570) and events after the reporting date (CAS 560; Section 3820). | Always |
+| ca-a-cmp-2 | Completion | Accumulate misstatements and conclude on the uncorrected misstatements (CAS 450). | Always |
+| ca-a-cmp-3 | Completion | Review the financial statements against ASPE or ASNPO disclosure requirements. | Always |
+| ca-a-cmp-4 | Completion | Obtain the signed management representation letter (CAS 580), dated as near as practicable to the report date. | Always |
+| ca-a-cmp-5 | Completion | Communicate with those charged with governance, including significant deficiencies in internal control (CAS 260 and CAS 265). | Always |
+| ca-a-cmp-6 | Completion | Complete the engagement partner review, and an engagement quality review where the firm’s policies require one (CSQM 2). | Always |
 
 **Review (CSRE 2400)**
 
-| Id | Area | Step |
-| --- | --- | --- |
-| ca-r-acc-1 | Acceptance | Confirm independence and ethical requirements, confirm the partner’s public accounting licence covers the review, and agree the engagement letter. |
-| ca-r-pln-1 | Planning | Document the understanding of the entity, its accounting system and records, and the framework, and determine materiality (CSRE 2400). |
-| ca-r-pln-2 | Planning | Identify the areas where material misstatement is likely, including items below materiality for qualitative reasons. |
-| ca-r-enq-1 | Inquiries | Inquire about related parties and transactions with them, and significant or unusual transactions. |
-| ca-r-enq-2 | Inquiries | Inquire about significant estimates, going concern, fraud and suspected fraud, and non-compliance with laws and regulations. |
-| ca-r-enq-3 | Inquiries | Inquire about events after the reporting date, commitments, contingencies and government remittances (GST/HST and payroll source deductions). |
-| ca-r-ana-1 | Analytical procedures | Perform analytical procedures on all material items, including disclosures, and investigate fluctuations that are not as expected. |
-| ca-r-add-1 | Additional procedures | Where a matter suggests the statements may be materially misstated, perform additional procedures until the matter is resolved. |
-| ca-r-cmp-1 | Completion | Communicate accumulated misstatements to management and request their correction. |
-| ca-r-cmp-2 | Completion | Obtain written representations, read the statements against ASPE or ASNPO, and complete the partner review. |
+| Id | Area | Step | Applies when |
+| --- | --- | --- | --- |
+| ca-r-acc-1 | Acceptance | Confirm independence and ethical requirements, confirm the partner’s public accounting licence covers the review, and agree the engagement letter. | Always |
+| ca-r-pln-1 | Planning | Document the understanding of the entity, its accounting system and records, and the framework, and determine materiality (CSRE 2400). | Always |
+| ca-r-pln-2 | Planning | Identify the areas where material misstatement is likely, including items below materiality for qualitative reasons. | Always |
+| ca-r-enq-1 | Inquiries | Inquire about related parties and transactions with them, and significant or unusual transactions. | Always |
+| ca-r-enq-2 | Inquiries | Inquire about significant estimates, going concern, fraud and suspected fraud, and non-compliance with laws and regulations. | Always |
+| ca-r-enq-3 | Inquiries | Inquire about events after the reporting date, commitments, contingencies and government remittances (GST/HST and payroll source deductions). | Always |
+| ca-r-ana-1 | Analytical procedures | Perform analytical procedures on all material items, including disclosures, and investigate fluctuations that are not as expected. | Always |
+| ca-r-add-1 | Additional procedures | Where a matter suggests the statements may be materially misstated, perform additional procedures until the matter is resolved. | Always |
+| ca-r-cmp-1 | Completion | Communicate accumulated misstatements to management and request their correction. | Always |
+| ca-r-cmp-2 | Completion | Obtain written representations, read the statements against ASPE or ASNPO, and complete the partner review. | Always |
 
 **Compilation (CSRS 4200)**
 
-| Id | Area | Step |
-| --- | --- | --- |
-| ca-c-acc-1 | Acceptance | Confirm the ethical requirements of the CPA Code of Professional Conduct. If third parties will rely on the statements in Ontario, confirm the licence requirement is met. |
-| ca-c-acc-2 | Acceptance | Agree an engagement letter for the year: the intended use and users, the basis of accounting, management’s responsibilities, and, where a third party will use the statements, management’s acknowledgment that the third party can ask for more information or has agreed the basis (CSRS 4200). |
-| ca-c-und-1 | Understanding | Document the business and its operations, the accounting system and records, the basis of accounting and the accounting policies. |
-| ca-c-cmp-1 | Compilation | Compile the statements from the records. Reconcile the records to the compiled statements, including adjustments. |
-| ca-c-cmp-2 | Compilation | Discuss significant judgments with management, and document them. |
-| ca-c-cmp-3 | Compilation | Read the compiled statements. If they appear false or misleading, propose changes, and withdraw if management does not make them. |
-| ca-c-cmp-4 | Compilation | Check that Note 1 describes the basis of accounting, and that ASPE or ASNPO is named only if the statements comply with it in full. |
-| ca-c-cmp-5 | Completion | Obtain management’s acknowledgment of responsibility for the final compiled statements, and date the report on or after it. |
+| Id | Area | Step | Applies when |
+| --- | --- | --- | --- |
+| ca-c-acc-1 | Acceptance | Confirm the ethical requirements of the CPA Code of Professional Conduct. If third parties will rely on the statements in Ontario, confirm the licence requirement is met. | Always |
+| ca-c-acc-2 | Acceptance | Agree an engagement letter for the year: the intended use and users, the basis of accounting, management’s responsibilities, and, where a third party will use the statements, management’s acknowledgment that the third party can ask for more information or has agreed the basis (CSRS 4200). | Always |
+| ca-c-und-1 | Understanding | Document the business and its operations, the accounting system and records, the basis of accounting and the accounting policies. | Always |
+| ca-c-cmp-1 | Compilation | Compile the statements from the records. Reconcile the records to the compiled statements, including adjustments. | Always |
+| ca-c-cmp-2 | Compilation | Discuss significant judgments with management, and document them. | Always |
+| ca-c-cmp-3 | Compilation | Read the compiled statements. If they appear false or misleading, propose changes, and withdraw if management does not make them. | Always |
+| ca-c-cmp-4 | Compilation | Check that Note 1 describes the basis of accounting, and that ASPE or ASNPO is named only if the statements comply with it in full. | Always |
+| ca-c-cmp-5 | Completion | Obtain management’s acknowledgment of responsibility for the final compiled statements, and date the report on or after it. | Always |
 
 ### 14.2 Disclosure checklist, ASPE
 
@@ -1478,6 +1506,7 @@ Questions for a Canadian reviewer:
 | ca-1521-items | Section 1521: Balance sheet | The balance sheet presents the required items, including amounts due from and to related parties shown separately. | Always |
 | ca-1540-cash | Section 1540: Cash flow statement | The components of cash and cash equivalents, and the policy for determining them, are disclosed. | Always |
 | ca-3031-inventories | Section 3031: Inventories | The policy and cost formula, the carrying amount by classification, the amount expensed, any write-downs and reversals, and inventory pledged as security are disclosed. | inventories |
+| ca-3051-investments | Section 3051: Investments | Investments in subsidiaries, joint arrangements and significantly influenced companies are shown separately, with the method used for each, and income from them is disclosed. | investments |
 | ca-3061-ppe | Section 3061: Property, plant and equipment | For each major category: cost, accumulated amortization, the amortization method and the period or rate, and the amortization charged in the year. | ppe |
 | ca-3063-impairment | Section 3063: Impairment of long-lived assets | Any impairment of long-lived assets is described, with the amount and the facts that led to it. | ppe, intangibles |
 | ca-3064-intangibles | Section 3064: Goodwill and intangible assets | Intangible assets and goodwill are disclosed, with the amortization method and period, and any impairment. | intangibles |

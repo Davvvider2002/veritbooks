@@ -8,7 +8,7 @@ import { registerWorkbook } from '../engine/etbSheets';
 import { journalRegister, SOURCE_LABEL, type JournalSource } from '../engine/journalRegister';
 import { longDate } from '../engine/report';
 import { downloadWorkbook } from '../excel';
-import { PACKS, PACK_VERSION, packOf, programmeFor } from '../content/packs';
+import { PACKS, PACK_VERSION, packOf, presentLines, programmeFor } from '../content/packs';
 import { governorsOf, legalFormOf, LEGAL_FORMS } from '../content/entities';
 import { repo } from '../data';
 import { BENCHMARKS, benchmarkBase, computeMateriality, unadjustedEffect } from '../engine/checks';
@@ -228,7 +228,7 @@ export function PlanningStep(ctx: Ctx) {
 
 export function ProgrammeStep(ctx: Ctx) {
   const { eng, ws, jur, locked, reload } = ctx;
-  const items = programmeFor(eng.type, eng.planning, ctx.jur.code);
+  const items = programmeFor(eng.type, eng.planning, ctx.jur.code, presentLines(ctx.lines));
   const pack = packOf(eng.planning);
   const { error, run } = useAction();
   const [notes, setNotes] = useState<Record<string, string>>(
@@ -256,7 +256,11 @@ export function ProgrammeStep(ctx: Ctx) {
         <p className="muted" style={{ marginTop: 4 }}>
           Sign off each step when the work is done: record the working paper reference and attach or link the working papers and evidence that support it. A manager or partner then marks it reviewed. Every step must be signed off before the file is signed.
         </p>
+        <p className="small muted" style={{ marginTop: 6 }}>
+          Each asset and liability on the trial balance brings its own steps. Property, plant and equipment, intangible assets, investments, inventories, receivables, borrowings, provisions and deferred tax each appear once a mapped account holds a balance in any year.
+        </p>
       </div>
+      {ctx.lines.length === 0 && <div className="banner info">Import and map the trial balance to see the steps for each asset and liability.</div>}
       <div className="banner warn">
         Starter content, version {eng.programmeVersion || 'unversioned'}. These steps show how the programme works. They are not a reviewed methodology and must be replaced by one written against the standards adopted in your country ({jur.regulator === 'FRC' ? 'by the FRC of Nigeria' : `by ${jur.adoptedBy ?? 'the IAASB and IASB'}`}) before live use.
       </div>

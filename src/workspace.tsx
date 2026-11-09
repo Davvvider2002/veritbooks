@@ -21,7 +21,7 @@ import { cashFlowBlocker, consolidate, groupCashFlow, groupEquity, unitOf, unitO
 import type { Row } from './engine/statements';
 import { figures, hasPrior } from './engine/statements';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { packOf, programmeFor } from './content/packs';
+import { packOf, presentLines, programmeFor } from './content/packs';
 import { repo } from './data';
 import type { Client, Engagement, Workspace } from './data/repo';
 import { validateTrialBalance } from './engine/checks';
@@ -426,7 +426,7 @@ export function EngagementPage({ ws }: { ws: Workspace }) {
     requests: data.requests ?? [],
   };
   const tb = validateTrialBalance(data.lines);
-  const programme = programmeFor(data.eng.type, data.eng.planning, ws.firm.country);
+  const programme = programmeFor(data.eng.type, data.eng.planning, ws.firm.country, presentLines(data.lines));
   const programmeDone = programme.filter((i) => data.eng.programme[i.id]?.done).length;
 
   return (

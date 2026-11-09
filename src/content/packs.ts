@@ -1,5 +1,5 @@
 import { checklistCanada, PROGRAMMES_CA } from './canadaContent';
-import type { EngagementType, Planning } from '../engine/types';
+import type { TbLine, EngagementType, Planning } from '../engine/types';
 import { CHECKLIST, type ChecklistItem } from './checklist';
 import { PROGRAMMES, type ProgrammeItem } from './programmes';
 import { STANDARD_REQUESTS } from './requests';
@@ -76,11 +76,23 @@ export const PACKS: Pack[] = [
 /** The pack chosen for an engagement, or null for the general content alone. */
 export const packOf = (planning: Planning): Pack | null => PACKS.find((p) => p.id === planning.industry) ?? null;
 
-/** The work programme for an engagement: the general steps, then the steps of its pack. */
-export const programmeFor = (type: EngagementType, planning: Planning, country = 'NG'): ProgrammeItem[] => [
-  ...(country === 'CA' ? PROGRAMMES_CA[type] : PROGRAMMES[type]),
-  ...(packOf(planning)?.programme[type] ?? []),
-];
+/**
+ * The work programme for an engagement: the general steps, then the steps of its pack. A step tied
+ * to statement lines applies only when one of them has a balance, so each asset and liability on
+ * the client's trial balance gets its own steps. `present` is the set of lines with a balance
+ * (presentLines). Without it, every step is returned.
+ */
+export const programmeFor = (type: EngagementType, planning: Planning, country = 'NG', present?: ReadonlySet<string>): ProgrammeItem[] =>
+  [...(country === 'CA' ? PROGRAMMES_CA[type] : PROGRAMMES[type]), ...(packOf(planning)?.programme[type] ?? [])].filter(
+    (i) => !i.when || !present || i.when.some((c) => present.has(c)),
+  );
+
+/** The statement lines that hold a balance in any year of the trial balance. */
+export function presentLines(lines: TbLine[]): Set<string> {
+  const out = new Set<string>();
+  for (const l of lines) if (l.mapCode && (l.balance || l.prior || l.prior2 || l.prior3 || l.prior4)) out.add(l.mapCode);
+  return out;
+}
 
 /** The disclosure checklist for an engagement, with pack items placed in their section. */
 export function checklistFor(planning: Planning, country = 'NG'): ChecklistItem[] {

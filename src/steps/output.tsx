@@ -5,12 +5,12 @@ import { formPhrase, governorsOf, legalFormOf } from '../content/entities';
 import { policiesFor, policyApplies, policyCodes } from '../content/notes';
 import { aspeBasis } from '../content/aspe';
 import { basisNote, COMPILATION_BASES, statuteOf } from '../content/canada';
-import { checklistFor, programmeFor } from '../content/packs';
+import { checklistFor, presentLines, programmeFor } from '../content/packs';
 import { repo } from '../data';
 import { buildChecklist, checklistOpen } from '../engine/checklist';
 import { analyticalReview, unexplainedMovements } from '../engine/analytical';
 import { canSign, computeMateriality, signOffChecks } from '../engine/checks';
-import { directorList, disclosureGaps, financialSummary, ppeSchedule, priorEquity, taxReconciliation, type PpeRow } from '../engine/disclosures';
+import { directorList, disclosureGaps, financialSummary, intangiblesSchedule, ppeSchedule, priorEquity, taxReconciliation, type PpeRow } from '../engine/disclosures';
 import type { EquityTable, Period, Source } from '../engine/statements';
 import { TracePanel } from './trace';
 import { fmt, cur } from '../engine/money';
@@ -92,6 +92,7 @@ export function StatementsStep(ctx: Ctx) {
   const d = eng.disclosures;
   const gaps = disclosureGaps(d, st, lines, adjustments, eng.yearEnd, j);
   const ppe = ppeSchedule(lines, adjustments, st.cur, d.ppeDisposals);
+  const intg = intangiblesSchedule(lines, adjustments, st.cur, d.ppeDisposals);
   const tax = taxReconciliation(st.cur, d);
   const equityPrior = priorEquity(st);
   const summary = financialSummary(st, eng.yearEnd, d.earlierYears);
@@ -418,7 +419,8 @@ export function StatementsStep(ctx: Ctx) {
           </>
         )}
         {st.noteBreakdowns.map((n) =>
-          n.code === 'ppe' && ppe ? (
+          (n.code === 'ppe' && ppe) || (n.code === 'intangibles' && intg) ? (
+            ((mv: NonNullable<typeof ppe>, word: string, label: string) => (
             <div key={n.code}>
               <h3>
                 {n.number}. {n.title}
@@ -427,8 +429,8 @@ export function StatementsStep(ctx: Ctx) {
                 <table className="fs wide">
                   {(
                     [
-                      ['Cost', 'Additions', 'Disposals', ppe.cost, ppe.totalCost],
-                      ['Accumulated depreciation', 'Charge for the year', 'On disposals', ppe.depreciation, ppe.totalDepreciation],
+                      ['Cost', 'Additions', 'Disposals', mv.cost, mv.totalCost],
+                      [`Accumulated ${word}`, 'Charge for the year', 'On disposals', mv.depreciation, mv.totalDepreciation],
                     ] as [string, string, string, PpeRow[], PpeRow][]
                   ).map(([title, inc, dis, rows, total]) => (
                     <tbody key={title}>
@@ -442,10 +444,10 @@ export function StatementsStep(ctx: Ctx) {
                       {rows.map((x) => (
                         <tr key={x.code}>
                           <td>{x.name}</td>
-                          <td className="num">{figure(x.opening, `${x.name} at start of year`, { code: 'ppe', lineId: lineOf(x.code) }, 'prior')}</td>
+                          <td className="num">{figure(x.opening, `${x.name} at start of year`, { code: n.code, lineId: lineOf(x.code) }, 'prior')}</td>
                           <td className="num">{fmt(x.increase)}</td>
                           <td className="num">{fmt(-x.disposals)}</td>
-                          <td className="num">{figure(x.closing, `${x.name} at end of year`, { code: 'ppe', lineId: lineOf(x.code) }, 'current')}</td>
+                          <td className="num">{figure(x.closing, `${x.name} at end of year`, { code: n.code, lineId: lineOf(x.code) }, 'current')}</td>
                         </tr>
                       ))}
                       <tr className="subtotal">
@@ -460,15 +462,16 @@ export function StatementsStep(ctx: Ctx) {
                   <tbody>
                     <tr className="total">
                       <td>Carrying amount</td>
-                      <td className="num">{figure(ppe.carryingOpening, 'Property, plant and equipment at start of year', { code: 'ppe' }, 'prior')}</td>
+                      <td className="num">{figure(mv.carryingOpening, `${label} at start of year`, { code: n.code }, 'prior')}</td>
                       <td></td>
                       <td></td>
-                      <td className="num">{figure(ppe.carryingClosing, 'Property, plant and equipment at end of year', { code: 'ppe' }, 'current')}</td>
+                      <td className="num">{figure(mv.carryingClosing, `${label} at end of year`, { code: n.code }, 'current')}</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
             </div>
+            ))(n.code === 'ppe' ? ppe! : intg!, n.code === 'ppe' ? 'depreciation' : 'amortisation', n.code === 'ppe' ? 'Property, plant and equipment' : 'Intangible assets')
           ) : (
           <div key={n.code}>
             <h3>
@@ -1041,7 +1044,7 @@ export function SignOffStep(ctx: Ctx) {
     adjustments,
     planning: eng.planning,
     programme: eng.programme,
-    programmeItemIds: programmeFor(eng.type, eng.planning, ctx.jur.code).map((i) => i.id),
+    programmeItemIds: programmeFor(eng.type, eng.planning, ctx.jur.code, presentLines(ctx.lines)).map((i) => i.id),
     report: eng.report,
     firmFrc: signed ? (eng.firmFrc ?? '') : ws.firm.frcNumber,
     jurisdiction: ctx.jur,
