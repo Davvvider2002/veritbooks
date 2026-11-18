@@ -603,3 +603,10 @@ Raised by a practitioner: can the report template be adjusted to suit a client's
 - **Titles and captions.** Any statement title or line caption can be reworded for the client; captions follow the line into the notes and the cash flow.
 - **Optional national pages.** The statement of value added and the financial summary can be left out of management or bank copies.
 - **Leases.** Real leases belong on the Lease liabilities lines (release 0.28); a caption only renames.
+
+
+## What's new for firms
+
+Signed-in firms see a What's new link in the top bar, with a red dot while the newest release is unread, and a banner on the Engagements page until they open it or dismiss it. The page at /whats-new lists releases newest first, each titled and dated, with what changed and a numbered guide with screenshots.
+
+To add a release: put its entry at the top of src/content/releases.ts (id, date, title, summary, highlights, steps, note) and its screenshots in public/releases/<id>/. A test checks the order, the dates and that every screenshot exists. Which release a user last read is kept in their browser, so a new id shows as unread to everyone.

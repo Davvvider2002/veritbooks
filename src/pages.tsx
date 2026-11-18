@@ -1,4 +1,5 @@
 import { loadTypeface, TYPEFACES, typefaceOf } from './content/typefaces';
+import { WhatsNewBanner } from './whatsnew';
 import { PROVINCES, provinceOf } from './content/canada';
 import { MOBILE_HINT, normaliseMobile, showMobile } from './engine/phone';
 import { useEffect, useState } from 'react';
@@ -967,6 +968,7 @@ export function Dashboard({ ws }: { ws: Workspace }) {
 
   return (
     <div className="page stack">
+      <WhatsNewBanner userId={ws.me.userId} />
       <h1>Engagements</h1>
 
       <div className="card">

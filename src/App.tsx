@@ -9,6 +9,7 @@ import { Landing } from './landing/Landing';
 import { PortalPage } from './portal';
 import { VerifyPage } from './seal';
 import { PrivacyPage, TermsPage } from './legal';
+import { WhatsNewLink, WhatsNewPage } from './whatsnew';
 import { QualityPage } from './quality';
 import { repo } from './data';
 import type { User, Workspace } from './data/repo';
@@ -147,6 +148,7 @@ export function App() {
             <Link to="/billing" className="small">
               Billing
             </Link>
+            <WhatsNewLink userId={session.ws.me.userId} />
             <Link to="/firm" className="small">
               {session.ws.firm.name}
             </Link>
@@ -186,6 +188,7 @@ export function App() {
           <Route path="/quality" element={<QualityPage ws={session.ws} />} />
           <Route path="/billing" element={<BillingPage ws={session.ws} onChanged={refresh} />} />
           <Route path="/firm" element={<FirmSettings ws={session.ws} onSaved={refresh} />} />
+          <Route path="/whats-new" element={<WhatsNewPage userId={session.ws.me.userId} />} />
           <Route path="/engagements/:id/:step?" element={<EngagementPage ws={session.ws} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

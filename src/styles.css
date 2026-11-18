@@ -344,3 +344,28 @@ button.danger { color: var(--bad); border-color: var(--bad); }
 .sheet .sub:has(+ .sub.units) { margin-bottom: 0; }
 .sheet .sub.units { margin-top: 2px; margin-bottom: 22px; font-style: italic; }
 .sheet h3.note-group { margin-top: 30px; padding-bottom: 4px; border-bottom: 1px solid var(--rule); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+/* What's new: the top bar dot, the dashboard banner and the releases page. */
+.whatsnew-link { position: relative; }
+.whatsnew-dot { position: absolute; top: -2px; right: -9px; width: 8px; height: 8px; border-radius: 50%; background: #c0392b; }
+.whatsnew-banner { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.whatsnew-banner .spacer { flex: 1; }
+.whatsnew-tag { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; }
+.whatsnew-banner .whatsnew-tag { margin-left: 0; }
+.button-link { padding: 6px 12px; border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); text-decoration: none; font-weight: 500; }
+.whatsnew-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 28px; align-items: start; }
+.whatsnew-index { position: sticky; top: 16px; display: grid; gap: 14px; }
+.whatsnew-index a { text-decoration: none; color: inherit; line-height: 1.35; padding-left: 10px; border-left: 2px solid var(--rule); }
+.whatsnew-index a:hover { border-left-color: var(--accent); }
+.release { scroll-margin-top: 16px; }
+.release-h { margin: 6px 0 8px; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.release-list { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.release-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 22px; }
+.release-steps > li { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 12px; }
+.release-num { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 600; font-size: 14px; }
+.release-shot { display: block; border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; background: #fff; max-width: 100%; }
+.release-shot img { display: block; width: 100%; height: auto; }
+@media (max-width: 860px) {
+  .whatsnew-layout { grid-template-columns: 1fr; }
+  .whatsnew-index { position: static; }
+}
