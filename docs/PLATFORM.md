@@ -1,6 +1,6 @@
 # VeritBooks: platform definition
 
-Version 0.28, 10 November 2026.
+Version 0.29, 18 November 2026.
 
 ## What it is
 
@@ -590,3 +590,16 @@ Raised by a practitioner: the software charted a course of action for property, 
 - **Mapping.** Right-of-use, lease liability, investment property and livestock accounts are recognised. Depreciation, interest, rent and fair value gains on them stay in profit or loss. "Livestock" no longer matches inventory.
 - **iXBRL and GIFI.** Each new line has its IFRS taxonomy concept and a GIFI suggestion.
 - **AI mapping assistant.** The list of lines in the assist function includes the new ones. The function must be redeployed for it to suggest them.
+
+
+## Release 0.29: presentation of the financial statements
+
+Raised by a practitioner: can the report template be adjusted to suit a client's presentation, and can borrowings be shown as leases?
+
+- **Presentation panel** on the Financial statements step. Saved on the client's file; a partner or manager can save it as the firm's default. A signed file's layout is fixed. Presentation changes words, order and rounding, never figures.
+- **Style.** VeritBooks standard, or International illustrative, modelled on the layout of the large international firms' published IFRS statements: amounts in thousands with a units line under each title, notes grouped under section headings (basis of preparation, performance for the year, income taxes, assets, equity and liabilities, other information, accounting policies) and renumbered, material accounting policies as the last note, the cash flow starting from profit for the year, and an integral-part line under each primary statement.
+- **Rounding.** Whole units, thousands or millions, each figure rounded on its own with halves away from zero. Amounts in sentences stay exact.
+- **Expenses by nature.** Raw materials and direct costs, employee benefits, depreciation and amortisation, other operating expenses, drawn from the nature tags in the mapping, to the same operating profit.
+- **Titles and captions.** Any statement title or line caption can be reworded for the client; captions follow the line into the notes and the cash flow.
+- **Optional national pages.** The statement of value added and the financial summary can be left out of management or bank copies.
+- **Leases.** Real leases belong on the Lease liabilities lines (release 0.28); a caption only renames.
