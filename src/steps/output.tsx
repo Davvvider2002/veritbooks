@@ -13,7 +13,8 @@ import { canSign, computeMateriality, signOffChecks } from '../engine/checks';
 import { directorList, disclosureGaps, financialSummary, intangiblesSchedule, ppeSchedule, rightOfUseSchedule, priorEquity, taxReconciliation, type PpeRow } from '../engine/disclosures';
 import type { EquityTable, Period, Source } from '../engine/statements';
 import { TracePanel } from './trace';
-import { fmt, cur } from '../engine/money';
+import { fmt, fmt as exactFmt, cur } from '../engine/money';
+import { cashFlowFromProfit, effectivePresentation, presentFor, scaledFmt, unitHeading, unitLine } from '../engine/presentation';
 import { draftReport, longDate } from '../engine/report';
 import { booksLaw, currencyOf, frameworkText, upper } from '../content/jurisdictions';
 import { provinceOf } from '../content/canada';
@@ -24,23 +25,25 @@ import { BrandedHead, ContentsSheet, CoverSheet, PageFoot } from './branding';
 import type { Ctx } from '../workspace';
 import { ChecksList } from './input';
 import { Amendments } from './reopen';
+import { PresentationPanel } from './presentation';
 
 function DraftMark({ locked }: { locked: boolean }) {
   return locked ? null : <div className="draft-mark">DRAFT · NOT SIGNED</div>;
 }
 
-function SheetHead({ ctx, title, sub }: { ctx: Ctx; title: string; sub?: string }) {
+function SheetHead({ ctx, title, sub, units }: { ctx: Ctx; title: string; sub?: string; units?: string }) {
   return (
     <>
       <DraftMark locked={ctx.eng.status === 'locked'} />
       <div className="entity">{ctx.client.name}</div>
       <h2>{title}</h2>
       <div className="sub">{sub ?? `for the year ended ${longDate(ctx.eng.yearEnd)}`}</div>
+      {units && <div className="sub units">{units}</div>}
     </>
   );
 }
 
-function EquityRows({ table, onTrace }: { table: EquityTable; onTrace: OnTrace }) {
+function EquityRows({ table, onTrace, format = fmt, unit }: { table: EquityTable; onTrace: OnTrace; format?: (v: number) => string; unit?: string }) {
   return (
     <div className="scroll-x">
       <table className="fs wide">
@@ -48,7 +51,7 @@ function EquityRows({ table, onTrace }: { table: EquityTable; onTrace: OnTrace }
           <tr>
             <th></th>
             {table.columns.map((c) => (
-              <th key={c} className="num">{c}<br />{cur()}</th>
+              <th key={c} className="num">{c}<br />{unit ?? cur()}</th>
             ))}
           </tr>
         </thead>
@@ -62,8 +65,8 @@ function EquityRows({ table, onTrace }: { table: EquityTable; onTrace: OnTrace }
                 return (
                   <td key={i} className="num">
                     {v !== 0 && canOpen(source) ? (
-                      <button className="trace" title="Show where this figure comes from" aria-label={`${what}: ${fmt(v)}. Show source`} onClick={() => onTrace({ label: what, period: 'current', source })}>
-                        {fmt(v)}
+                      <button className="trace" title="Show where this figure comes from" aria-label={`${what}: ${format(v)}. Show source`} onClick={() => onTrace({ label: what, period: 'current', source })}>
+                        {format(v)}
                       </button>
                     ) : (
                       fmt(v)
@@ -82,7 +85,16 @@ function EquityRows({ table, onTrace }: { table: EquityTable; onTrace: OnTrace }
 const TBC = '[To be completed in Disclosures.]';
 
 export function StatementsStep(ctx: Ctx) {
-  const { eng, client, ws, lines, adjustments, statements: st, jur: j, gaap } = ctx;
+  const { eng, client, ws, lines, adjustments, jur: j, gaap } = ctx;
+  // The client's layout: the firm's defaults, then this file's choices. The figures do not change.
+  const pres = effectivePresentation(ws.firm.branding.presentation, eng.report.presentation);
+  const st = presentFor(ctx.statements, pres);
+  const illus = pres.style === 'illustrative';
+  // Figures in the statements follow the chosen rounding; amounts written into sentences stay exact.
+  const fmt = scaledFmt(pres.rounding);
+  const unit = unitHeading(pres.rounding, cur());
+  const units = unitLine(pres.rounding, currencyOf(eng.currency).name) || undefined;
+  const integral = illus ? <p className="small" style={{ marginTop: 14 }}>The accompanying notes form an integral part of these financial statements.</p> : null;
   const law = booksLaw(j);
   const canada = gaap !== 'ifrs-smes';
   // ASNPO's deferral method: unspent restricted contributions are a liability, not net assets.
@@ -112,10 +124,25 @@ export function StatementsStep(ctx: Ctx) {
   const T = {
     report: npo ? `Report of the ${body}` : 'Report of the directors',
     duties: npo ? `Statement of ${gv.possessive} responsibilities` : 'Statement of directors’ responsibilities',
-    position: titles.position,
-    income: titles.income,
-    equity: titles.equity,
+    position: pres.titles.position || titles.position,
+    income: pres.titles.income || titles.income,
+    equity: pres.titles.equity || titles.equity,
+    cashflow: pres.titles.cashflow || 'Statement of cash flows',
+    notes: pres.titles.notes || 'Notes to the financial statements',
   };
+  const incomeRows = pres.expenses === 'nature' ? st.incomeByNature : st.income;
+  const cfHasPrior = !!st.cashFlow?.some((r) => r.style !== 'heading' && r.prior !== null);
+  const cashFlowRows =
+    st.cashFlow && illus
+      ? cashFlowFromProfit(
+          st.cashFlow,
+          { cur: st.cur.profit, prior: cfHasPrior && st.prior ? st.prior.profit : null },
+          { cur: st.cur.v.income_tax_expense, prior: cfHasPrior && st.prior ? st.prior.v.income_tax_expense : null },
+          npo,
+        )
+      : st.cashFlow;
+  const showValueAdded = j.nationalStatements && pres.valueAdded;
+  const showSummary = j.nationalStatements && pres.summary;
   // ASPE's statement of retained earnings, both years side by side.
   const retainedRows = gaap === 'aspe' ? retainedEarningsRows(st.equity, priorEquity(st)) : null;
   const [trace, setTrace] = useState<Opened | null>(null);
@@ -141,6 +168,15 @@ export function StatementsStep(ctx: Ctx) {
 
   const balanced = st.cur.totalAssets === st.cur.totalEquityAndLiabilities;
   const policies = Object.entries(policiesFor(gaap, eng.planning)).filter(([code]) => policyApplies(code, st));
+  const policyList = policies
+    .map(([code, p]) => ({ code, title: p.title, text: d.policies?.[code]?.text || p.text }))
+    .map(({ code, ...p }) => (
+      <p key={code}>
+        <em>{p.title}.</em> {p.text}
+      </p>
+    ));
+  // In the international style the policies are the last note, after the other information.
+  const policiesNote = 3 + st.noteBreakdowns.length + (npo && st.funds && st.funds.length > 0 ? 1 : 0) + 5;
   const b = ws.firm.branding;
   const sheet = 'sheet';
   // The independent report sits after the directors' pages, where a reader expects it.
@@ -154,14 +190,10 @@ export function StatementsStep(ctx: Ctx) {
     { id: 'fs-position', title: T.position },
     { id: 'fs-income', title: T.income },
     { id: 'fs-equity', title: T.equity },
-    ...(st.cashFlow ? [{ id: 'fs-cashflow', title: 'Statement of cash flows' }] : []),
-    { id: 'fs-notes', title: 'Notes to the financial statements' },
-    ...(j.nationalStatements
-      ? [
-          { id: 'fs-value-added', title: 'Statement of value added' },
-          { id: 'fs-summary', title: 'Financial summary' },
-        ]
-      : []),
+    ...(st.cashFlow ? [{ id: 'fs-cashflow', title: T.cashflow }] : []),
+    { id: 'fs-notes', title: T.notes },
+    ...(showValueAdded ? [{ id: 'fs-value-added', title: 'Statement of value added' }] : []),
+    ...(showSummary ? [{ id: 'fs-summary', title: 'Financial summary' }] : []),
   ];
 
   return (
@@ -195,6 +227,7 @@ export function StatementsStep(ctx: Ctx) {
             </ul>
           </div>
         )}
+        <PresentationPanel {...ctx} />
         <div className="banner warn">
           The wording of the directors’ pages, the accounting policies and the notes is starter text. Have it reviewed against the current standards and tailored to this company before issue.
         </div>
@@ -216,8 +249,8 @@ export function StatementsStep(ctx: Ctx) {
           <thead>
             <tr>
               <th></th>
-              <th className="num">{year}<br />{cur()}</th>
-              {prior && <th className="num">{prior}<br />{cur()}</th>}
+              <th className="num">{year}<br />{unit}</th>
+              {prior && <th className="num">{prior}<br />{unit}</th>}
             </tr>
           </thead>
           <tbody>
@@ -313,8 +346,9 @@ export function StatementsStep(ctx: Ctx) {
       {showReport && <ReportSheet ctx={ctx} draft={reportDraft} ready={eng.type !== 'audit' || !!r.opinion || (eng.status === 'locked' && !!r.signedReport)} />}
 
       <section className={sheet} id="fs-position">
-        <SheetHead ctx={ctx} title={T.position} sub={`as at ${longDate(eng.yearEnd)}`} />
-        <StatementTable rows={st.position} curLabel={year} priorLabel={prior} notes onTrace={onTrace} />
+        <SheetHead ctx={ctx} title={T.position} sub={`as at ${longDate(eng.yearEnd)}`} units={units} />
+        <StatementTable rows={st.position} curLabel={year} priorLabel={prior} notes onTrace={onTrace} unit={unit} format={fmt} />
+        {integral}
         {canada ? (
           <div className="approval">
             <p>Approved on behalf of the {npo ? 'Board' : 'Board of Directors'}:</p>
@@ -356,32 +390,35 @@ export function StatementsStep(ctx: Ctx) {
       </section>
 
       <section className={sheet} id="fs-income">
-        <SheetHead ctx={ctx} title={T.income} />
-        <StatementTable rows={st.income} curLabel={year} priorLabel={prior} notes onTrace={onTrace} />
+        <SheetHead ctx={ctx} title={T.income} units={units} />
+        <StatementTable rows={incomeRows} curLabel={year} priorLabel={prior} notes onTrace={onTrace} unit={unit} format={fmt} />
         {!npo && !canada && <p style={{ marginTop: 16 }}>There were no items of other comprehensive income in the year.</p>}
+        {integral}
         <PageFoot ctx={ctx} />
       </section>
 
       <section className={sheet} id="fs-equity">
-        <SheetHead ctx={ctx} title={T.equity} />
+        <SheetHead ctx={ctx} title={T.equity} units={units} />
         {retainedRows ? (
-          <StatementTable rows={retainedRows} curLabel={year} priorLabel={prior} onTrace={onTrace} />
+          <StatementTable rows={retainedRows} curLabel={year} priorLabel={prior} onTrace={onTrace} unit={unit} format={fmt} />
         ) : (
-          <EquityRows table={st.equity} onTrace={onTrace} />
+          <EquityRows table={st.equity} onTrace={onTrace} format={fmt} unit={unit} />
         )}
         {equityPrior && !npo && !retainedRows && (
           <>
             <h3 style={{ marginTop: 28 }}>For the year ended {longDate(`${prior}${eng.yearEnd.slice(4)}`)}</h3>
-            <EquityRows table={equityPrior} onTrace={onTrace} />
+            <EquityRows table={equityPrior} onTrace={onTrace} format={fmt} unit={unit} />
           </>
         )}
+        {integral}
         <PageFoot ctx={ctx} />
       </section>
 
       {st.cashFlow && (
         <section className={sheet} id="fs-cashflow">
-          <SheetHead ctx={ctx} title="Statement of cash flows" />
-          <StatementTable rows={st.cashFlow} curLabel={year} priorLabel={st.cashFlow.some((r) => r.style !== 'heading' && r.prior !== null) ? prior : undefined} onTrace={onTrace} />
+          <SheetHead ctx={ctx} title={T.cashflow} units={units} />
+          <StatementTable rows={cashFlowRows!} curLabel={year} priorLabel={cfHasPrior ? prior : undefined} onTrace={onTrace} unit={unit} format={fmt} />
+          {integral}
           {!st.cashFlow.some((r) => r.style !== 'heading' && r.prior !== null) && (
             <p className="small muted no-print" style={{ marginTop: 12 }}>
               The comparative cash flow needs the balances from {Number(year) - 2} as its opening position. Import that year’s trial balance to show it.
@@ -392,12 +429,12 @@ export function StatementsStep(ctx: Ctx) {
       )}
 
       <section className={sheet} id="fs-notes">
-        <SheetHead ctx={ctx} title="Notes to the financial statements" />
+        <SheetHead ctx={ctx} title={T.notes} units={units} />
         {canada ? (
           <CanadaNotesHead ctx={ctx} npo={npo} policies={policies.map(([code, p]) => ({ code, title: p.title, text: d.policies?.[code]?.text || p.text }))} />
         ) : (
           <>
-            <h3>1. General information</h3>
+            <h3>1. {illus ? 'Reporting entity' : 'General information'}</h3>
             <p>
               {client.name}
               {client.rcNumber ? ` (${j.companyNumberLabel} ${client.rcNumber})` : ''}{' '}
@@ -406,21 +443,24 @@ export function StatementsStep(ctx: Ctx) {
                 : `is a company incorporated and domiciled in ${j.inName}${j.companiesAct ? ` under ${j.companiesAct}` : ''}.`}{' '}
               {r.principalActivity ? `Its principal activity is ${r.principalActivity}.` : '[Describe the principal activity.]'}
             </p>
-            <h3>2. Basis of preparation and significant accounting policies</h3>
+            {illus && <h3 className="note-group">Basis of preparation</h3>}
+            <h3>2. {illus ? 'Basis of preparation' : 'Basis of preparation and significant accounting policies'}</h3>
             <p>
               These financial statements have been prepared in accordance with the IFRS for SMEs Accounting Standard issued by the International Accounting Standards Board{j.adoptedBy ? `, as adopted by ${j.adoptedBy}` : ''}{j.companiesAct ? `, and the requirements of ${j.companiesAct}` : ''}. They are presented in {currencyOf(eng.currency).name}, the {org}’s functional currency, and are prepared under the historical cost convention.
               {npo &&
                 ' As a not-for-profit organisation, it presents a statement of income and expenditure in place of a statement of profit or loss, and its funds in place of equity. Restricted funds are amounts given for a purpose set by the donor or grantor; they are shown separately until spent on that purpose. Unrestricted funds may be used for any of its objectives. Grants and donations are recognised as income when the organisation is entitled to them and they can be measured reliably; a grant with conditions not yet met is held as deferred income.'}
             </p>
-            {policies.map(([code, p]) => ({ code, title: p.title, text: d.policies?.[code]?.text || p.text })).map(({ code, ...p }) => (
-              <p key={code}>
-                <em>{p.title}.</em> {p.text}
-              </p>
-            ))}
+            {illus ? (
+              <p>Details of the {org}’s material accounting policies are set out in note {policiesNote}.</p>
+            ) : (
+              policyList
+            )}
           </>
         )}
-        {st.noteBreakdowns.map((n) =>
-          (n.code === 'ppe' && ppe) || (n.code === 'intangibles' && intg) || (n.code === 'right_of_use' && rou) ? (
+        {st.noteBreakdowns.map((n) => (
+          <div key={`note-${n.code}`}>
+          {st.noteGroup.get(n.code) && <h3 className="note-group">{st.noteGroup.get(n.code)}</h3>}
+          {(n.code === 'ppe' && ppe) || (n.code === 'intangibles' && intg) || (n.code === 'right_of_use' && rou) ? (
             ((mv: NonNullable<typeof ppe>, word: string, label: string) => (
             <div key={n.code}>
               <h3>
@@ -486,6 +526,8 @@ export function StatementsStep(ctx: Ctx) {
               curLabel={year}
               priorLabel={prior}
               onTrace={(o) => onTrace({ ...o, label: o.source.lineId ? o.label : n.title })}
+              unit={unit}
+              format={fmt}
             />
             {n.code === 'income_tax_expense' && tax && (
               <>
@@ -500,13 +542,16 @@ export function StatementsStep(ctx: Ctx) {
                   ]}
                   curLabel={year}
                   onTrace={onTrace}
+                  unit={unit}
+                  format={fmt}
                 />
                 {tax.effectiveRate !== null && <p style={{ marginTop: 10 }}>The effective tax rate for the year is {tax.effectiveRate}%.</p>}
               </>
             )}
           </div>
-          ),
-        )}
+          )}
+          </div>
+        ))}
         {(() => {
           let n = 3 + st.noteBreakdowns.length;
           return (
@@ -524,10 +569,10 @@ export function StatementsStep(ctx: Ctx) {
                       <thead>
                         <tr>
                           <th>{deferral ? 'Contribution' : 'Fund'}</th>
-                          <th className="num">{canada ? 'Balance, beginning of year' : 'At start of year'}<br />{cur()}</th>
-                          <th className="num">{deferral ? 'Received' : canada ? 'Revenue' : 'Income'}<br />{cur()}</th>
-                          <th className="num">{deferral ? 'Recognized as revenue' : canada ? 'Expenses' : 'Expenditure'}<br />{cur()}</th>
-                          <th className="num">{canada ? 'Balance, end of year' : 'At end of year'}<br />{cur()}</th>
+                          <th className="num">{canada ? 'Balance, beginning of year' : 'At start of year'}<br />{unit}</th>
+                          <th className="num">{deferral ? 'Received' : canada ? 'Revenue' : 'Income'}<br />{unit}</th>
+                          <th className="num">{deferral ? 'Recognized as revenue' : canada ? 'Expenses' : 'Expenditure'}<br />{unit}</th>
+                          <th className="num">{canada ? 'Balance, end of year' : 'At end of year'}<br />{unit}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -552,17 +597,18 @@ export function StatementsStep(ctx: Ctx) {
                   {st.funds.some((f) => f.closing < 0) && <p className="small">A fund in deficit has spent more than it has received so far. Say how the deficit will be met, or whether it was funded from unrestricted funds.</p>}
                 </>
               )}
+              {illus && <h3 className="note-group">Other information</h3>}
               <h3>{n++}. Employees and {npo ? gv.plural : 'directors'}</h3>
               <p>
                 {d.employees !== undefined
-                  ? `The average number of persons employed by the ${org} during the year was ${d.employees}. Staff costs for the year, including pension contributions, were ${cur()}${fmt(st.cur.staff, { zero: 'nil' })}${st.prior ? ` (${prior}: ${cur()}${fmt(st.prior.staff, { zero: 'nil' })})` : ''}.`
+                  ? `The average number of persons employed by the ${org} during the year was ${d.employees}. Staff costs for the year, including pension contributions, were ${cur()}${exactFmt(st.cur.staff, { zero: 'nil' })}${st.prior ? ` (${prior}: ${cur()}${exactFmt(st.prior.staff, { zero: 'nil' })})` : ''}.`
                   : TBC}
               </p>
               <p>
                 {d.directorsRemuneration !== undefined
                   ? d.directorsRemuneration === 0
                     ? `No remuneration was paid to the ${npo ? gv.plural : 'directors'} in the year.`
-                    : `Remuneration paid to the ${npo ? gv.plural : 'directors'} in the year was ${cur()}${fmt(d.directorsRemuneration)}.`
+                    : `Remuneration paid to the ${npo ? gv.plural : 'directors'} in the year was ${cur()}${exactFmt(d.directorsRemuneration)}.`
                   : TBC}
               </p>
               <h3>{n++}. Related party transactions</h3>
@@ -574,8 +620,8 @@ export function StatementsStep(ctx: Ctx) {
                         <th>Related party</th>
                         <th>Relationship</th>
                         <th>Nature</th>
-                        <th className="num">Value in the year<br />{cur()}</th>
-                        <th className="num">Balance at year end<br />{cur()}</th>
+                        <th className="num">Value in the year<br />{unit}</th>
+                        <th className="num">Balance at year end<br />{unit}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -601,16 +647,24 @@ export function StatementsStep(ctx: Ctx) {
               <p>{d.subsequentEvents?.trim() || TBC}</p>
               <h3>{n++}. Going concern</h3>
               <p>{d.goingConcern?.trim() || TBC}</p>
+              {illus && !canada && (
+                <>
+                  <h3 className="note-group">Accounting policies</h3>
+                  <h3>{n++}. Material accounting policies</h3>
+                  <p>The {org} has applied the following accounting policies consistently to all periods presented in these financial statements.</p>
+                  {policyList}
+                </>
+              )}
             </>
           );
         })()}
         <PageFoot ctx={ctx} />
       </section>
 
-      {j.nationalStatements && (
+      {showValueAdded && (
       <section className={sheet} id="fs-value-added">
-        <SheetHead ctx={ctx} title="Statement of value added" />
-        <StatementTable rows={st.valueAdded} curLabel={year} priorLabel={prior} onTrace={onTrace} />
+        <SheetHead ctx={ctx} title="Statement of value added" units={units} />
+        <StatementTable rows={st.valueAdded} curLabel={year} priorLabel={prior} onTrace={onTrace} unit={unit} format={fmt} />
         <p className="small" style={{ marginTop: 16 }}>
           This statement is presented as other national disclosure, as directed by the Financial Reporting Council of Nigeria. It is not a required statement under the IFRS for SMEs Accounting Standard.
         </p>
@@ -618,7 +672,7 @@ export function StatementsStep(ctx: Ctx) {
       </section>
 
       )}
-      {j.nationalStatements && (
+      {showSummary && (
       <section className={sheet} id="fs-summary">
         <SheetHead ctx={ctx} title="Financial summary" sub="other national disclosure" />
         <div className="scroll-x">
@@ -627,7 +681,7 @@ export function StatementsStep(ctx: Ctx) {
               <tr>
                 <th></th>
                 {summary.years.map((y, i) => (
-                  <th key={i} className="num">{y}<br />{cur()}</th>
+                  <th key={i} className="num">{y}<br />{unit}</th>
                 ))}
               </tr>
             </thead>

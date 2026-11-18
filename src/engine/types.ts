@@ -118,7 +118,30 @@ export interface ReportSettings {
   managementAck?: string;
   /** Canada: the signing partner confirmed holding the public accounting licence the engagement needs. */
   licenceConfirmed?: { by: string; at: string; province: string };
+  /** How this client's financial statements are laid out. Overrides the firm's defaults. */
+  presentation?: Presentation;
 }
+
+/**
+ * How the financial statements are laid out: the firm sets defaults, and a client's file may override
+ * them. Presentation changes the words, order and rounding, never the figures.
+ */
+export interface Presentation {
+  /** 'standard' is the VeritBooks layout; 'illustrative' follows the layout of the large international firms' published IFRS statements. */
+  style?: 'standard' | 'illustrative';
+  /** Amounts in whole currency units, thousands or millions. */
+  rounding?: 'units' | 'thousands' | 'millions';
+  /** The caption printed for a statement line, by line code, where the client words it differently. */
+  captions?: Record<string, string>;
+  /** Statement titles, where the client prefers its own: "Balance sheet", "Income statement". */
+  titles?: Partial<Record<PresentationTitle, string>>;
+  /** Expenses in profit or loss by function (cost of sales, distribution, administration) or by nature. */
+  expenses?: 'function' | 'nature';
+  /** The statement of value added and the financial summary, where the country prints them. On unless switched off. */
+  valueAdded?: boolean;
+  summary?: boolean;
+}
+export type PresentationTitle = 'position' | 'income' | 'equity' | 'cashflow' | 'notes';
 
 export interface Testing {
   /** Conclusion on each journal selected for testing, keyed by journal number. */

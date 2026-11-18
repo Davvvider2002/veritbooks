@@ -138,21 +138,27 @@ export function StatementTable({
   priorLabel,
   notes = false,
   onTrace,
+  unit,
+  format = fmt,
 }: {
   rows: Row[];
   curLabel: string;
   priorLabel?: string | null;
   notes?: boolean;
+  /** The currency heading under each year, such as ₦'000. The currency symbol when not given. */
+  unit?: string;
+  /** How figures are written, for statements rounded to thousands or millions. */
+  format?: (v: number | null | undefined) => string;
   /** When given, figures that come straight from accounts can be opened to show their source. */
   onTrace?: OnTrace;
 }) {
   const cell = (r: Row, period: Period) => {
     const v = period === 'current' ? r.cur : r.prior;
     if (r.style === 'heading') return '';
-    if (!onTrace || !canOpen(r) || v === null || r.style === 'check') return fmt(v);
+    if (!onTrace || !canOpen(r) || v === null || r.style === 'check') return format(v);
     return (
-      <button className="trace" title="Show where this figure comes from" aria-label={`${r.label}, ${period} year: ${fmt(v)}. Show source`} onClick={() => onTrace({ label: r.label || 'Total', period, source: r })}>
-        {fmt(v)}
+      <button className="trace" title="Show where this figure comes from" aria-label={`${r.label}, ${period} year: ${format(v)}. Show source`} onClick={() => onTrace({ label: r.label || 'Total', period, source: r })}>
+        {format(v)}
       </button>
     );
   };
@@ -162,8 +168,8 @@ export function StatementTable({
         <tr>
           <th></th>
           {notes && <th style={{ textAlign: 'center' }}>Note</th>}
-          <th className="num">{curLabel}<br />{cur()}</th>
-          {priorLabel && <th className="num">{priorLabel}<br />{cur()}</th>}
+          <th className="num">{curLabel}<br />{unit ?? cur()}</th>
+          {priorLabel && <th className="num">{priorLabel}<br />{unit ?? cur()}</th>}
         </tr>
       </thead>
       <tbody>

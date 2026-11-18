@@ -339,3 +339,8 @@ button.danger { color: var(--bad); border-color: var(--bad); }
 .verify-table td, .verify-table th { overflow-wrap: anywhere; white-space: normal; }
 @media (max-width: 520px) { .verify .card { padding-left: 12px; padding-right: 12px; } .verify-table th { width: 42% !important; } }
 .verify-report { box-shadow: none; margin: 0; max-width: none; }
+
+/* Presentation: the units line under a statement title, and the section headings of grouped notes. */
+.sheet .sub:has(+ .sub.units) { margin-bottom: 0; }
+.sheet .sub.units { margin-top: 2px; margin-bottom: 22px; font-style: italic; }
+.sheet h3.note-group { margin-top: 30px; padding-bottom: 4px; border-bottom: 1px solid var(--rule); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }

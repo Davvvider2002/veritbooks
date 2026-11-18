@@ -137,6 +137,7 @@ export function present(st: Statements, gaap: Gaap, method: ContributionMethod =
   // A not-for-profit with no income taxes shows one excess of revenue over expenses, not a before-tax line too.
   const taxed = out.income.some((r) => r.code === 'income_tax_expense');
   out.income = relabelRows(gaap === 'asnpo' && !taxed ? out.income.filter((r) => r.label !== 'Surplus/(deficit) before tax') : out.income, gaap);
+  out.incomeByNature = st.npo ? out.income : relabelRows(out.incomeByNature, gaap);
   out.cashFlow = out.cashFlow && relabelRows(out.cashFlow, gaap);
   out.cashFlowFull = out.cashFlowFull && relabelRows(out.cashFlowFull, gaap);
   out.pbtParts = relabelParts(out.pbtParts, gaap)!;

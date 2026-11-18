@@ -10,6 +10,7 @@ import type {
   ReportSettings,
   Role,
   SealFigures,
+  Presentation,
   TbLine,
   Testing,
 } from '../engine/types';
@@ -58,6 +59,8 @@ export interface Branding {
   province?: string;
   /** Canada: the line printed under the firm's name on a signed report, when the firm words it its own way. */
   designation?: string;
+  /** The firm's default layout for financial statements. Each client's file may override it. */
+  presentation?: Presentation;
 }
 
 export interface Member {

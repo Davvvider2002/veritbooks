@@ -222,6 +222,8 @@ export interface Statements {
   notes: Map<string, number>;
   position: Row[];
   income: Row[];
+  /** A company's profit or loss with expenses by nature: staff costs and depreciation drawn from every expense line. */
+  incomeByNature: Row[];
   equity: EquityTable;
   /** With the prior year alongside when the year before it is held, as IFRS asks. */
   cashFlow: Row[] | null;
@@ -424,6 +426,37 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[], opts
     item('income_tax_expense', true),
     tot('Profit for the year', (x) => x.profit, profitParts, 'total'),
   ];
+
+  // The same profit, with expenses by nature. Staff costs and depreciation are drawn out of every
+  // expense line by the nature tag on each account; what remains of cost of sales is the goods and
+  // direct costs, and the rest is other operating expenses.
+  const partOf = (parts: Part[], code: string) => parts.find((x) => x.code === code);
+  const withoutNatures = (codes: string[], text: string): Row => {
+    const parts: Part[] = codes.flatMap((c) => {
+      const s = partOf(staffParts, c);
+      const dp = partOf(depParts, c);
+      return [leaf(c, -1), ...(s ? [{ ...s, label: `Less ${s.label.charAt(0).toLowerCase()}${s.label.slice(1)}` }] : []), ...(dp ? [{ ...dp, label: `Less ${dp.label.charAt(0).toLowerCase()}${dp.label.slice(1)}` }] : [])];
+    });
+    const sum = (k: 'cur' | 'prior') => parts.reduce((a, x) => a + (x[k] ?? 0), 0);
+    return { label: text, cur: sum('cur'), prior: prior ? sum('prior') : null, style: 'line', parts };
+  };
+  const negateAll = (xs: Part[]): Part[] => xs.map((x) => ({ ...x, cur: -x.cur, prior: x.prior === null ? null : -x.prior }));
+  const incomeByNature: Row[] = npo
+    ? income
+    : [
+        item('revenue'),
+        ...[item('other_income')].filter(shown),
+        ...[withoutNatures(['cost_of_sales'], 'Raw materials, goods and other direct costs')].filter(shown),
+        ...[{ label: 'Employee benefits expense', cur: -cur.staff, prior: prior ? -prior.staff : null, style: 'line' as const, parts: negateAll(staffParts) }].filter(shown),
+        ...[{ label: 'Depreciation and amortisation', cur: -cur.depreciation, prior: prior ? -prior.depreciation : null, style: 'line' as const, parts: negateAll(depParts) }].filter(shown),
+        ...[withoutNatures(['distribution_costs', 'admin_expenses', 'other_expenses'], 'Other operating expenses')].filter(shown),
+        tot('Operating profit', (x) => x.operatingProfit, opParts),
+        ...[item('finance_income')].filter(shown),
+        ...[item('finance_costs', true)].filter(shown),
+        tot('Profit before tax', (x) => x.pbt, pbtParts),
+        item('income_tax_expense', true),
+        tot('Profit for the year', (x) => x.profit, profitParts, 'total'),
+      ];
 
   /** Not-for-profit: the statement of changes in funds, one column for each class of fund. */
   function fundsTable(): EquityTable {
@@ -752,6 +785,7 @@ export function buildStatements(lines: TbLine[], adjustments: Adjustment[], opts
     notes,
     position,
     income,
+    incomeByNature,
     equity,
     cashFlow,
     cashFlowFull,
